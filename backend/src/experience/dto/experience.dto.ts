@@ -16,6 +16,7 @@ export interface GeneratedExperiencePayload {
 }
 
 export interface GenerateExperienceRequest {
+  clientId: string;
   prompt: string;
   format?: ExperienceFormat;
   audience?: AudienceLevel;
@@ -27,7 +28,9 @@ export interface GenerateExperienceRequest {
 }
 
 export interface RefineExperienceRequest {
+  clientId: string;
   originalPrompt: string;
+  priorGenerationId: string;
   refinementInstruction: string;
   priorExperience: GeneratedExperiencePayload;
   qualityMode: QualityMode;
@@ -57,6 +60,7 @@ export interface ExperienceResponsePayload {
 }
 
 interface ParseSharedOptions {
+  clientId: string;
   qualityMode: QualityMode;
   provider?: ProviderKind;
   system?: string;
@@ -91,6 +95,10 @@ export function parseRefineExperienceRequest(body: unknown): RefineExperienceReq
   const object = asRecord(body, 'Request body must be a JSON object.');
 
   const originalPrompt = asRequiredString(object.originalPrompt, 'originalPrompt');
+  const priorGenerationId = asRequiredString(
+    object.priorGenerationId,
+    'priorGenerationId',
+  );
   const refinementInstruction = asRequiredString(
     object.refinementInstruction,
     'refinementInstruction',
@@ -116,6 +124,7 @@ export function parseRefineExperienceRequest(body: unknown): RefineExperienceReq
 
   return {
     originalPrompt,
+    priorGenerationId,
     refinementInstruction,
     priorExperience,
     ...shared,
@@ -124,6 +133,7 @@ export function parseRefineExperienceRequest(body: unknown): RefineExperienceReq
 
 function parseSharedOptions(object: Record<string, unknown>): ParseSharedOptions {
   return {
+    clientId: asRequiredString(object.clientId, 'clientId'),
     qualityMode:
       object.qualityMode === undefined
         ? 'fast'

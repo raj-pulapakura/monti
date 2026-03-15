@@ -33,8 +33,27 @@ Key variables:
 - `OPENAI_API_KEY` (required for OpenAI)
 - `ANTHROPIC_API_KEY` (required for Anthropic)
 - `GOOGLE_API_KEY` (required for Gemini)
+- `SUPABASE_URL` (required for persistence)
+- `SUPABASE_SERVICE_ROLE_KEY` (required for persistence writes)
 
 LLM provider/model/token/timeouts are code constants in `src/llm/llm-config.service.ts`, not environment-driven.
+
+## Supabase Schema
+
+Supabase SQL artifacts live at:
+
+- `../supabase/migrations/20260315000100_create_experience_persistence.sql`
+- `../supabase/schemas/experiences.sql`
+
+Apply the migration in your Supabase project before running persistence flows.
+
+If Supabase CLI is installed:
+
+```bash
+supabase db push
+```
+
+Without Supabase CLI, run the migration SQL in Supabase SQL Editor.
 
 ## Run
 

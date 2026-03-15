@@ -1,0 +1,147 @@
+import { ValidationError } from '../../common/errors/app-error';
+import { ExperiencePersistenceService } from './experience-persistence.service';
+
+describe('ExperiencePersistenceService', () => {
+  const basePayload = {
+    title: 'Solar Quest',
+    description: 'Learn planets with a game.',
+    html: '<main>Hi</main>',
+    css: 'main{font-size:16px;}',
+    js: 'console.log("hello")',
+  };
+
+  function createRepositoryMock() {
+    return {
+      createRun: jest.fn(async () => undefined),
+      markRunSucceeded: jest.fn(async () => undefined),
+      markRunFailed: jest.fn(async () => undefined),
+      createExperience: jest.fn(async () => 'experience-1'),
+      findVersionByGenerationId: jest.fn(async () => null),
+      createVersion: jest.fn(async () => 'version-1'),
+    };
+  }
+
+  it('persists a successful generation as version 1', async () => {
+    const repository = createRepositoryMock();
+    const service = new ExperiencePersistenceService(repository as never);
+
+    await service.persistSuccess({
+      requestId: '6f8f7e0f-3fda-4f26-aec2-624ec5ebf0d6',
+      operation: 'generate',
+      clientId: 'client-1',
+      prompt: 'Teach my kid the solar system.',
+      format: 'quiz',
+      audience: 'elementary',
+      qualityMode: 'fast',
+      provider: 'gemini',
+      model: 'gemini-3.1-flash-lite-preview',
+      maxTokens: 8192,
+      experience: basePayload,
+      latencyMs: 1200,
+    });
+
+    expect(repository.createExperience).toHaveBeenCalledWith({
+      clientId: 'client-1',
+      title: 'Solar Quest',
+    });
+    expect(repository.createVersion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: '6f8f7e0f-3fda-4f26-aec2-624ec5ebf0d6',
+        experienceId: 'experience-1',
+        parentGenerationId: null,
+        versionNumber: 1,
+        operation: 'generate',
+      }),
+    );
+    expect(repository.markRunSucceeded).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: '6f8f7e0f-3fda-4f26-aec2-624ec5ebf0d6',
+        experienceId: 'experience-1',
+        versionId: 'version-1',
+      }),
+    );
+  });
+
+  it('rejects refinement persistence without prior generation id', async () => {
+    const repository = createRepositoryMock();
+    const service = new ExperiencePersistenceService(repository as never);
+
+    await expect(
+      service.persistSuccess({
+        requestId: 'd8006296-f071-48e6-b629-243f76dc3b40',
+        operation: 'refine',
+        clientId: 'client-1',
+        prompt: 'Teach my kid the solar system.',
+        refinementInstruction: 'Use simpler language.',
+        qualityMode: 'quality',
+        provider: 'openai',
+        model: 'gpt-5.4',
+        maxTokens: 8192,
+        experience: basePayload,
+        latencyMs: 800,
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it('persists refinement as next linked version', async () => {
+    const repository = createRepositoryMock();
+    repository.findVersionByGenerationId.mockResolvedValue({
+      id: 'version-2',
+      experienceId: 'experience-1',
+      versionNumber: 2,
+    });
+    repository.createVersion.mockResolvedValue('version-3');
+
+    const service = new ExperiencePersistenceService(repository as never);
+
+    await service.persistSuccess({
+      requestId: 'f0443e3b-5505-467b-82f1-c64c97a4ced9',
+      operation: 'refine',
+      clientId: 'client-1',
+      prompt: 'Teach my kid the solar system.',
+      refinementInstruction: 'Use simpler language.',
+      parentGenerationId: 'a7ce8286-3d1d-42d7-b27a-56adf57edfd6',
+      qualityMode: 'quality',
+      provider: 'anthropic',
+      model: 'claude-3-5-sonnet-latest',
+      maxTokens: 8192,
+      experience: basePayload,
+      latencyMs: 700,
+    });
+
+    expect(repository.findVersionByGenerationId).toHaveBeenCalledWith(
+      'a7ce8286-3d1d-42d7-b27a-56adf57edfd6',
+    );
+    expect(repository.createVersion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        experienceId: 'experience-1',
+        parentGenerationId: 'a7ce8286-3d1d-42d7-b27a-56adf57edfd6',
+        versionNumber: 3,
+        operation: 'refine',
+      }),
+    );
+  });
+
+  it('rejects refinement when prior generation is not persisted', async () => {
+    const repository = createRepositoryMock();
+    repository.findVersionByGenerationId.mockResolvedValue(null);
+    const service = new ExperiencePersistenceService(repository as never);
+
+    await expect(
+      service.persistSuccess({
+        requestId: '93f1f0cc-e704-4eba-bcb7-249bf73ad33d',
+        operation: 'refine',
+        clientId: 'client-1',
+        prompt: 'Teach my kid the solar system.',
+        refinementInstruction: 'Use simpler language.',
+        parentGenerationId: 'ab5b9ec6-17e4-4dbf-9bab-7db66e82b4ea',
+        qualityMode: 'quality',
+        provider: 'anthropic',
+        model: 'claude-3-5-sonnet-latest',
+        maxTokens: 8192,
+        experience: basePayload,
+        latencyMs: 700,
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+});

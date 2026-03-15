@@ -1,0 +1,4 @@
+# Supabase local development state
+.branches
+.temp
+tmp

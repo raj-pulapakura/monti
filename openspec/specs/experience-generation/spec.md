@@ -4,7 +4,7 @@
 TBD - created by archiving change mvp-generative-learning-loop. Update Purpose after archive.
 ## Requirements
 ### Requirement: Generate interactive learning experience from prompt
-The system SHALL accept a generation request containing user prompt text and optional format and audience metadata, and return a structured experience payload with non-empty `title`, `description`, `html`, `css`, and `js` fields.
+The system SHALL accept a generation request containing user prompt text and optional format and audience metadata, return a structured experience payload with non-empty `title`, `description`, `html`, `css`, and `js` fields, and persist the successful result as a versioned experience artifact.
 
 #### Scenario: Successful generation with format and audience
 - **WHEN** a user submits prompt text with `format=quiz` and `audience=elementary`
@@ -13,6 +13,10 @@ The system SHALL accept a generation request containing user prompt text and opt
 #### Scenario: Successful generation with prompt only
 - **WHEN** a user submits prompt text without optional selectors
 - **THEN** the system returns a successful response containing `title`, `description`, `html`, `css`, and `js`
+
+#### Scenario: Successful generation persists artifact
+- **WHEN** generation completes successfully and the response is returned
+- **THEN** the system stores the generated artifact and generation metadata in persistence storage
 
 ### Requirement: Enforce structured output validation
 The system MUST validate generated output shape and reject responses that are not valid structured payloads.

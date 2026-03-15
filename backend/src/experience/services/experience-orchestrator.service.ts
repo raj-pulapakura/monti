@@ -7,9 +7,12 @@ import {
 import { LlmConfigService } from '../../llm/llm-config.service';
 import { LlmRouterService } from '../../llm/llm-router.service';
 import type { ProviderKind } from '../../llm/llm.types';
+import { ExperiencePersistenceService } from '../../persistence/services/experience-persistence.service';
 import { SafetyGuardService } from '../../safety/safety-guard.service';
 import { PayloadValidationService } from '../../validation/payload-validation.service';
 import type {
+  AudienceLevel,
+  ExperienceFormat,
   ExperienceResponsePayload,
   GenerateExperienceRequest,
   RefineExperienceRequest,
@@ -26,6 +29,7 @@ export class ExperienceOrchestratorService {
     private readonly promptBuilder: PromptBuilderService,
     private readonly payloadValidation: PayloadValidationService,
     private readonly safetyGuard: SafetyGuardService,
+    private readonly persistence: ExperiencePersistenceService,
   ) {}
 
   async generate(request: GenerateExperienceRequest): Promise<ExperienceResponsePayload> {
@@ -35,6 +39,10 @@ export class ExperienceOrchestratorService {
       requestId,
       operation: 'generate',
       prompt,
+      sourcePrompt: request.prompt,
+      clientId: request.clientId,
+      format: request.format,
+      audience: request.audience,
       qualityMode: request.qualityMode,
       provider: request.provider,
       system: request.system,
@@ -50,6 +58,10 @@ export class ExperienceOrchestratorService {
       requestId,
       operation: 'refine',
       prompt,
+      sourcePrompt: request.originalPrompt,
+      clientId: request.clientId,
+      refinementInstruction: request.refinementInstruction,
+      parentGenerationId: request.priorGenerationId,
       qualityMode: request.qualityMode,
       provider: request.provider,
       system: request.system,
@@ -62,6 +74,12 @@ export class ExperienceOrchestratorService {
     requestId: string;
     operation: 'generate' | 'refine';
     prompt: string;
+    sourcePrompt: string;
+    clientId: string;
+    format?: ExperienceFormat;
+    audience?: AudienceLevel;
+    refinementInstruction?: string;
+    parentGenerationId?: string;
     qualityMode: 'fast' | 'quality';
     provider?: ProviderKind;
     system?: string;
@@ -71,6 +89,9 @@ export class ExperienceOrchestratorService {
     const startedAt = Date.now();
     let maxTokens = input.maxTokens ?? this.llmConfig.maxTokensDefault;
     const userDefinedMaxTokens = typeof input.maxTokens === 'number';
+    const routedProvider = input.provider ?? this.llmConfig.providerFor(input.qualityMode);
+    let resolvedProvider: ProviderKind | undefined;
+    let resolvedModel: string | undefined;
 
     this.logger.log(
       logEvent('ui_generation_started', {
@@ -86,6 +107,14 @@ export class ExperienceOrchestratorService {
         userDefinedMaxTokens,
       }),
     );
+
+    await this.persistence.recordRunStarted({
+      requestId: input.requestId,
+      clientId: input.clientId,
+      operation: input.operation,
+      qualityMode: input.qualityMode,
+      prompt: input.sourcePrompt,
+    });
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
@@ -109,6 +138,9 @@ export class ExperienceOrchestratorService {
           maxTokens,
         });
 
+        resolvedProvider = llmResult.provider;
+        resolvedModel = llmResult.model;
+
         this.logger.log(
           logEvent('ui_generation_llm_output_received', {
             requestId: input.requestId,
@@ -122,6 +154,23 @@ export class ExperienceOrchestratorService {
 
         const experience = this.payloadValidation.parseAndValidate(llmResult.rawText);
         this.safetyGuard.assertSafe(experience);
+
+        await this.persistence.persistSuccess({
+          requestId: input.requestId,
+          operation: input.operation,
+          clientId: input.clientId,
+          prompt: input.sourcePrompt,
+          refinementInstruction: input.refinementInstruction,
+          parentGenerationId: input.parentGenerationId,
+          format: input.format,
+          audience: input.audience,
+          qualityMode: input.qualityMode,
+          provider: llmResult.provider,
+          model: llmResult.model,
+          maxTokens,
+          experience,
+          latencyMs: Date.now() - startedAt,
+        });
 
         this.logger.log(
           logEvent('ui_generation_completed', {
@@ -186,6 +235,13 @@ export class ExperienceOrchestratorService {
           continue;
         }
 
+        await this.tryRecordRunFailure({
+          requestId: input.requestId,
+          provider: resolvedProvider ?? routedProvider,
+          model: resolvedModel,
+          errorMessage: this.getErrorDetails(error).errorMessage,
+        });
+
         this.logger.error(
           logEvent('ui_generation_failed', {
             requestId: input.requestId,
@@ -234,5 +290,26 @@ export class ExperienceOrchestratorService {
       errorType: 'UnknownError',
       errorMessage: 'Unknown error',
     };
+  }
+
+  private async tryRecordRunFailure(input: {
+    requestId: string;
+    provider?: ProviderKind;
+    model?: string;
+    errorMessage: string;
+  }): Promise<void> {
+    try {
+      await this.persistence.recordRunFailed(input);
+    } catch (error) {
+      this.logger.warn(
+        logEvent('ui_generation_failure_record_failed', {
+          requestId: input.requestId,
+          provider: input.provider ?? null,
+          model: input.model ?? null,
+          originalErrorMessage: input.errorMessage,
+          persistenceError: this.getErrorDetails(error).errorMessage,
+        }),
+      );
+    }
   }
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { getOrCreateClientId } from '@/lib/client-id.js';
 import {
   findRecentExperienceById,
   loadRecentExperiences,
@@ -111,6 +112,7 @@ export default function Home() {
 
     try {
       const response = await postJson<GenerationResponse>('/api/experiences/generate', {
+        clientId: getOrCreateClientId(),
         prompt,
         format,
         audience,
@@ -148,7 +150,9 @@ export default function Home() {
 
     try {
       const response = await postJson<GenerationResponse>('/api/experiences/refine', {
+        clientId: getOrCreateClientId(),
         originalPrompt: prompt,
+        priorGenerationId: activeGenerationId,
         refinementInstruction,
         priorExperience: activeExperience,
         qualityMode,
@@ -276,7 +280,13 @@ export default function Home() {
             />
             <button
               type="submit"
-              disabled={isGenerating || isRefining || !activeExperience || refinementInstruction.trim().length === 0}
+              disabled={
+                isGenerating ||
+                isRefining ||
+                !activeExperience ||
+                !activeGenerationId ||
+                refinementInstruction.trim().length === 0
+              }
             >
               {isRefining ? 'Refining…' : 'Apply refinement'}
             </button>

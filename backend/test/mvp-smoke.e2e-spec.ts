@@ -1,7 +1,9 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { randomUUID } from 'node:crypto';
 import { ExperienceController } from './../src/experience/experience.controller';
 import { LlmRouterService, type RoutedGenerationRequest } from './../src/llm/llm-router.service';
+import { SUPABASE_CLIENT } from './../src/supabase/supabase.constants';
 import { AppModule } from './../src/app.module';
 
 describe('MVP Smoke Flow (e2e)', () => {
@@ -9,6 +11,9 @@ describe('MVP Smoke Flow (e2e)', () => {
   let experienceController: ExperienceController;
 
   beforeEach(async () => {
+    process.env.SUPABASE_URL = 'https://example.supabase.co';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -26,6 +31,8 @@ describe('MVP Smoke Flow (e2e)', () => {
           }),
         })),
       })
+      .overrideProvider(SUPABASE_CLIENT)
+      .useValue(createFakeSupabaseClient())
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -39,6 +46,7 @@ describe('MVP Smoke Flow (e2e)', () => {
 
   it('prompt -> generate -> refine should succeed', async () => {
     const generateResponse = await experienceController.generate({
+      clientId: 'test-client',
       prompt: 'Teach me about photosynthesis with a mini quiz.',
       format: 'quiz',
       audience: 'middle-school',
@@ -49,7 +57,9 @@ describe('MVP Smoke Flow (e2e)', () => {
     expect(generateResponse.data.experience.title).toBeTruthy();
 
     const refineResponse = await experienceController.refine({
+      clientId: 'test-client',
       originalPrompt: 'Teach me about photosynthesis with a mini quiz.',
+      priorGenerationId: generateResponse.data.metadata.generationId,
       refinementInstruction: 'Make it easier for younger students.',
       priorExperience: generateResponse.data.experience,
       qualityMode: 'quality',
@@ -65,3 +75,107 @@ describe('MVP Smoke Flow (e2e)', () => {
     });
   });
 });
+
+type TableName = 'experiences' | 'experience_versions' | 'generation_runs';
+
+function createFakeSupabaseClient() {
+  const tables: Record<TableName, Array<Record<string, unknown>>> = {
+    experiences: [],
+    experience_versions: [],
+    generation_runs: [],
+  };
+
+  return {
+    from(tableName: TableName) {
+      return new FakeQueryBuilder(tableName, tables);
+    },
+  };
+}
+
+class FakeQueryBuilder {
+  private mode: 'select' | 'insert' | 'update' = 'select';
+  private readonly filters: Array<{ column: string; value: unknown }> = [];
+  private updateValues: Record<string, unknown> = {};
+  private insertedRow: Record<string, unknown> | null = null;
+
+  constructor(
+    private readonly tableName: TableName,
+    private readonly tables: Record<TableName, Array<Record<string, unknown>>>,
+  ) {}
+
+  insert(values: Record<string, unknown>) {
+    this.mode = 'insert';
+    const row = {
+      id: randomUUID(),
+      ...values,
+    };
+    this.tables[this.tableName].push(row);
+    this.insertedRow = row;
+    return this;
+  }
+
+  update(values: Record<string, unknown>) {
+    this.mode = 'update';
+    this.updateValues = values;
+    return this;
+  }
+
+  select(_columns?: string) {
+    this.mode = this.mode === 'insert' ? 'insert' : 'select';
+    return this;
+  }
+
+  eq(column: string, value: unknown) {
+    this.filters.push({ column, value });
+
+    if (this.mode === 'update') {
+      const rows = this.filterRows();
+      for (const row of rows) {
+        Object.assign(row, this.updateValues);
+      }
+
+      return Promise.resolve({
+        data: null,
+        error: null,
+      });
+    }
+
+    return this;
+  }
+
+  single() {
+    if (this.mode === 'insert' && this.insertedRow) {
+      return Promise.resolve({
+        data: this.insertedRow,
+        error: null,
+      });
+    }
+
+    const row = this.filterRows()[0] ?? null;
+    return Promise.resolve({
+      data: row,
+      error: row ? null : { message: 'No rows found.', code: 'PGRST116' },
+    });
+  }
+
+  maybeSingle() {
+    const row = this.filterRows()[0] ?? null;
+    return Promise.resolve({
+      data: row,
+      error: null,
+    });
+  }
+
+  then<TResult1 = { error: null }, TResult2 = never>(
+    onfulfilled?: ((value: { error: null }) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+  ): Promise<TResult1 | TResult2> {
+    return Promise.resolve({ error: null }).then(onfulfilled, onrejected);
+  }
+
+  private filterRows() {
+    return this.tables[this.tableName].filter((row) =>
+      this.filters.every((filter) => row[filter.column] === filter.value),
+    );
+  }
+}

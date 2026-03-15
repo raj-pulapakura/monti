@@ -1,8 +1,5 @@
-# experience-preview-history Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change mvp-generative-learning-loop. Update Purpose after archive.
-## Requirements
 ### Requirement: Render generated experience in sandboxed iframe
 The client MUST render generated `html`/`css`/`js` output exclusively inside a sandboxed iframe configuration that allows script execution but restricts top-level navigation and external origin access.
 
@@ -25,6 +22,8 @@ The client SHALL display explicit lifecycle status while assistant runs and tool
 - **WHEN** run or tool execution fails due to validation, routing, or provider errors
 - **THEN** the client shows an actionable error message and allows retry via chat flow
 
+## ADDED Requirements
+
 ### Requirement: Hydrate chat and sandbox state from backend thread source of truth
 The client SHALL initialize from backend thread hydration data instead of local preview-first state.
 
@@ -36,3 +35,8 @@ The client SHALL initialize from backend thread hydration data instead of local 
 - **WHEN** the client reconnects after SSE interruption
 - **THEN** it reconciles state using hydration snapshot and resumes event-driven updates
 
+## REMOVED Requirements
+
+### Requirement: Persist recent creations locally with bounded history
+**Reason**: The product model now uses server-persisted thread timelines and sandbox state as the canonical history source, making local-only recent creation storage redundant and inconsistent.
+**Migration**: Frontend history UX MUST read from thread/message hydration APIs and remove local-storage-only recent creations as the primary persisted history mechanism.

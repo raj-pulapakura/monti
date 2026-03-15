@@ -145,3 +145,240 @@ create trigger trg_experience_versions_set_latest
 after insert or update of generation_status, version_number
 on public.experience_versions
 for each row execute function public._experiences_set_latest_version();
+
+create table if not exists public.chat_threads (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid null,
+  client_id text not null,
+  title text null,
+  archived_at timestamptz null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.chat_messages (
+  id uuid primary key default gen_random_uuid(),
+  thread_id uuid not null references public.chat_threads(id) on delete cascade,
+  client_id text not null,
+  role text not null check (role in ('user', 'assistant', 'tool', 'system')),
+  content text not null,
+  content_json jsonb null,
+  idempotency_key text null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.assistant_runs (
+  id uuid primary key default gen_random_uuid(),
+  thread_id uuid not null references public.chat_threads(id) on delete cascade,
+  user_message_id uuid not null references public.chat_messages(id) on delete cascade,
+  assistant_message_id uuid null references public.chat_messages(id) on delete set null,
+  status text not null default 'queued' check (
+    status in ('queued', 'running', 'succeeded', 'failed', 'cancelled')
+  ),
+  router_tier text null check (router_tier in ('fast', 'quality')),
+  router_provider_hint text null check (router_provider_hint in ('openai', 'anthropic', 'gemini')),
+  router_confidence numeric(5,4) null check (router_confidence >= 0 and router_confidence <= 1),
+  router_reason text null,
+  router_fallback_reason text null,
+  provider text null check (provider in ('openai', 'anthropic', 'gemini')),
+  model text null,
+  provider_request_raw jsonb null,
+  provider_response_raw jsonb null,
+  error_code text null,
+  error_message text null,
+  started_at timestamptz null,
+  completed_at timestamptz null,
+  created_at timestamptz not null default now(),
+  constraint assistant_runs_user_message_unique unique (user_message_id)
+);
+
+create table if not exists public.tool_invocations (
+  id uuid primary key default gen_random_uuid(),
+  thread_id uuid not null references public.chat_threads(id) on delete cascade,
+  run_id uuid not null references public.assistant_runs(id) on delete cascade,
+  provider_tool_call_id text null,
+  tool_name text not null,
+  tool_arguments jsonb not null default '{}'::jsonb,
+  tool_result jsonb null,
+  status text not null default 'pending' check (
+    status in ('pending', 'running', 'succeeded', 'failed')
+  ),
+  error_code text null,
+  error_message text null,
+  started_at timestamptz null,
+  completed_at timestamptz null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.sandbox_states (
+  thread_id uuid primary key references public.chat_threads(id) on delete cascade,
+  status text not null default 'empty' check (status in ('empty', 'creating', 'ready', 'error')),
+  experience_id uuid null references public.experiences(id) on delete set null,
+  experience_version_id uuid null references public.experience_versions(id) on delete set null,
+  last_error_code text null,
+  last_error_message text null,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_chat_threads_client_id on public.chat_threads (client_id);
+create index if not exists idx_chat_threads_updated_at on public.chat_threads (updated_at desc);
+
+create index if not exists idx_chat_messages_thread_id_created_at
+  on public.chat_messages (thread_id, created_at);
+create index if not exists idx_chat_messages_role on public.chat_messages (role);
+create unique index if not exists idx_chat_messages_thread_idempotency
+  on public.chat_messages (thread_id, idempotency_key)
+  where idempotency_key is not null and role = 'user';
+
+create index if not exists idx_assistant_runs_thread_id_created_at
+  on public.assistant_runs (thread_id, created_at);
+create index if not exists idx_assistant_runs_status on public.assistant_runs (status);
+create index if not exists idx_assistant_runs_provider on public.assistant_runs (provider);
+create unique index if not exists idx_assistant_runs_single_active_per_thread
+  on public.assistant_runs (thread_id)
+  where status in ('queued', 'running');
+
+create index if not exists idx_tool_invocations_run_id_created_at
+  on public.tool_invocations (run_id, created_at);
+create index if not exists idx_tool_invocations_thread_id on public.tool_invocations (thread_id);
+create index if not exists idx_tool_invocations_status on public.tool_invocations (status);
+create index if not exists idx_tool_invocations_provider_call_id
+  on public.tool_invocations (provider_tool_call_id);
+
+create index if not exists idx_sandbox_states_status on public.sandbox_states (status);
+
+drop trigger if exists trg_chat_threads_updated_at on public.chat_threads;
+create trigger trg_chat_threads_updated_at
+before update on public.chat_threads
+for each row execute function public._set_updated_at();
+
+drop trigger if exists trg_sandbox_states_updated_at on public.sandbox_states;
+create trigger trg_sandbox_states_updated_at
+before update on public.sandbox_states
+for each row execute function public._set_updated_at();
+
+create or replace function public.chat_submit_user_message(
+  p_thread_id uuid,
+  p_client_id text,
+  p_content text,
+  p_idempotency_key text default null
+)
+returns table(
+  message_id uuid,
+  message_created_at timestamptz,
+  run_id uuid,
+  run_status text,
+  deduplicated boolean
+)
+language plpgsql
+security definer
+as $$
+declare
+  v_existing_message_id uuid;
+  v_existing_message_created_at timestamptz;
+  v_existing_run_id uuid;
+  v_existing_run_status text;
+  v_message_id uuid;
+  v_message_created_at timestamptz;
+  v_run_id uuid;
+  v_run_status text;
+  v_idempotency_key text;
+begin
+  if p_content is null or length(trim(p_content)) = 0 then
+    raise exception 'Message content must be non-empty.' using errcode = 'P0001';
+  end if;
+
+  if not exists (
+    select 1
+    from public.chat_threads
+    where id = p_thread_id
+      and client_id = p_client_id
+  ) then
+    raise exception 'Thread not found for client scope.' using errcode = 'P0001';
+  end if;
+
+  v_idempotency_key := nullif(trim(coalesce(p_idempotency_key, '')), '');
+
+  if v_idempotency_key is not null then
+    select m.id, m.created_at
+    into v_existing_message_id, v_existing_message_created_at
+    from public.chat_messages m
+    where m.thread_id = p_thread_id
+      and m.client_id = p_client_id
+      and m.role = 'user'
+      and m.idempotency_key = v_idempotency_key
+    order by m.created_at desc
+    limit 1;
+
+    if v_existing_message_id is not null then
+      select r.id, r.status
+      into v_existing_run_id, v_existing_run_status
+      from public.assistant_runs r
+      where r.user_message_id = v_existing_message_id
+      order by r.created_at desc
+      limit 1;
+
+      message_id := v_existing_message_id;
+      message_created_at := v_existing_message_created_at;
+      run_id := v_existing_run_id;
+      run_status := v_existing_run_status;
+      deduplicated := true;
+      return next;
+      return;
+    end if;
+  end if;
+
+  insert into public.chat_messages (
+    thread_id,
+    client_id,
+    role,
+    content,
+    content_json,
+    idempotency_key
+  )
+  values (
+    p_thread_id,
+    p_client_id,
+    'user',
+    trim(p_content),
+    null,
+    v_idempotency_key
+  )
+  returning id, created_at into v_message_id, v_message_created_at;
+
+  begin
+    insert into public.assistant_runs (
+      thread_id,
+      user_message_id,
+      status,
+      created_at
+    )
+    values (
+      p_thread_id,
+      v_message_id,
+      'queued',
+      now()
+    )
+    returning id, status into v_run_id, v_run_status;
+  exception
+    when unique_violation then
+      raise exception 'An assistant run is already queued or running for this thread.'
+      using errcode = 'P0001';
+  end;
+
+  update public.chat_threads
+  set updated_at = now()
+  where id = p_thread_id;
+
+  insert into public.sandbox_states (thread_id, status, updated_at)
+  values (p_thread_id, 'empty', now())
+  on conflict (thread_id) do nothing;
+
+  message_id := v_message_id;
+  message_created_at := v_message_created_at;
+  run_id := v_run_id;
+  run_status := v_run_status;
+  deduplicated := false;
+  return next;
+end;
+$$;

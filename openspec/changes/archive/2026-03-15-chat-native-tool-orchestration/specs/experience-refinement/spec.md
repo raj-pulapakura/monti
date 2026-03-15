@@ -1,8 +1,5 @@
-# experience-refinement Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change mvp-generative-learning-loop. Update Purpose after archive.
-## Requirements
 ### Requirement: Refine experience using prior artifact and user intent
 The system SHALL accept refinement intent from chat context with prior artifact linkage, return a full replacement payload with `title`, `description`, `html`, `css`, and `js`, and persist the refined result as a new linked version.
 
@@ -35,4 +32,3 @@ The system MUST run refinement responses through the same payload validation and
 #### Scenario: Refinement output violates safety guard
 - **WHEN** a refinement output contains disallowed patterns such as external resource loading attempts
 - **THEN** the system rejects the response and returns a safety error
-

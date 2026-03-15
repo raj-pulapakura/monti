@@ -11,5 +11,6 @@ import { PromptBuilderService } from './services/prompt-builder.service';
   imports: [LlmModule, ValidationModule, SafetyModule, PersistenceModule],
   controllers: [ExperienceController],
   providers: [ExperienceOrchestratorService, PromptBuilderService],
+  exports: [ExperienceOrchestratorService],
 })
 export class ExperienceModule {}

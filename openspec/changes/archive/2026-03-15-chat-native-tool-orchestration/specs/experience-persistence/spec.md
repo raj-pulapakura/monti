@@ -1,8 +1,5 @@
-# experience-persistence Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change add-supabase-persistence. Update Purpose after archive.
-## Requirements
 ### Requirement: Persist experiences and versioned artifacts in Supabase
 The system SHALL persist generated learning experiences in a normalized data model with a top-level experience record and versioned artifact records produced by tool invocations in assistant runs.
 
@@ -35,4 +32,3 @@ The system SHALL support persistence without auth by associating thread and arti
 #### Scenario: Missing client-scoping identifier is rejected
 - **WHEN** a persistence write is attempted without a required client-scoping identifier
 - **THEN** the system returns a validation error and does not write persistence records
-

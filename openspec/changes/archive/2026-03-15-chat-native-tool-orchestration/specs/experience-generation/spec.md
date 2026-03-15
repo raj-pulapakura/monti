@@ -1,8 +1,5 @@
-# experience-generation Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change mvp-generative-learning-loop. Update Purpose after archive.
-## Requirements
 ### Requirement: Generate interactive learning experience from prompt
 The system SHALL accept generation intent from chat context and tool arguments, return a structured experience payload with non-empty `title`, `description`, `html`, `css`, and `js` fields, and persist the successful result as a versioned experience artifact.
 
@@ -39,4 +36,3 @@ The system MUST map provider-specific errors into a consistent API and runtime e
 #### Scenario: Upstream provider refusal
 - **WHEN** the selected LLM provider refuses the generation request
 - **THEN** the system records and emits a normalized refusal error without executable payload fields
-

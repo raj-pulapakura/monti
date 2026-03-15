@@ -1,4 +1,5 @@
 import { Body, Controller, Post } from '@nestjs/common';
+import { ValidationError } from '../common/errors/app-error';
 import {
   parseGenerateExperienceRequest,
   parseRefineExperienceRequest,
@@ -11,6 +12,7 @@ export class ExperienceController {
 
   @Post('generate')
   async generate(@Body() body: unknown) {
+    assertLegacyExperienceApiEnabled();
     const request = parseGenerateExperienceRequest(body);
     const payload = await this.orchestrator.generate(request);
 
@@ -22,6 +24,7 @@ export class ExperienceController {
 
   @Post('refine')
   async refine(@Body() body: unknown) {
+    assertLegacyExperienceApiEnabled();
     const request = parseRefineExperienceRequest(body);
     const payload = await this.orchestrator.refine(request);
 
@@ -29,5 +32,14 @@ export class ExperienceController {
       ok: true,
       data: payload,
     };
+  }
+}
+
+function assertLegacyExperienceApiEnabled(): void {
+  const flag = process.env.ENABLE_LEGACY_EXPERIENCE_API?.trim().toLowerCase();
+  if (flag === 'false' || flag === '0' || flag === 'off') {
+    throw new ValidationError(
+      'Legacy /api/experiences endpoints are disabled. Use chat runtime APIs instead.',
+    );
   }
 }

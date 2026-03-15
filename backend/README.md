@@ -1,23 +1,54 @@
 # Monti Backend
 
-NestJS backend for Monti MVP.
+NestJS backend for Monti's chat-first runtime and sandbox orchestration.
 
-## What This API Provides
+## API Surface
 
-- `POST /api/experiences/generate`: prompt -> structured interactive experience payload
-- `POST /api/experiences/refine`: prior payload + refinement instruction -> regenerated payload
-- `GET /`: health endpoint
+### Chat Runtime (Primary)
 
-## Rendering Contract (Important)
+- `POST /api/chat/threads`
+  - Creates a thread and initializes sandbox state.
+- `GET /api/chat/threads/:threadId?clientId=<id>`
+  - Hydrates thread metadata, ordered messages, sandbox state, active run, and latest event cursor.
+- `POST /api/chat/threads/:threadId/messages`
+  - Submits a user message (idempotent) and creates/updates run state.
+- `GET /api/chat/threads/:threadId/sandbox?clientId=<id>`
+  - Returns thread sandbox state and active artifact payload for iframe preview.
+- `GET /api/chat/threads/:threadId/events` (SSE)
+  - Streams runtime events (`run_started`, `tool_started`, `tool_succeeded`, `tool_failed`, `assistant_message_created`, `sandbox_updated`, `run_failed`, `run_completed`).
 
-Generated output is intended for iframe rendering only.
+### Legacy Endpoints (Compatibility)
 
-- Render using sandboxed iframe: `sandbox="allow-scripts"`
-- No direct host DOM injection
-- No external network access from generated code
-- No external script/library loading
+- `POST /api/experiences/generate`
+- `POST /api/experiences/refine`
 
-The API includes this in `data.metadata.renderingContract` for client enforcement.
+These are guarded by `ENABLE_LEGACY_EXPERIENCE_API` and can be disabled during migration.
+
+### Health
+
+- `GET /`
+
+## Feature Flags
+
+The staged rollout uses these environment flags:
+
+- `CHAT_RUNTIME_ENABLED`
+  - `false|0|off` disables chat runtime endpoints.
+- `NATIVE_TOOL_LOOP_ENABLED`
+  - `false|0|off` keeps message ingestion/routing active but skips native tool execution.
+- `ROUTER_STAGE_ENABLED`
+  - `false|0|off` bypasses router-model inference and uses fallback route policy.
+- `ENABLE_LEGACY_EXPERIENCE_API`
+  - `false|0|off` disables `/api/experiences/*` compatibility endpoints.
+
+## Rendering Contract
+
+Generated output is rendered in a sandboxed iframe only:
+
+- `sandbox="allow-scripts"`
+- no direct host DOM injection
+- no external network access from generated code
+- no external script/library loading
 
 ## Environment Variables
 
@@ -27,33 +58,51 @@ Copy and configure:
 cp .env.example .env
 ```
 
-Key variables:
+Core variables:
 
 - `PORT` (default `3001`)
-- `OPENAI_API_KEY` (required for OpenAI)
-- `ANTHROPIC_API_KEY` (required for Anthropic)
-- `GOOGLE_API_KEY` (required for Gemini)
-- `SUPABASE_URL` (required for persistence)
-- `SUPABASE_SERVICE_ROLE_KEY` (required for persistence writes)
-
-LLM provider/model/token/timeouts are code constants in `src/llm/llm-config.service.ts`, not environment-driven.
+- `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY`
+- `GOOGLE_API_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
 
 ## Supabase Schema
 
-Supabase SQL artifacts live at:
+Apply all migrations in `../supabase/migrations/`.
 
-- `../supabase/migrations/20260315000100_create_experience_persistence.sql`
+Key files:
+
+- `20260315000100_create_experience_persistence.sql`
+- `20260315000200_create_chat_runtime.sql`
+- `20260315000300_add_chat_submit_rpc.sql`
+- `20260315000400_add_assistant_run_provider_traces.sql`
+
+Schema snapshot:
+
 - `../supabase/schemas/experiences.sql`
 
-Apply the migration in your Supabase project before running persistence flows.
+## Observability Signals
 
-If Supabase CLI is installed:
+Structured logs are emitted for:
 
-```bash
-supabase db push
-```
+- routing decisions (`chat_runtime_route_selected`, `llm_routing_fallback`)
+- tool success/failure (`chat_runtime_tool_succeeded`, `chat_runtime_tool_failed`)
+- generation orchestration lifecycle (`ui_generation_*`)
 
-Without Supabase CLI, run the migration SQL in Supabase SQL Editor.
+These signals are intended for dashboards on:
+
+- router decision distribution
+- provider/model selection distribution
+- tool latency and failure rate
+- run terminal status rates
+
+See runbook: `../docs/chat-runtime-runbook.md`.
+
+Additional docs:
+
+- `../docs/chat-runtime-observability.md`
+- `../docs/chat-runtime-parity-checklist.md`
 
 ## Run
 

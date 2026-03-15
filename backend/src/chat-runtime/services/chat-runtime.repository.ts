@@ -71,33 +71,46 @@ export class ChatRuntimeRepository {
     messages: ChatMessageRow[];
     sandboxState: SandboxStateRow;
     activeRun: AssistantRunRow | null;
+    activeToolInvocation: ToolInvocationRow | null;
   }> {
     const thread = await this.findThread(input);
     if (!thread) {
       throw new ValidationError('Thread not found for client scope.');
     }
 
-    const [{ data: messages, error: messagesError }, { data: sandboxState, error: sandboxError }, { data: activeRun, error: runError }] =
-      await Promise.all([
-        this.client
-          .from('chat_messages')
-          .select('*')
-          .eq('thread_id', input.threadId)
-          .order('created_at', { ascending: true }),
-        this.client
-          .from('sandbox_states')
-          .select('*')
-          .eq('thread_id', input.threadId)
-          .maybeSingle(),
-        this.client
-          .from('assistant_runs')
-          .select('*')
-          .eq('thread_id', input.threadId)
-          .in('status', ['queued', 'running'])
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-      ]);
+    const [
+      { data: messages, error: messagesError },
+      { data: sandboxState, error: sandboxError },
+      { data: activeRun, error: runError },
+      { data: activeToolInvocation, error: toolError },
+    ] = await Promise.all([
+      this.client
+        .from('chat_messages')
+        .select('*')
+        .eq('thread_id', input.threadId)
+        .order('created_at', { ascending: true }),
+      this.client
+        .from('sandbox_states')
+        .select('*')
+        .eq('thread_id', input.threadId)
+        .maybeSingle(),
+      this.client
+        .from('assistant_runs')
+        .select('*')
+        .eq('thread_id', input.threadId)
+        .in('status', ['queued', 'running'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      this.client
+        .from('tool_invocations')
+        .select('*')
+        .eq('thread_id', input.threadId)
+        .in('status', ['pending', 'running'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
     if (messagesError) {
       this.throwQueryError('load thread messages', messagesError);
@@ -111,6 +124,10 @@ export class ChatRuntimeRepository {
       this.throwQueryError('load active run', runError);
     }
 
+    if (toolError) {
+      this.throwQueryError('load active tool invocation', toolError);
+    }
+
     if (!sandboxState) {
       throw new AppError('INTERNAL_ERROR', 'Sandbox state is missing for thread.', 500);
     }
@@ -120,6 +137,7 @@ export class ChatRuntimeRepository {
       messages: messages ?? [],
       sandboxState,
       activeRun: activeRun ?? null,
+      activeToolInvocation: activeToolInvocation ?? null,
     };
   }
 
@@ -283,12 +301,20 @@ export class ChatRuntimeRepository {
     };
   }
 
-  async markRunRunning(runId: string): Promise<void> {
+  async markRunRunning(
+    runId: string,
+    options?: {
+      conversationProvider?: 'openai' | 'anthropic' | 'gemini';
+      conversationModel?: string;
+    },
+  ): Promise<void> {
     const { error } = await this.client
       .from('assistant_runs')
       .update({
         status: 'running',
         started_at: new Date().toISOString(),
+        conversation_provider: options?.conversationProvider ?? null,
+        conversation_model: options?.conversationModel ?? null,
         error_code: null,
         error_message: null,
       })
@@ -397,12 +423,30 @@ export class ChatRuntimeRepository {
   async markToolInvocationSucceeded(input: {
     invocationId: string;
     toolResult: Record<string, unknown>;
+    generationId?: string | null;
+    experienceId?: string | null;
+    experienceVersionId?: string | null;
+    routerTier?: 'fast' | 'quality' | null;
+    routerConfidence?: number | null;
+    routerReason?: string | null;
+    routerFallbackReason?: string | null;
+    selectedProvider?: 'openai' | 'anthropic' | 'gemini' | null;
+    selectedModel?: string | null;
   }): Promise<void> {
     const { error } = await this.client
       .from('tool_invocations')
       .update({
         status: 'succeeded',
         tool_result: input.toolResult,
+        generation_id: input.generationId ?? null,
+        experience_id: input.experienceId ?? null,
+        experience_version_id: input.experienceVersionId ?? null,
+        router_tier: input.routerTier ?? null,
+        router_confidence: input.routerConfidence ?? null,
+        router_reason: input.routerReason ?? null,
+        router_fallback_reason: input.routerFallbackReason ?? null,
+        selected_provider: input.selectedProvider ?? null,
+        selected_model: input.selectedModel ?? null,
         error_code: null,
         error_message: null,
         completed_at: new Date().toISOString(),
@@ -418,11 +462,25 @@ export class ChatRuntimeRepository {
     invocationId: string;
     errorCode: string;
     errorMessage: string;
+    toolResult?: Record<string, unknown> | null;
+    routerTier?: 'fast' | 'quality' | null;
+    routerConfidence?: number | null;
+    routerReason?: string | null;
+    routerFallbackReason?: string | null;
+    selectedProvider?: 'openai' | 'anthropic' | 'gemini' | null;
+    selectedModel?: string | null;
   }): Promise<void> {
     const { error } = await this.client
       .from('tool_invocations')
       .update({
         status: 'failed',
+        tool_result: input.toolResult ?? null,
+        router_tier: input.routerTier ?? null,
+        router_confidence: input.routerConfidence ?? null,
+        router_reason: input.routerReason ?? null,
+        router_fallback_reason: input.routerFallbackReason ?? null,
+        selected_provider: input.selectedProvider ?? null,
+        selected_model: input.selectedModel ?? null,
         error_code: input.errorCode,
         error_message: input.errorMessage,
         completed_at: new Date().toISOString(),

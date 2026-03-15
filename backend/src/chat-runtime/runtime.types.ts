@@ -30,6 +30,10 @@ export interface AssistantRunEnvelope {
     reason: string | null;
     fallbackReason: string | null;
   };
+  conversationModel: {
+    provider: ProviderKind | null;
+    model: string | null;
+  };
   selectedProvider: ProviderKind | null;
   selectedModel: string | null;
   error: {
@@ -49,6 +53,9 @@ export interface ToolInvocationEnvelope {
   toolName: string;
   toolArguments: Record<string, unknown>;
   toolResult: Record<string, unknown> | null;
+  generationId: string | null;
+  experienceId: string | null;
+  experienceVersionId: string | null;
   status: ToolInvocationStatus;
   error: {
     code: string | null;

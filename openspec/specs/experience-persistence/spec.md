@@ -15,15 +15,15 @@ The system SHALL persist generated learning experiences in a normalized data mod
 - **THEN** the version is stored with a unique incrementing `version_number` scoped to that experience
 
 ### Requirement: Persist generation/refinement run telemetry
-The system SHALL persist run telemetry for successful and failed execution across assistant runs, routing decisions, and tool invocations.
+The system SHALL persist run telemetry for successful and failed execution across conversation runs, routing decisions, generation runs, and tool invocations.
 
-#### Scenario: Successful run telemetry is recorded
-- **WHEN** assistant orchestration and tool execution succeed
-- **THEN** the system stores routing decision metadata, provider/model selection, run statuses, timing, and linkage to associated thread/message/tool/artifact records
+#### Scenario: Successful execution telemetry is recorded
+- **WHEN** conversation orchestration and generation execution succeed
+- **THEN** the system stores conversation run status, routing metadata, generation provider/model selection, timing, and linkage across thread/message/tool/artifact records
 
-#### Scenario: Failed run telemetry is recorded
-- **WHEN** routing, provider execution, or tool invocation fails after run creation
-- **THEN** the system stores failed status and normalized error context without writing partial executable payload fields
+#### Scenario: Failed execution telemetry is recorded
+- **WHEN** conversation orchestration, routing, or generation tool execution fails after run creation
+- **THEN** the system stores failed status and normalized error context with correlation to the affected conversation run and tool invocation
 
 ### Requirement: Support anonymous client scoping for persistence
 The system SHALL support persistence without auth by associating thread and artifact records with a required client-scoping identifier.

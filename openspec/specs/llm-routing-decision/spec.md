@@ -4,14 +4,14 @@
 TBD - created by archiving change chat-native-tool-orchestration. Update Purpose after archive.
 ## Requirements
 ### Requirement: Route each assistant run using lightweight router LLM
-The system SHALL perform an internal routing model call before main run execution to select execution tier/provider for that run.
+The system SHALL perform internal routing inference for each `generate_experience` tool execution to select generation tier/provider/model before generation dispatch.
 
-#### Scenario: Router executes before main assistant model
-- **WHEN** a new assistant run begins
-- **THEN** the system performs router inference and records the routing decision before dispatching the main model call
+#### Scenario: Router executes inside generation tool path
+- **WHEN** a conversation loop invokes `generate_experience`
+- **THEN** the tool executor performs routing inference before generation model dispatch
 
 ### Requirement: Enforce structured router output contract
-The router output MUST conform to a validated structured schema containing at least `tier`, `confidence`, and `reason`, with optional provider preference fields.
+The router output MUST conform to a validated structured schema containing `tier`, `confidence`, and `reason`.
 
 #### Scenario: Valid router output
 - **WHEN** router output matches schema
@@ -22,17 +22,17 @@ The router output MUST conform to a validated structured schema containing at le
 - **THEN** orchestration rejects the output and falls back to configured default routing policy
 
 ### Requirement: Remove user-facing quality mode controls from execution contract
-The runtime SHALL determine tier/provider internally and MUST NOT require client-provided fast/quality selection for message execution.
+The runtime SHALL determine generation tier internally and MUST NOT require client-provided fast/quality selection for conversation or generation execution.
 
 #### Scenario: Client omits quality field
-- **WHEN** frontend submits a new chat message without quality hints
-- **THEN** the backend executes routing and run dispatch successfully without validation error for missing quality mode
+- **WHEN** frontend submits a chat message without quality hints
+- **THEN** the backend executes conversation loop and generation routing successfully without validation error for missing quality mode
 
 ### Requirement: Persist routing decision telemetry
-The system SHALL persist routing inputs/outputs needed for auditability, including selected provider/model and fallback indicators.
+The system SHALL persist routing inputs/outputs needed for auditability, including selected tier/provider/model and fallback indicators.
 
 #### Scenario: Router selected route persisted
-- **WHEN** router output is accepted
+- **WHEN** router output is accepted during tool execution
 - **THEN** run telemetry records selected tier/provider/model and confidence metadata
 
 #### Scenario: Fallback route persisted

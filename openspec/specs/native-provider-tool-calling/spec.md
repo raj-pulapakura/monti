@@ -4,48 +4,48 @@
 TBD - created by archiving change chat-native-tool-orchestration. Update Purpose after archive.
 ## Requirements
 ### Requirement: Support native tool-calling across configured providers
-The system SHALL execute assistant turns using each provider's native tool-calling API semantics through provider-specific adapters.
+The system SHALL execute the main conversation loop through a configured constant provider/model using native tool-calling semantics, while allowing tool executors to use routed provider/model selections for downstream generation.
 
-#### Scenario: OpenAI native tool call
-- **WHEN** the selected provider is OpenAI and the model requests a tool invocation
-- **THEN** the adapter translates and executes the tool flow using OpenAI-native request/response structures
+#### Scenario: Constant conversation provider executes native tool call
+- **WHEN** the configured conversation model requests `generate_experience`
+- **THEN** the runtime handles the request using that provider's native tool-calling request/response format
 
-#### Scenario: Anthropic native tool call
-- **WHEN** the selected provider is Anthropic and the model requests a tool invocation
-- **THEN** the adapter translates and executes the tool flow using Anthropic-native request/response structures
-
-#### Scenario: Gemini native tool call
-- **WHEN** the selected provider is Gemini and the model requests a tool invocation
-- **THEN** the adapter translates and executes the tool flow using Gemini-native request/response structures
+#### Scenario: Generation executor uses routed provider
+- **WHEN** `generate_experience` starts execution
+- **THEN** the generation engine independently resolves provider/model via routing policy without changing the configured conversation model
 
 ### Requirement: Maintain canonical internal orchestration contract
-The orchestration layer MUST consume and emit canonical tool-call and assistant-output objects regardless of provider-specific wire formats.
+The orchestration layer MUST consume and emit canonical assistant/tool objects that separate conversation-loop state from generation-engine tool state.
 
-#### Scenario: Provider response normalization
-- **WHEN** any provider returns tool-call output
-- **THEN** the adapter normalizes it into the canonical internal tool-call representation used by orchestration and persistence
+#### Scenario: Conversation tool request normalization
+- **WHEN** the conversation model emits a tool request
+- **THEN** orchestration normalizes tool name, arguments, and correlation identifiers into canonical runtime records
 
-#### Scenario: Provider request translation
-- **WHEN** orchestration sends canonical tool schemas and messages
-- **THEN** the adapter maps them to the provider-native tool declaration format without requiring orchestration changes
+#### Scenario: Tool result handoff normalization
+- **WHEN** a tool executor returns result payloads
+- **THEN** orchestration maps those payloads into canonical tool-result objects for model follow-up inference and persistence
 
 ### Requirement: Persist tool invocation lifecycle
-The system SHALL persist each tool invocation with correlation to thread, run, and provider call identifiers, including status transitions and error context.
+The system SHALL persist each tool invocation with correlation to thread, conversation run, and generation execution identifiers, including status transitions and normalized errors.
 
 #### Scenario: Tool invocation succeeds
-- **WHEN** a provider requests a tool and execution completes successfully
-- **THEN** the system persists a tool invocation record with `succeeded` status and structured output reference/payload
+- **WHEN** `generate_experience` completes successfully
+- **THEN** the system persists invocation status `succeeded` with structured output reference and correlation ids
 
 #### Scenario: Tool invocation fails
-- **WHEN** tool execution or provider follow-up fails
-- **THEN** the system persists a tool invocation record with `failed` status and normalized error details
+- **WHEN** generation execution fails within the tool path
+- **THEN** the system persists invocation status `failed` with normalized error details and correlation ids
 
 ### Requirement: Continue tool loop until terminal assistant output
-The system MUST support multi-step provider tool loops where multiple tool calls can occur before final assistant content is produced.
+The system MUST support repeated native tool-call rounds in the conversation loop and only terminate when the conversation model emits assistant output without additional tool calls.
 
-#### Scenario: Multiple tool calls in one run
-- **WHEN** a provider requests two or more tool calls in sequence during the same run
-- **THEN** orchestration executes each call, returns results to the provider, and only finalizes the run when terminal assistant content is emitted
+#### Scenario: Multi-step tool loop
+- **WHEN** the conversation model emits more than one tool call before final reply
+- **THEN** orchestration executes each tool call and re-enters the same conversation model loop with accumulated tool results
+
+#### Scenario: Terminal assistant turn
+- **WHEN** the next conversation model turn contains no tool calls
+- **THEN** orchestration persists assistant output and finalizes the conversation run
 
 ### Requirement: Normalize provider-native failures
 The system MUST map provider-native tool-calling failures into a consistent runtime error taxonomy for API and event consumers.

@@ -3,6 +3,7 @@ import type {
   AssistantRunEnvelope,
   ChatMessageEnvelope,
   SandboxStateEnvelope,
+  ToolInvocationEnvelope,
 } from '../runtime.types';
 
 export interface CreateThreadRequest {
@@ -35,6 +36,7 @@ export interface ThreadHydrationPayload {
   messages: ChatMessageEnvelope[];
   sandboxState: SandboxStateEnvelope;
   activeRun: AssistantRunEnvelope | null;
+  activeToolInvocation: ToolInvocationEnvelope | null;
   latestEventId: string | null;
 }
 

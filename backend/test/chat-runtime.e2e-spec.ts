@@ -6,8 +6,8 @@ import { AppError, ValidationError } from './../src/common/errors/app-error';
 import { ChatRuntimeController } from './../src/chat-runtime/chat-runtime.controller';
 import { ChatRuntimeRepository } from './../src/chat-runtime/services/chat-runtime.repository';
 import { ChatToolRegistryService } from './../src/chat-runtime/tools/chat-tool-registry.service';
-import { ExperienceController } from './../src/experience/experience.controller';
 import { LlmDecisionRouterService } from './../src/llm/llm-decision-router.service';
+import { ToolLlmRouterService } from './../src/llm/tool-runtime/tool-llm-router.service';
 
 type ProviderKind = 'openai' | 'anthropic' | 'gemini';
 type QualityTier = 'fast' | 'quality';
@@ -43,6 +43,8 @@ type RunRow = {
   router_confidence: number | null;
   router_reason: string | null;
   router_fallback_reason: string | null;
+  conversation_provider: ProviderKind | null;
+  conversation_model: string | null;
   provider: ProviderKind | null;
   model: string | null;
   provider_request_raw: Record<string, unknown> | null;
@@ -62,7 +64,16 @@ type ToolInvocationRow = {
   tool_name: string;
   tool_arguments: Record<string, unknown>;
   tool_result: Record<string, unknown> | null;
-  status: 'running' | 'succeeded' | 'failed';
+  generation_id: string | null;
+  experience_id: string | null;
+  experience_version_id: string | null;
+  router_tier: QualityTier | null;
+  router_confidence: number | null;
+  router_reason: string | null;
+  router_fallback_reason: string | null;
+  selected_provider: ProviderKind | null;
+  selected_model: string | null;
+  status: 'pending' | 'running' | 'succeeded' | 'failed';
   error_code: string | null;
   error_message: string | null;
   started_at: string | null;
@@ -144,6 +155,7 @@ class InMemoryChatRuntimeRepository {
     messages: MessageRow[];
     sandboxState: SandboxStateRow;
     activeRun: RunRow | null;
+    activeToolInvocation: ToolInvocationRow | null;
   }> {
     const thread = this.findScopedThread(input.threadId, input.clientId);
 
@@ -160,11 +172,20 @@ class InMemoryChatRuntimeRepository {
       .filter((run) => run.thread_id === input.threadId && (run.status === 'queued' || run.status === 'running'))
       .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
 
+    const activeToolInvocation = [...this.toolInvocations.values()]
+      .filter(
+        (invocation) =>
+          invocation.thread_id === input.threadId &&
+          (invocation.status === 'pending' || invocation.status === 'running'),
+      )
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
+
     return {
       thread,
       messages,
       sandboxState,
       activeRun,
+      activeToolInvocation,
     };
   }
 
@@ -222,6 +243,8 @@ class InMemoryChatRuntimeRepository {
       router_confidence: null,
       router_reason: null,
       router_fallback_reason: null,
+      conversation_provider: null,
+      conversation_model: null,
       provider: null,
       model: null,
       provider_request_raw: null,
@@ -335,10 +358,18 @@ class InMemoryChatRuntimeRepository {
     };
   }
 
-  async markRunRunning(runId: string): Promise<void> {
+  async markRunRunning(
+    runId: string,
+    options?: {
+      conversationProvider?: ProviderKind;
+      conversationModel?: string;
+    },
+  ): Promise<void> {
     const run = this.getRequiredRun(runId);
     run.status = 'running';
     run.started_at = new Date().toISOString();
+    run.conversation_provider = options?.conversationProvider ?? null;
+    run.conversation_model = options?.conversationModel ?? null;
     run.error_code = null;
     run.error_message = null;
   }
@@ -405,6 +436,15 @@ class InMemoryChatRuntimeRepository {
       tool_name: input.toolName,
       tool_arguments: input.toolArguments,
       tool_result: null,
+      generation_id: null,
+      experience_id: null,
+      experience_version_id: null,
+      router_tier: null,
+      router_confidence: null,
+      router_reason: null,
+      router_fallback_reason: null,
+      selected_provider: null,
+      selected_model: null,
       status: 'running',
       error_code: null,
       error_message: null,
@@ -420,16 +460,33 @@ class InMemoryChatRuntimeRepository {
   async markToolInvocationSucceeded(input: {
     invocationId: string;
     toolResult: Record<string, unknown>;
+    generationId?: string | null;
+    experienceId?: string | null;
+    experienceVersionId?: string | null;
+    routerTier?: QualityTier | null;
+    routerConfidence?: number | null;
+    routerReason?: string | null;
+    routerFallbackReason?: string | null;
+    selectedProvider?: ProviderKind | null;
+    selectedModel?: string | null;
   }): Promise<void> {
     const invocation = this.getRequiredToolInvocation(input.invocationId);
     invocation.status = 'succeeded';
     invocation.tool_result = input.toolResult;
+    invocation.generation_id = input.generationId ?? null;
+    invocation.experience_id = input.experienceId ?? null;
+    invocation.experience_version_id = input.experienceVersionId ?? null;
+    invocation.router_tier = input.routerTier ?? null;
+    invocation.router_confidence = input.routerConfidence ?? null;
+    invocation.router_reason = input.routerReason ?? null;
+    invocation.router_fallback_reason = input.routerFallbackReason ?? null;
+    invocation.selected_provider = input.selectedProvider ?? null;
+    invocation.selected_model = input.selectedModel ?? null;
     invocation.error_code = null;
     invocation.error_message = null;
     invocation.completed_at = new Date().toISOString();
 
-    const generationId =
-      typeof input.toolResult.generationId === 'string' ? input.toolResult.generationId : null;
+    const generationId = input.generationId ?? null;
 
     if (!generationId) {
       return;
@@ -460,9 +517,23 @@ class InMemoryChatRuntimeRepository {
     invocationId: string;
     errorCode: string;
     errorMessage: string;
+    toolResult?: Record<string, unknown> | null;
+    routerTier?: QualityTier | null;
+    routerConfidence?: number | null;
+    routerReason?: string | null;
+    routerFallbackReason?: string | null;
+    selectedProvider?: ProviderKind | null;
+    selectedModel?: string | null;
   }): Promise<void> {
     const invocation = this.getRequiredToolInvocation(input.invocationId);
     invocation.status = 'failed';
+    invocation.tool_result = input.toolResult ?? null;
+    invocation.router_tier = input.routerTier ?? null;
+    invocation.router_confidence = input.routerConfidence ?? null;
+    invocation.router_reason = input.routerReason ?? null;
+    invocation.router_fallback_reason = input.routerFallbackReason ?? null;
+    invocation.selected_provider = input.selectedProvider ?? null;
+    invocation.selected_model = input.selectedModel ?? null;
     invocation.error_code = input.errorCode;
     invocation.error_message = input.errorMessage;
     invocation.completed_at = new Date().toISOString();
@@ -496,8 +567,12 @@ class InMemoryChatRuntimeRepository {
     }
 
     state.status = input.status;
-    state.experience_id = input.experienceId ?? state.experience_id;
-    state.experience_version_id = input.experienceVersionId ?? state.experience_version_id;
+    state.experience_id =
+      input.experienceId === undefined ? state.experience_id : input.experienceId;
+    state.experience_version_id =
+      input.experienceVersionId === undefined
+        ? state.experience_version_id
+        : input.experienceVersionId;
     state.last_error_code =
       input.lastErrorCode === undefined ? state.last_error_code : input.lastErrorCode;
     state.last_error_message =
@@ -570,7 +645,6 @@ function createMockToolPayload(input: {
 describe('Chat Runtime (e2e)', () => {
   let app: INestApplication;
   let chatRuntimeController: ChatRuntimeController;
-  let experienceController: ExperienceController;
   let repository: InMemoryChatRuntimeRepository;
 
   let routeDecision: {
@@ -588,23 +662,142 @@ describe('Chat Runtime (e2e)', () => {
     decideRoute: jest.fn(async () => routeDecision),
   };
 
-  const toolRegistryMock = {
-    executeGenerateExperience: jest.fn(
-      async (input: { provider?: ProviderKind; qualityMode: QualityTier }) => {
-        if (forceToolFailure) {
-          throw new AppError('PROVIDER_TIMEOUT', 'Provider timed out', 504);
+  const conversationLlmMock = {
+    runTurn: jest.fn(
+      async (input: {
+        messages: Array<{
+          role: 'system' | 'user' | 'assistant' | 'tool';
+          content: string;
+          toolName?: string;
+          toolCallId?: string;
+        }>;
+      }) => {
+        const latestToolMessage = [...input.messages]
+          .reverse()
+          .find((message) => message.role === 'tool');
+
+        if (!latestToolMessage) {
+          return {
+            provider: 'openai' as const,
+            model: 'gpt-5.4',
+            assistantText: 'Sure, building that for you now.',
+            toolCalls: [
+              {
+                id: `call_${randomUUID()}`,
+                name: 'generate_experience',
+                arguments: {
+                  operation: 'generate',
+                  prompt: 'Build a learning experience for the latest user request.',
+                },
+              },
+            ],
+            finishReason: 'tool_calls' as const,
+            rawRequest: { mocked: true },
+            rawResponse: { mocked: true },
+          };
         }
 
-        const provider = input.provider ?? 'openai';
-        const model = provider === 'openai' ? 'gpt-5-mini' : 'gemini-3.1-flash-lite-preview';
+        const parsedToolResult = JSON.parse(latestToolMessage.content) as {
+          status?: string;
+          errorMessage?: string | null;
+        };
+
+        if (parsedToolResult.status === 'failed') {
+          return {
+            provider: 'openai' as const,
+            model: 'gpt-5.4',
+            assistantText:
+              parsedToolResult.errorMessage ??
+              'I could not generate that experience. Please try again.',
+            toolCalls: [],
+            finishReason: 'stop' as const,
+            rawRequest: { mocked: true },
+            rawResponse: { mocked: true },
+          };
+        }
 
         return {
-          toolName: 'generate_experience' as const,
-          payload: createMockToolPayload({
-            generationId: randomUUID(),
-            provider,
-            model,
-          }),
+          provider: 'openai' as const,
+          model: 'gpt-5.4',
+          assistantText: 'Experience generated. Tell me what you want to refine next.',
+          toolCalls: [],
+          finishReason: 'stop' as const,
+          rawRequest: { mocked: true },
+          rawResponse: { mocked: true },
+        };
+      },
+    ),
+  };
+
+  const toolRegistryMock = {
+    getToolDefinitions: jest.fn(() => [
+      {
+        name: 'generate_experience',
+        description: 'Mock generation tool',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            operation: { type: 'string' },
+            prompt: { type: 'string' },
+          },
+        },
+      },
+    ]),
+    hasTool: jest.fn((name: string) => name === 'generate_experience'),
+    executeToolCall: jest.fn(
+      async (input: {
+        runId: string;
+        toolCallId: string;
+        arguments: Record<string, unknown>;
+      }) => {
+        const prompt =
+          typeof input.arguments.prompt === 'string' ? input.arguments.prompt : '';
+        const route = await routerMock.decideRoute({
+          requestId: input.runId,
+          prompt,
+        });
+
+        await repository.recordRunRoutingDecision({
+          runId: input.runId,
+          tier: route.tier,
+          confidence: route.confidence,
+          reason: route.reason,
+          fallbackReason: route.fallbackReason,
+          selectedProvider: route.selectedProvider,
+          selectedModel: route.selectedModel,
+        });
+
+        if (forceToolFailure) {
+          return {
+            toolName: 'generate_experience',
+            toolCallId: input.toolCallId,
+            result: {
+              status: 'failed' as const,
+              generationId: null,
+              experienceId: null,
+              experienceVersionId: null,
+              errorCode: 'PROVIDER_TIMEOUT',
+              errorMessage: 'Provider timed out',
+              sandboxStatus: 'error' as const,
+              route,
+            },
+          };
+        }
+
+        const generationId = randomUUID();
+        return {
+          toolName: 'generate_experience',
+          toolCallId: input.toolCallId,
+          result: {
+            status: 'succeeded' as const,
+            generationId,
+            experienceId: null,
+            experienceVersionId: null,
+            errorCode: null,
+            errorMessage: null,
+            sandboxStatus: 'ready' as const,
+            route,
+          },
         };
       },
     ),
@@ -614,7 +807,7 @@ describe('Chat Runtime (e2e)', () => {
     process.env.SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
     process.env.CHAT_RUNTIME_ENABLED = 'true';
-    process.env.NATIVE_TOOL_LOOP_ENABLED = 'true';
+    process.env.CONVERSATION_LOOP_ENABLED = 'true';
     process.env.ROUTER_STAGE_ENABLED = 'true';
 
     routeDecision = {
@@ -628,7 +821,10 @@ describe('Chat Runtime (e2e)', () => {
 
     forceToolFailure = false;
     routerMock.decideRoute.mockClear();
-    toolRegistryMock.executeGenerateExperience.mockClear();
+    conversationLlmMock.runTurn.mockClear();
+    toolRegistryMock.getToolDefinitions.mockClear();
+    toolRegistryMock.hasTool.mockClear();
+    toolRegistryMock.executeToolCall.mockClear();
 
     repository = new InMemoryChatRuntimeRepository();
 
@@ -641,21 +837,21 @@ describe('Chat Runtime (e2e)', () => {
       .useValue(routerMock)
       .overrideProvider(ChatToolRegistryService)
       .useValue(toolRegistryMock)
+      .overrideProvider(ToolLlmRouterService)
+      .useValue(conversationLlmMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
 
     chatRuntimeController = moduleFixture.get<ChatRuntimeController>(ChatRuntimeController);
-    experienceController = moduleFixture.get<ExperienceController>(ExperienceController);
   });
 
   afterEach(async () => {
     await app.close();
     delete process.env.CHAT_RUNTIME_ENABLED;
-    delete process.env.NATIVE_TOOL_LOOP_ENABLED;
+    delete process.env.CONVERSATION_LOOP_ENABLED;
     delete process.env.ROUTER_STAGE_ENABLED;
-    delete process.env.ENABLE_LEGACY_EXPERIENCE_API;
   });
 
   it('runs thread submit -> route -> tool execution -> sandbox update -> assistant reply', async () => {
@@ -673,7 +869,8 @@ describe('Chat Runtime (e2e)', () => {
     expect(submitResponse.data.deduplicated).toBe(false);
     expect(submitResponse.data.run?.status).toBe('succeeded');
     expect(routerMock.decideRoute).toHaveBeenCalledTimes(1);
-    expect(toolRegistryMock.executeGenerateExperience).toHaveBeenCalledTimes(1);
+    expect(toolRegistryMock.executeToolCall).toHaveBeenCalledTimes(1);
+    expect(conversationLlmMock.runTurn).toHaveBeenCalledTimes(2);
 
     const runId = submitResponse.data.run?.id;
     expect(runId).toBeTruthy();
@@ -681,11 +878,16 @@ describe('Chat Runtime (e2e)', () => {
     const invocations = repository.getToolInvocationsByRun(runId as string);
     expect(invocations).toHaveLength(1);
     expect(invocations[0].status).toBe('succeeded');
+    expect(invocations[0].generation_id).toBeTruthy();
+    expect(invocations[0].router_tier).toBe('fast');
+    expect(invocations[0].selected_provider).toBe('openai');
+    expect(invocations[0].selected_model).toBe('gpt-5-mini');
 
     const hydrationResponse = await chatRuntimeController.hydrateThread(threadId, { clientId });
-    expect(hydrationResponse.data.messages).toHaveLength(2);
+    expect(hydrationResponse.data.messages).toHaveLength(3);
     expect(hydrationResponse.data.messages[0].role).toBe('user');
     expect(hydrationResponse.data.messages[1].role).toBe('assistant');
+    expect(hydrationResponse.data.messages[2].role).toBe('assistant');
     expect(hydrationResponse.data.sandboxState.status).toBe('ready');
     expect(hydrationResponse.data.latestEventId).toBeTruthy();
 
@@ -717,11 +919,11 @@ describe('Chat Runtime (e2e)', () => {
       idempotencyKey: randomUUID(),
     });
 
-    expect(submitResponse.data.run?.status).toBe('failed');
+    expect(submitResponse.data.run?.status).toBe('succeeded');
     expect(submitResponse.data.run?.routerDecision.fallbackReason).toBe(
       'Router response missing valid tier.',
     );
-    expect(submitResponse.data.run?.error.code).toBe('PROVIDER_TIMEOUT');
+    expect(submitResponse.data.run?.error.code).toBeNull();
 
     const runId = submitResponse.data.run?.id;
     expect(runId).toBeTruthy();
@@ -730,13 +932,15 @@ describe('Chat Runtime (e2e)', () => {
     expect(invocations).toHaveLength(1);
     expect(invocations[0].status).toBe('failed');
     expect(invocations[0].error_code).toBe('PROVIDER_TIMEOUT');
+    expect(invocations[0].router_fallback_reason).toBe('Router response missing valid tier.');
+    expect(invocations[0].selected_provider).toBe('gemini');
 
     const hydrationResponse = await chatRuntimeController.hydrateThread(threadId, { clientId });
     expect(hydrationResponse.data.sandboxState.status).toBe('error');
     expect(hydrationResponse.data.sandboxState.lastErrorCode).toBe('PROVIDER_TIMEOUT');
-    expect(hydrationResponse.data.messages).toHaveLength(2);
-    expect(hydrationResponse.data.messages[1].role).toBe('assistant');
-    expect(hydrationResponse.data.messages[1].content).toContain('could not create the experience');
+    expect(hydrationResponse.data.messages).toHaveLength(3);
+    expect(hydrationResponse.data.messages[2].role).toBe('assistant');
+    expect(hydrationResponse.data.messages[2].content).toContain('Provider timed out');
   });
 
   it('enforces idempotent submit semantics and keeps hydration stable for reconnect', async () => {
@@ -767,23 +971,13 @@ describe('Chat Runtime (e2e)', () => {
     const firstHydration = await chatRuntimeController.hydrateThread(threadId, { clientId });
     const secondHydration = await chatRuntimeController.hydrateThread(threadId, { clientId });
 
-    expect(firstHydration.data.messages).toHaveLength(2);
-    expect(secondHydration.data.messages).toHaveLength(2);
+    expect(firstHydration.data.messages).toHaveLength(3);
+    expect(secondHydration.data.messages).toHaveLength(3);
     expect(secondHydration.data.messages[0].id).toBe(firstHydration.data.messages[0].id);
     expect(secondHydration.data.messages[1].id).toBe(firstHydration.data.messages[1].id);
+    expect(secondHydration.data.messages[2].id).toBe(firstHydration.data.messages[2].id);
     expect(firstHydration.data.latestEventId).toBeTruthy();
     expect(secondHydration.data.latestEventId).toBe(firstHydration.data.latestEventId);
     expect(secondHydration.data.sandboxState.status).toBe('ready');
-  });
-
-  it('rejects legacy generate API when compatibility flag is disabled', async () => {
-    process.env.ENABLE_LEGACY_EXPERIENCE_API = 'false';
-
-    await expect(
-      experienceController.generate({
-        clientId: 'legacy-client',
-        prompt: 'Teach me photosynthesis',
-      }),
-    ).rejects.toBeInstanceOf(ValidationError);
   });
 });

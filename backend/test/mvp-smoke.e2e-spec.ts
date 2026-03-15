@@ -1,14 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'node:crypto';
-import { ExperienceController } from './../src/experience/experience.controller';
+import { ExperienceOrchestratorService } from './../src/experience/services/experience-orchestrator.service';
 import { LlmRouterService, type RoutedGenerationRequest } from './../src/llm/llm-router.service';
 import { SUPABASE_CLIENT } from './../src/supabase/supabase.constants';
 import { AppModule } from './../src/app.module';
 
 describe('MVP Smoke Flow (e2e)', () => {
   let app: INestApplication;
-  let experienceController: ExperienceController;
+  let orchestrator: ExperienceOrchestratorService;
 
   beforeEach(async () => {
     process.env.SUPABASE_URL = 'https://example.supabase.co';
@@ -37,7 +37,7 @@ describe('MVP Smoke Flow (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
-    experienceController = moduleFixture.get<ExperienceController>(ExperienceController);
+    orchestrator = moduleFixture.get<ExperienceOrchestratorService>(ExperienceOrchestratorService);
   });
 
   afterEach(async () => {
@@ -45,7 +45,7 @@ describe('MVP Smoke Flow (e2e)', () => {
   });
 
   it('prompt -> generate -> refine should succeed', async () => {
-    const generateResponse = await experienceController.generate({
+    const generateResponse = await orchestrator.generate({
       clientId: 'test-client',
       prompt: 'Teach me about photosynthesis with a mini quiz.',
       format: 'quiz',
@@ -53,21 +53,19 @@ describe('MVP Smoke Flow (e2e)', () => {
       qualityMode: 'fast',
     });
 
-    expect(generateResponse.ok).toBe(true);
-    expect(generateResponse.data.experience.title).toBeTruthy();
+    expect(generateResponse.experience.title).toBeTruthy();
 
-    const refineResponse = await experienceController.refine({
+    const refineResponse = await orchestrator.refine({
       clientId: 'test-client',
       originalPrompt: 'Teach me about photosynthesis with a mini quiz.',
-      priorGenerationId: generateResponse.data.metadata.generationId,
+      priorGenerationId: generateResponse.metadata.generationId,
       refinementInstruction: 'Make it easier for younger students.',
-      priorExperience: generateResponse.data.experience,
+      priorExperience: generateResponse.experience,
       qualityMode: 'quality',
     });
 
-    expect(refineResponse.ok).toBe(true);
-    expect(refineResponse.data.experience.html).toBeTruthy();
-    expect(refineResponse.data.metadata.renderingContract).toEqual({
+    expect(refineResponse.experience.html).toBeTruthy();
+    expect(refineResponse.metadata.renderingContract).toEqual({
       iframeOnly: true,
       sandbox: 'allow-scripts',
       networkAccess: 'disallowed',

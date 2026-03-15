@@ -11,6 +11,7 @@ import type {
 } from '../tool-runtime.types';
 
 interface OpenAiNativeResponse {
+  id?: string;
   status?: string;
   output_text?: string;
   incomplete_details?: {
@@ -63,6 +64,14 @@ export class OpenAiNativeToolAdapter implements NativeToolAdapter {
       assistantText: parsed.assistantText,
       toolCalls: parsed.toolCalls,
       finishReason: parsed.finishReason,
+      providerContinuation:
+        typeof payload.id === 'string' && payload.id.trim().length > 0
+          ? {
+              openai: {
+                previousResponseId: payload.id,
+              },
+            }
+          : undefined,
       rawRequest: body,
       rawResponse: payload as Record<string, unknown>,
     };
@@ -70,14 +79,13 @@ export class OpenAiNativeToolAdapter implements NativeToolAdapter {
 }
 
 export function buildOpenAiToolRequest(request: CanonicalToolTurnRequest): Record<string, unknown> {
-  return {
+  const continuationResponseId =
+    request.providerContinuation?.openai?.previousResponseId?.trim() ?? '';
+
+  const body: Record<string, unknown> = {
     model: request.model,
     temperature: request.temperature,
     max_output_tokens: request.maxTokens,
-    input: request.messages.map((message) => ({
-      role: message.role,
-      content: message.content,
-    })),
     tools: request.tools.map((tool) => ({
       type: 'function',
       name: tool.name,
@@ -85,6 +93,26 @@ export function buildOpenAiToolRequest(request: CanonicalToolTurnRequest): Recor
       parameters: tool.inputSchema,
     })),
   };
+
+  if (continuationResponseId.length > 0) {
+    const toolOutputs = extractTrailingToolMessages(request.messages);
+    body.previous_response_id = continuationResponseId;
+    body.input = toolOutputs.map((message) => ({
+      type: 'function_call_output',
+      call_id: message.toolCallId ?? randomId(),
+      output: message.content,
+    }));
+    return body;
+  }
+
+  body.input = request.messages
+    .filter((message) => message.role !== 'tool')
+    .map((message) => ({
+      role: message.role,
+      content: message.content,
+    }));
+
+  return body;
 }
 
 export function parseOpenAiToolResponse(payload: OpenAiNativeResponse): {
@@ -147,4 +175,17 @@ function parseJsonObject(value: string | undefined): Record<string, unknown> {
 
 function randomId(): string {
   return `openai_tool_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function extractTrailingToolMessages(messages: CanonicalToolTurnRequest['messages']) {
+  const trailing: CanonicalToolTurnRequest['messages'] = [];
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role !== 'tool') {
+      break;
+    }
+    trailing.push(message);
+  }
+
+  return trailing.reverse();
 }

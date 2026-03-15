@@ -15,25 +15,29 @@ The system SHALL persist a sandbox state record per thread that captures preview
 - **THEN** sandbox state transitions to `ready` and points to the latest persisted artifact version for that thread
 
 ### Requirement: Reflect generation lifecycle in sandbox state
-The system MUST update sandbox status transitions in sync with run/tool execution lifecycle.
+The system MUST update sandbox status transitions in sync with generation execution lifecycle initiated from conversation tool invocations.
 
-#### Scenario: Tool execution starts
-- **WHEN** generate/refine tool invocation enters `running`
+#### Scenario: Generation tool execution starts
+- **WHEN** a `generate_experience` invocation enters running state
 - **THEN** sandbox state transitions to `creating`
 
-#### Scenario: Tool execution fails
-- **WHEN** generate/refine tool invocation fails
-- **THEN** sandbox state transitions to `error` and includes failure metadata suitable for UI display
+#### Scenario: Generation tool execution succeeds
+- **WHEN** a `generate_experience` invocation succeeds
+- **THEN** sandbox state transitions to `ready` and references the latest persisted artifact/version for the thread
+
+#### Scenario: Generation tool execution fails
+- **WHEN** a `generate_experience` invocation fails
+- **THEN** sandbox state transitions to `error` and includes normalized failure metadata suitable for UI display
 
 ### Requirement: Emit sandbox update events for frontend synchronization
-The system SHALL emit canonical `sandbox_updated` events whenever sandbox state changes.
+The system SHALL emit canonical `sandbox_updated` events whenever sandbox state changes, with correlation fields that allow frontend reducers to reconcile conversation and generation progress.
 
 #### Scenario: Ready state event emitted
-- **WHEN** sandbox state transitions to `ready`
-- **THEN** event stream emits `sandbox_updated` containing new status and artifact/version identifiers
+- **WHEN** sandbox transitions to `ready`
+- **THEN** event stream emits `sandbox_updated` with status and artifact/version identifiers
 
 #### Scenario: Error state event emitted
-- **WHEN** sandbox state transitions to `error`
+- **WHEN** sandbox transitions to `error`
 - **THEN** event stream emits `sandbox_updated` with normalized error information
 
 ### Requirement: Provide snapshot retrieval for reconnect and refresh

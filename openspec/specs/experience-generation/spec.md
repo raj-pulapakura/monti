@@ -4,19 +4,15 @@
 TBD - created by archiving change mvp-generative-learning-loop. Update Purpose after archive.
 ## Requirements
 ### Requirement: Generate interactive learning experience from prompt
-The system SHALL accept generation intent from chat context and tool arguments, return a structured experience payload with non-empty `title`, `description`, `html`, `css`, and `js` fields, and persist the successful result as a versioned experience artifact.
+The system SHALL accept generation intent from `generate_experience` tool arguments and relevant conversation context, return a structured payload with non-empty `title`, `description`, `html`, `css`, and `js`, and persist the successful result as a versioned artifact.
 
-#### Scenario: Successful generation with format and audience
-- **WHEN** an assistant run invokes the generation tool with prompt intent and `format=quiz` and `audience=elementary`
-- **THEN** the tool returns a successful payload containing `title`, `description`, `html`, `css`, and `js`
-
-#### Scenario: Successful generation with prompt only
-- **WHEN** an assistant run invokes the generation tool with prompt intent and no optional selectors
-- **THEN** the tool returns a successful payload containing `title`, `description`, `html`, `css`, and `js`
+#### Scenario: Successful generation from tool invocation
+- **WHEN** the conversation loop invokes `generate_experience` with prompt intent and optional selectors
+- **THEN** the generation engine returns a successful payload containing `title`, `description`, `html`, `css`, and `js`
 
 #### Scenario: Successful generation persists artifact
-- **WHEN** generation tool execution completes successfully and output is returned to the assistant run
-- **THEN** the system stores the generated artifact and generation metadata in persistence storage
+- **WHEN** generation completes successfully in the tool executor path
+- **THEN** the system stores the generated artifact and generation metadata in persistence storage and returns a structured success tool result
 
 ### Requirement: Enforce structured output validation
 The system MUST validate generated output shape and reject responses that are not valid structured payloads.
@@ -30,13 +26,13 @@ The system MUST validate generated output shape and reject responses that are no
 - **THEN** the system marks the tool invocation as failed and returns validation error metadata
 
 ### Requirement: Normalize provider failures for clients
-The system MUST map provider-specific errors into a consistent API and runtime event error format.
+The system MUST map provider-specific generation failures into a consistent tool result error format consumable by conversation orchestration, API responses, and event streams.
 
 #### Scenario: Upstream provider timeout
-- **WHEN** the selected LLM provider times out during generation tool execution
-- **THEN** the system records and emits a normalized timeout error with retry guidance
+- **WHEN** the selected provider times out during generation tool execution
+- **THEN** the tool executor returns normalized timeout metadata and avoids partial executable payload fields
 
 #### Scenario: Upstream provider refusal
-- **WHEN** the selected LLM provider refuses the generation request
-- **THEN** the system records and emits a normalized refusal error without executable payload fields
+- **WHEN** the selected provider refuses the generation request
+- **THEN** the tool executor returns normalized refusal metadata and avoids partial executable payload fields
 

@@ -2,6 +2,19 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { getOrCreateClientId } from '@/lib/client-id.js';
+import {
+  getRetryComposerValue,
+  getStatusLabel,
+  INITIAL_RUNTIME_STATE,
+  reconcileHydrationState,
+  reduceRuntimeEvent,
+  type AssistantRun,
+  type ChatMessage,
+  type RuntimeEventData,
+  type RuntimeState,
+  type SandboxState,
+  type ToolInvocation,
+} from './runtime-state';
 
 type AudienceLevel = 'young-kids' | 'elementary' | 'middle-school';
 type ExperienceFormat = 'quiz' | 'game' | 'explainer';
@@ -15,52 +28,6 @@ type ThreadEnvelope = {
   updatedAt: string;
 };
 
-type ChatMessageRole = 'user' | 'assistant' | 'tool' | 'system';
-
-type ChatMessage = {
-  id: string;
-  threadId: string;
-  clientId: string;
-  role: ChatMessageRole;
-  content: string;
-  contentJson: Record<string, unknown> | null;
-  idempotencyKey: string | null;
-  createdAt: string;
-};
-
-type AssistantRun = {
-  id: string;
-  threadId: string;
-  userMessageId: string;
-  assistantMessageId: string | null;
-  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
-  routerDecision: {
-    tier: 'fast' | 'quality' | null;
-    confidence: number | null;
-    reason: string | null;
-    fallbackReason: string | null;
-  };
-  selectedProvider: 'openai' | 'anthropic' | 'gemini' | null;
-  selectedModel: string | null;
-  error: {
-    code: string | null;
-    message: string | null;
-  };
-  startedAt: string | null;
-  completedAt: string | null;
-  createdAt: string;
-};
-
-type SandboxState = {
-  threadId: string;
-  status: 'empty' | 'creating' | 'ready' | 'error';
-  experienceId: string | null;
-  experienceVersionId: string | null;
-  lastErrorCode: string | null;
-  lastErrorMessage: string | null;
-  updatedAt: string;
-};
-
 type ExperiencePayload = {
   title: string;
   description: string;
@@ -68,13 +35,6 @@ type ExperiencePayload = {
   css: string;
   js: string;
   generationId: string;
-};
-
-type RuntimeState = {
-  messages: ChatMessage[];
-  activeRun: AssistantRun | null;
-  sandboxState: SandboxState | null;
-  latestEventId: string | null;
 };
 
 type ThreadCreateResponse = {
@@ -92,6 +52,7 @@ type ThreadHydrationResponse = {
     messages: ChatMessage[];
     sandboxState: SandboxState;
     activeRun: AssistantRun | null;
+    activeToolInvocation: ToolInvocation | null;
     latestEventId: string | null;
   };
 };
@@ -123,31 +84,8 @@ type ErrorResponse = {
   };
 };
 
-type RuntimeEventData = {
-  threadId: string;
-  runId: string | null;
-  type:
-    | 'run_started'
-    | 'tool_started'
-    | 'tool_succeeded'
-    | 'tool_failed'
-    | 'assistant_message_created'
-    | 'sandbox_updated'
-    | 'run_failed'
-    | 'run_completed';
-  payload: Record<string, unknown>;
-  createdAt: string;
-};
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
 const ACTIVE_THREAD_STORAGE_KEY = 'monti_active_thread_id_v1';
-
-const INITIAL_RUNTIME_STATE: RuntimeState = {
-  messages: [],
-  activeRun: null,
-  sandboxState: null,
-  latestEventId: null,
-};
 
 export default function Home() {
   const [clientId, setClientId] = useState('');
@@ -255,10 +193,11 @@ export default function Home() {
 </html>`;
   }, [activeExperience]);
 
-  const statusLabel = getStatusLabel(runtimeState.activeRun, runtimeState.sandboxState);
-  const lastUserMessage = [...runtimeState.messages]
-    .reverse()
-    .find((message) => message.role === 'user');
+  const statusLabel = getStatusLabel(
+    runtimeState.activeRun,
+    runtimeState.activeToolInvocation,
+    runtimeState.sandboxState,
+  );
 
   async function bootstrapThread() {
     const nextClientId = getOrCreateClientId();
@@ -278,6 +217,7 @@ export default function Home() {
     setRuntimeState({
       messages: hydrated.messages,
       activeRun: hydrated.activeRun,
+      activeToolInvocation: hydrated.activeToolInvocation,
       sandboxState: hydrated.sandboxState,
       latestEventId: hydrated.latestEventId,
     });
@@ -299,13 +239,7 @@ export default function Home() {
     const hydrated = await fetchThreadHydration(threadId, nextClientId);
 
     setThread(hydrated.thread);
-    setRuntimeState((previous) => ({
-      ...previous,
-      messages: hydrated.messages,
-      activeRun: hydrated.activeRun,
-      sandboxState: hydrated.sandboxState,
-      latestEventId: hydrated.latestEventId ?? previous.latestEventId,
-    }));
+    setRuntimeState((previous) => reconcileHydrationState(previous, hydrated));
   }
 
   async function refreshSandboxPreview(threadId: string, nextClientId: string) {
@@ -365,6 +299,7 @@ export default function Home() {
       setRuntimeState((previous) => ({
         ...previous,
         activeRun: response.data.run,
+        activeToolInvocation: null,
       }));
 
       await Promise.all([
@@ -460,11 +395,15 @@ export default function Home() {
             </button>
           </form>
 
-          {runtimeState.activeRun?.status === 'failed' && lastUserMessage ? (
+          {getRetryComposerValue(runtimeState.activeRun, runtimeState.messages) ? (
             <button
               type="button"
               className="retry-button"
-              onClick={() => setComposerText(lastUserMessage.content)}
+              onClick={() =>
+                setComposerText(
+                  getRetryComposerValue(runtimeState.activeRun, runtimeState.messages) ?? '',
+                )
+              }
             >
               Retry last request
             </button>
@@ -501,100 +440,12 @@ export default function Home() {
   );
 }
 
-function reduceRuntimeEvent(
-  previous: RuntimeState,
-  event: RuntimeEventData,
-  latestEventId: string | null,
-): RuntimeState {
-  const next: RuntimeState = {
-    ...previous,
-    latestEventId: latestEventId ?? previous.latestEventId,
-  };
-
-  if (event.type === 'run_started' && next.activeRun) {
-    next.activeRun = {
-      ...next.activeRun,
-      status: 'running',
-    };
-  }
-
-  if (event.type === 'run_completed' && next.activeRun) {
-    next.activeRun = {
-      ...next.activeRun,
-      status: 'succeeded',
-    };
-  }
-
-  if (event.type === 'run_failed' && next.activeRun) {
-    const errorCode =
-      typeof event.payload.errorCode === 'string' ? event.payload.errorCode : next.activeRun.error.code;
-    const errorMessage =
-      typeof event.payload.errorMessage === 'string'
-        ? event.payload.errorMessage
-        : next.activeRun.error.message;
-
-    next.activeRun = {
-      ...next.activeRun,
-      status: 'failed',
-      error: {
-        code: errorCode,
-        message: errorMessage,
-      },
-    };
-  }
-
-  if (event.type === 'sandbox_updated' && next.sandboxState) {
-    const incomingStatus = event.payload.status;
-    if (
-      incomingStatus === 'empty' ||
-      incomingStatus === 'creating' ||
-      incomingStatus === 'ready' ||
-      incomingStatus === 'error'
-    ) {
-      next.sandboxState = {
-        ...next.sandboxState,
-        status: incomingStatus,
-        lastErrorCode:
-          typeof event.payload.errorCode === 'string'
-            ? event.payload.errorCode
-            : next.sandboxState.lastErrorCode,
-        lastErrorMessage:
-          typeof event.payload.errorMessage === 'string'
-            ? event.payload.errorMessage
-            : next.sandboxState.lastErrorMessage,
-      };
-    }
-  }
-
-  return next;
-}
-
 function buildPromptWithContext(
   prompt: string,
-  format: ExperienceFormat,
-  audience: AudienceLevel,
+  _format: ExperienceFormat,
+  _audience: AudienceLevel,
 ): string {
-  return `Format: ${format}. Audience: ${audience}. Request: ${prompt}`;
-}
-
-function getStatusLabel(run: AssistantRun | null, sandbox: SandboxState | null): string | null {
-  if (!run && !sandbox) {
-    return null;
-  }
-
-  if (sandbox?.status === 'creating' || run?.status === 'queued' || run?.status === 'running') {
-    return 'Creating experience';
-  }
-
-  if (sandbox?.status === 'error' || run?.status === 'failed') {
-    return 'Experience failed';
-  }
-
-  if (sandbox?.status === 'ready' || run?.status === 'succeeded') {
-    return 'Experience created';
-  }
-
-  return null;
+  return prompt;
 }
 
 function createIdempotencyKey(): string {

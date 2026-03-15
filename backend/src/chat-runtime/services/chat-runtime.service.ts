@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AppError, ValidationError } from '../../common/errors/app-error';
-import { LlmDecisionRouterService } from '../../llm/llm-decision-router.service';
+import { ValidationError } from '../../common/errors/app-error';
 import type {
   CreateThreadRequest,
   HydrateThreadRequest,
@@ -13,10 +12,11 @@ import type {
   AssistantRunEnvelope,
   ChatMessageEnvelope,
   SandboxStateEnvelope,
+  ToolInvocationEnvelope,
 } from '../runtime.types';
 import { ChatRuntimeRepository } from './chat-runtime.repository';
 import { ChatRuntimeEventService } from './chat-runtime-event.service';
-import { ChatToolRegistryService } from '../tools/chat-tool-registry.service';
+import { ConversationLoopService } from './conversation-loop.service';
 
 @Injectable()
 export class ChatRuntimeService {
@@ -24,9 +24,8 @@ export class ChatRuntimeService {
 
   constructor(
     private readonly repository: ChatRuntimeRepository,
-    private readonly decisionRouter: LlmDecisionRouterService,
-    private readonly toolRegistry: ChatToolRegistryService,
     private readonly events: ChatRuntimeEventService,
+    private readonly conversationLoop: ConversationLoopService,
   ) {}
 
   async createThread(request: CreateThreadRequest): Promise<{
@@ -51,6 +50,9 @@ export class ChatRuntimeService {
       messages: result.messages.map(mapMessage),
       sandboxState: mapSandboxState(result.sandboxState),
       activeRun: result.activeRun ? mapRun(result.activeRun) : null,
+      activeToolInvocation: result.activeToolInvocation
+        ? mapToolInvocation(result.activeToolInvocation)
+        : null,
       latestEventId: this.events.latestEventId(request.threadId),
     };
   }
@@ -91,276 +93,21 @@ export class ChatRuntimeService {
     });
 
     let run = result.run;
-    if (run && run.router_tier === null) {
-      const routing = await this.decisionRouter.decideRoute({
-        requestId: run.id,
-        prompt: result.message.content,
+    if (run && run.status === 'queued' && isConversationLoopEnabled()) {
+      const executedRun = await this.conversationLoop.executeTurn({
+        threadId: input.threadId,
+        clientId: input.request.clientId,
+        userMessage: result.message,
+        run,
       });
-
-      await this.repository.recordRunRoutingDecision({
-        runId: run.id,
-        tier: routing.tier,
-        confidence: routing.confidence,
-        reason: routing.reason,
-        fallbackReason: routing.fallbackReason,
-        selectedProvider: routing.selectedProvider,
-        selectedModel: routing.selectedModel,
-      });
-
-      const refreshedRun = await this.repository.getRunById(run.id);
-      if (refreshedRun) {
-        run = refreshedRun;
-      }
-
+      run = executedRun;
       this.logger.log(
         JSON.stringify({
-          event: 'chat_runtime_route_selected',
-          runId: run.id,
-          tier: routing.tier,
-          selectedProvider: routing.selectedProvider,
-          selectedModel: routing.selectedModel,
-          confidence: routing.confidence,
-          fallbackReason: routing.fallbackReason,
+          event: 'chat_runtime_conversation_turn_completed',
+          runId: executedRun.id,
+          terminalStatus: executedRun.status,
         }),
       );
-    }
-
-    if (run && run.status === 'queued' && run.router_tier && run.provider && isNativeToolLoopEnabled()) {
-      const runStartedAt = Date.now();
-      await this.repository.markRunRunning(run.id);
-      this.events.publish({
-        threadId: input.threadId,
-        runId: run.id,
-        type: 'run_started',
-        payload: {
-          runId: run.id,
-          provider: run.provider,
-          tier: run.router_tier,
-        },
-      });
-      await this.repository.updateSandboxState({
-        threadId: input.threadId,
-        status: 'creating',
-      });
-      this.events.publish({
-        threadId: input.threadId,
-        runId: run.id,
-        type: 'sandbox_updated',
-        payload: {
-          status: 'creating',
-        },
-      });
-
-      const invocation = await this.repository.createToolInvocation({
-        threadId: input.threadId,
-        runId: run.id,
-        providerToolCallId: `${run.provider}:${run.id}:generate_experience`,
-        toolName: 'generate_experience',
-        toolArguments: {
-          operation: 'generate',
-          prompt: result.message.content,
-          tier: run.router_tier,
-          provider: run.provider,
-        },
-      });
-      this.events.publish({
-        threadId: input.threadId,
-        runId: run.id,
-        type: 'tool_started',
-        payload: {
-          invocationId: invocation.id,
-          toolName: invocation.tool_name,
-        },
-      });
-
-      try {
-        const toolStartedAt = Date.now();
-        const execution = await this.toolRegistry.executeGenerateExperience({
-          operation: 'generate',
-          clientId: input.request.clientId,
-          prompt: result.message.content,
-          qualityMode: run.router_tier,
-          provider: run.provider,
-        });
-
-        await this.repository.markToolInvocationSucceeded({
-          invocationId: invocation.id,
-          toolResult: {
-            generationId: execution.payload.metadata.generationId,
-            provider: execution.payload.metadata.provider,
-            model: execution.payload.metadata.model,
-            title: execution.payload.experience.title,
-          },
-        });
-        this.events.publish({
-          threadId: input.threadId,
-          runId: run.id,
-          type: 'tool_succeeded',
-          payload: {
-            invocationId: invocation.id,
-            generationId: execution.payload.metadata.generationId,
-          },
-        });
-
-        const versionRef = await this.repository.findExperienceVersionByGenerationId(
-          execution.payload.metadata.generationId,
-        );
-
-        await this.repository.updateSandboxState({
-          threadId: input.threadId,
-          status: 'ready',
-          experienceId: versionRef?.experienceId ?? null,
-          experienceVersionId: versionRef?.versionId ?? null,
-          lastErrorCode: null,
-          lastErrorMessage: null,
-        });
-        this.events.publish({
-          threadId: input.threadId,
-          runId: run.id,
-          type: 'sandbox_updated',
-          payload: {
-            status: 'ready',
-            experienceId: versionRef?.experienceId ?? null,
-            experienceVersionId: versionRef?.versionId ?? null,
-          },
-        });
-
-        const assistantMessage = await this.repository.createAssistantMessage({
-          threadId: input.threadId,
-          clientId: input.request.clientId,
-          content:
-            'Experience created. Open the sandbox preview and reply with refinement instructions when ready.',
-          contentJson: {
-            tool: execution.toolName,
-            generationId: execution.payload.metadata.generationId,
-            provider: execution.payload.metadata.provider,
-            model: execution.payload.metadata.model,
-          },
-        });
-        this.events.publish({
-          threadId: input.threadId,
-          runId: run.id,
-          type: 'assistant_message_created',
-          payload: {
-            messageId: assistantMessage.id,
-          },
-        });
-
-        await this.repository.markRunSucceeded({
-          runId: run.id,
-          assistantMessageId: assistantMessage.id,
-        });
-        this.logger.log(
-          JSON.stringify({
-            event: 'chat_runtime_tool_succeeded',
-            runId: run.id,
-            toolName: execution.toolName,
-            generationId: execution.payload.metadata.generationId,
-            provider: execution.payload.metadata.provider,
-            model: execution.payload.metadata.model,
-            durationMs: Date.now() - toolStartedAt,
-            runDurationMs: Date.now() - runStartedAt,
-            terminalStatus: 'succeeded',
-          }),
-        );
-        this.events.publish({
-          threadId: input.threadId,
-          runId: run.id,
-          type: 'run_completed',
-          payload: {
-            runId: run.id,
-          },
-        });
-      } catch (error) {
-        const errorCode = toErrorCode(error);
-        const errorMessage = toErrorMessage(error);
-
-        await this.repository.markToolInvocationFailed({
-          invocationId: invocation.id,
-          errorCode,
-          errorMessage,
-        });
-        this.events.publish({
-          threadId: input.threadId,
-          runId: run.id,
-          type: 'tool_failed',
-          payload: {
-            invocationId: invocation.id,
-            errorCode,
-            errorMessage,
-          },
-        });
-
-        await this.repository.updateSandboxState({
-          threadId: input.threadId,
-          status: 'error',
-          lastErrorCode: errorCode,
-          lastErrorMessage: errorMessage,
-        });
-        this.events.publish({
-          threadId: input.threadId,
-          runId: run.id,
-          type: 'sandbox_updated',
-          payload: {
-            status: 'error',
-            errorCode,
-            errorMessage,
-          },
-        });
-
-        const assistantErrorMessage = await this.repository.createAssistantMessage({
-          threadId: input.threadId,
-          clientId: input.request.clientId,
-          content:
-            'I could not create the experience for this request. Please revise the prompt and try again.',
-          contentJson: {
-            errorCode,
-            errorMessage,
-            tool: 'generate_experience',
-          },
-        });
-        this.events.publish({
-          threadId: input.threadId,
-          runId: run.id,
-          type: 'assistant_message_created',
-          payload: {
-            messageId: assistantErrorMessage.id,
-          },
-        });
-
-        await this.repository.markRunFailed({
-          runId: run.id,
-          errorCode,
-          errorMessage,
-          assistantMessageId: assistantErrorMessage.id,
-        });
-        this.logger.error(
-          JSON.stringify({
-            event: 'chat_runtime_tool_failed',
-            runId: run.id,
-            invocationId: invocation.id,
-            errorCode,
-            errorMessage,
-            runDurationMs: Date.now() - runStartedAt,
-            terminalStatus: 'failed',
-          }),
-        );
-        this.events.publish({
-          threadId: input.threadId,
-          runId: run.id,
-          type: 'run_failed',
-          payload: {
-            runId: run.id,
-            errorCode,
-            errorMessage,
-          },
-        });
-      }
-
-      const refreshedRun = await this.repository.getRunById(run.id);
-      if (refreshedRun) {
-        run = refreshedRun;
-      }
     }
 
     return {
@@ -431,6 +178,8 @@ function mapRun(row: {
   router_confidence: number | null;
   router_reason: string | null;
   router_fallback_reason: string | null;
+  conversation_provider: 'openai' | 'anthropic' | 'gemini' | null;
+  conversation_model: string | null;
   provider: 'openai' | 'anthropic' | 'gemini' | null;
   model: string | null;
   error_code: string | null;
@@ -451,8 +200,52 @@ function mapRun(row: {
       reason: row.router_reason,
       fallbackReason: row.router_fallback_reason,
     },
+    conversationModel: {
+      provider: row.conversation_provider,
+      model: row.conversation_model,
+    },
     selectedProvider: row.provider,
     selectedModel: row.model,
+    error: {
+      code: row.error_code,
+      message: row.error_message,
+    },
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    createdAt: row.created_at,
+  };
+}
+
+function mapToolInvocation(row: {
+  id: string;
+  thread_id: string;
+  run_id: string;
+  provider_tool_call_id: string | null;
+  tool_name: string;
+  tool_arguments: Record<string, unknown>;
+  tool_result: Record<string, unknown> | null;
+  generation_id: string | null;
+  experience_id: string | null;
+  experience_version_id: string | null;
+  status: 'pending' | 'running' | 'succeeded' | 'failed';
+  error_code: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}): ToolInvocationEnvelope {
+  return {
+    id: row.id,
+    threadId: row.thread_id,
+    runId: row.run_id,
+    providerToolCallId: row.provider_tool_call_id,
+    toolName: row.tool_name,
+    toolArguments: row.tool_arguments,
+    toolResult: row.tool_result,
+    generationId: row.generation_id,
+    experienceId: row.experience_id,
+    experienceVersionId: row.experience_version_id,
+    status: row.status,
     error: {
       code: row.error_code,
       message: row.error_message,
@@ -483,26 +276,6 @@ function mapSandboxState(row: {
   };
 }
 
-function toErrorCode(error: unknown): string {
-  if (error instanceof AppError) {
-    return error.code;
-  }
-
-  if (error instanceof Error) {
-    return error.name || 'ERROR';
-  }
-
-  return 'UNKNOWN_ERROR';
-}
-
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return 'An unexpected error occurred during tool execution.';
-}
-
 function assertChatRuntimeEnabled(): void {
   const flag = process.env.CHAT_RUNTIME_ENABLED?.trim().toLowerCase();
   if (flag === 'false' || flag === '0' || flag === 'off') {
@@ -510,7 +283,7 @@ function assertChatRuntimeEnabled(): void {
   }
 }
 
-function isNativeToolLoopEnabled(): boolean {
-  const flag = process.env.NATIVE_TOOL_LOOP_ENABLED?.trim().toLowerCase();
+function isConversationLoopEnabled(): boolean {
+  const flag = process.env.CONVERSATION_LOOP_ENABLED?.trim().toLowerCase();
   return !(flag === 'false' || flag === '0' || flag === 'off');
 }

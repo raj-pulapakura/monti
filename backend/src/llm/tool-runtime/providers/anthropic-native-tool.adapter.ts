@@ -59,6 +59,18 @@ export class AnthropicNativeToolAdapter implements NativeToolAdapter {
       assistantText: parsed.assistantText,
       toolCalls: parsed.toolCalls,
       finishReason: parsed.finishReason,
+      providerContinuation:
+        parsed.toolCalls.length > 0
+          ? {
+              anthropic: {
+                pendingToolCalls: parsed.toolCalls.map((toolCall) => ({
+                  id: toolCall.id,
+                  name: toolCall.name,
+                  arguments: toolCall.arguments,
+                })),
+              },
+            }
+          : undefined,
       rawRequest: body,
       rawResponse: payload as Record<string, unknown>,
     };
@@ -72,12 +84,35 @@ export function buildAnthropicToolRequest(request: CanonicalToolTurnRequest): Re
     .join('\n\n')
     .trim();
 
-  const messages = request.messages
-    .filter((message) => message.role !== 'system')
+  const pendingToolCalls = request.providerContinuation?.anthropic?.pendingToolCalls ?? [];
+  const toolResults = extractTrailingToolMessages(request.messages);
+
+  const messages: Array<Record<string, unknown>> = request.messages
+    .filter((message) => message.role !== 'system' && message.role !== 'tool')
     .map((message) => ({
-      role: message.role === 'tool' ? 'assistant' : message.role,
+      role: message.role,
       content: message.content,
     }));
+
+  if (pendingToolCalls.length > 0 && toolResults.length > 0) {
+    messages.push({
+      role: 'assistant',
+      content: pendingToolCalls.map((toolCall) => ({
+        type: 'tool_use',
+        id: toolCall.id,
+        name: toolCall.name,
+        input: toolCall.arguments,
+      })),
+    });
+    messages.push({
+      role: 'user',
+      content: toolResults.map((toolResult, index) => ({
+        type: 'tool_result',
+        tool_use_id: toolResult.toolCallId ?? pendingToolCalls[index]?.id ?? randomId(),
+        content: toolResult.content,
+      })),
+    });
+  }
 
   return {
     model: request.model,
@@ -132,4 +167,17 @@ export function parseAnthropicToolResponse(payload: AnthropicNativeResponse): {
 
 function randomId(): string {
   return `anthropic_tool_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function extractTrailingToolMessages(messages: CanonicalToolTurnRequest['messages']) {
+  const trailing: CanonicalToolTurnRequest['messages'] = [];
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role !== 'tool') {
+      break;
+    }
+    trailing.push(message);
+  }
+
+  return trailing.reverse();
 }

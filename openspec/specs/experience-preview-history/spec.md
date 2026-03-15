@@ -15,15 +15,19 @@ The client MUST render generated `html`/`css`/`js` output exclusively inside a s
 - **THEN** it does not inject generated markup directly into the host application DOM
 
 ### Requirement: Provide loading and failure states during generation and refinement
-The client SHALL display explicit lifecycle status while assistant runs and tool invocations are in-flight, and clear error messaging when run/tool execution fails.
+The client SHALL display explicit lifecycle status while conversation and generation tool execution are in-flight, and show model-authored assistant messaging for success/failure outcomes.
 
 #### Scenario: Loading state during generation
-- **WHEN** a run starts and generation/refinement tool invocation is pending
+- **WHEN** a conversation run starts and `generate_experience` is pending
 - **THEN** the client shows a `creating` status in chat and prevents duplicate conflicting actions per run policy
 
+#### Scenario: Success state after generation
+- **WHEN** generation completes and the conversation model emits post-tool output
+- **THEN** the client renders the model-authored assistant success message and updated sandbox preview state
+
 #### Scenario: Error state after failed generation
-- **WHEN** run or tool execution fails due to validation, routing, or provider errors
-- **THEN** the client shows an actionable error message and allows retry via chat flow
+- **WHEN** generation fails and the conversation model emits post-tool output
+- **THEN** the client shows actionable error messaging and allows retry via chat flow without hardcoded runtime success/failure copy
 
 ### Requirement: Hydrate chat and sandbox state from backend thread source of truth
 The client SHALL initialize from backend thread hydration data instead of local preview-first state.

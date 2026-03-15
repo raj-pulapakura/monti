@@ -221,6 +221,8 @@ export interface Database {
           router_confidence: number | null;
           router_reason: string | null;
           router_fallback_reason: string | null;
+          conversation_provider: 'openai' | 'anthropic' | 'gemini' | null;
+          conversation_model: string | null;
           provider: 'openai' | 'anthropic' | 'gemini' | null;
           model: string | null;
           provider_request_raw: Record<string, unknown> | null;
@@ -242,6 +244,8 @@ export interface Database {
           router_confidence?: number | null;
           router_reason?: string | null;
           router_fallback_reason?: string | null;
+          conversation_provider?: 'openai' | 'anthropic' | 'gemini' | null;
+          conversation_model?: string | null;
           provider?: 'openai' | 'anthropic' | 'gemini' | null;
           model?: string | null;
           provider_request_raw?: Record<string, unknown> | null;
@@ -260,6 +264,8 @@ export interface Database {
           router_confidence?: number | null;
           router_reason?: string | null;
           router_fallback_reason?: string | null;
+          conversation_provider?: 'openai' | 'anthropic' | 'gemini' | null;
+          conversation_model?: string | null;
           provider?: 'openai' | 'anthropic' | 'gemini' | null;
           model?: string | null;
           provider_request_raw?: Record<string, unknown> | null;
@@ -280,6 +286,15 @@ export interface Database {
           tool_name: string;
           tool_arguments: Record<string, unknown>;
           tool_result: Record<string, unknown> | null;
+          generation_id: string | null;
+          experience_id: string | null;
+          experience_version_id: string | null;
+          router_tier: 'fast' | 'quality' | null;
+          router_confidence: number | null;
+          router_reason: string | null;
+          router_fallback_reason: string | null;
+          selected_provider: 'openai' | 'anthropic' | 'gemini' | null;
+          selected_model: string | null;
           status: 'pending' | 'running' | 'succeeded' | 'failed';
           error_code: string | null;
           error_message: string | null;
@@ -295,6 +310,15 @@ export interface Database {
           tool_name: string;
           tool_arguments?: Record<string, unknown>;
           tool_result?: Record<string, unknown> | null;
+          generation_id?: string | null;
+          experience_id?: string | null;
+          experience_version_id?: string | null;
+          router_tier?: 'fast' | 'quality' | null;
+          router_confidence?: number | null;
+          router_reason?: string | null;
+          router_fallback_reason?: string | null;
+          selected_provider?: 'openai' | 'anthropic' | 'gemini' | null;
+          selected_model?: string | null;
           status?: 'pending' | 'running' | 'succeeded' | 'failed';
           error_code?: string | null;
           error_message?: string | null;
@@ -305,6 +329,15 @@ export interface Database {
         Update: {
           provider_tool_call_id?: string | null;
           tool_result?: Record<string, unknown> | null;
+          generation_id?: string | null;
+          experience_id?: string | null;
+          experience_version_id?: string | null;
+          router_tier?: 'fast' | 'quality' | null;
+          router_confidence?: number | null;
+          router_reason?: string | null;
+          router_fallback_reason?: string | null;
+          selected_provider?: 'openai' | 'anthropic' | 'gemini' | null;
+          selected_model?: string | null;
           status?: 'pending' | 'running' | 'succeeded' | 'failed';
           error_code?: string | null;
           error_message?: string | null;

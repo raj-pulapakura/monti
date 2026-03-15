@@ -1,6 +1,15 @@
-import { parseAnthropicToolResponse } from './providers/anthropic-native-tool.adapter';
-import { parseGeminiToolResponse } from './providers/gemini-native-tool.adapter';
-import { parseOpenAiToolResponse } from './providers/openai-native-tool.adapter';
+import {
+  buildAnthropicToolRequest,
+  parseAnthropicToolResponse,
+} from './providers/anthropic-native-tool.adapter';
+import {
+  buildGeminiToolRequest,
+  parseGeminiToolResponse,
+} from './providers/gemini-native-tool.adapter';
+import {
+  buildOpenAiToolRequest,
+  parseOpenAiToolResponse,
+} from './providers/openai-native-tool.adapter';
 
 type ParserFixture = {
   provider: 'openai' | 'anthropic' | 'gemini';
@@ -114,5 +123,129 @@ describe('Native Tool Adapter Contract', () => {
     expect(geminiParsed.assistantText).toBe('Done');
     expect(geminiParsed.finishReason).toBe('stop');
     expect(geminiParsed.toolCalls).toHaveLength(0);
+  });
+
+  it('builds provider-native tool-result continuation payloads from canonical tool messages', () => {
+    const canonicalRequest = {
+      requestId: 'run-1',
+      provider: 'openai' as const,
+      model: 'gpt-5.4',
+      maxTokens: 2048,
+      messages: [
+        { role: 'system' as const, content: 'You are Monti' },
+        { role: 'user' as const, content: 'Build a quiz' },
+        {
+          role: 'tool' as const,
+          content: '{"status":"succeeded"}',
+          toolCallId: 'call_1',
+          toolName: 'generate_experience',
+        },
+      ],
+      tools: [
+        {
+          name: 'generate_experience',
+          description: 'generate',
+          inputSchema: { type: 'object' },
+        },
+      ],
+    };
+
+    const openAiInitial = buildOpenAiToolRequest(canonicalRequest);
+    const openAiContinuation = buildOpenAiToolRequest({
+      ...canonicalRequest,
+      providerContinuation: {
+        openai: {
+          previousResponseId: 'resp_123',
+        },
+      },
+    });
+    const anthropic = buildAnthropicToolRequest({
+      ...canonicalRequest,
+      provider: 'anthropic',
+      providerContinuation: {
+        anthropic: {
+          pendingToolCalls: [
+            {
+              id: 'toolu_1',
+              name: 'generate_experience',
+              arguments: { prompt: 'Build a quiz' },
+            },
+          ],
+        },
+      },
+    });
+    const gemini = buildGeminiToolRequest({
+      ...canonicalRequest,
+      provider: 'gemini',
+      providerContinuation: {
+        gemini: {
+          pendingToolCalls: [
+            {
+              id: 'gem_call_1',
+              name: 'generate_experience',
+              arguments: { prompt: 'Build a quiz' },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(openAiInitial).toMatchObject({
+      input: [
+        {
+          role: 'system',
+          content: 'You are Monti',
+        },
+        {
+          role: 'user',
+          content: 'Build a quiz',
+        },
+      ],
+    });
+
+    expect(openAiContinuation).toMatchObject({
+      previous_response_id: 'resp_123',
+      input: expect.arrayContaining([
+        expect.objectContaining({
+          type: 'function_call_output',
+          call_id: 'call_1',
+        }),
+      ]),
+    });
+
+    expect(anthropic).toMatchObject({
+      messages: expect.arrayContaining([
+        expect.objectContaining({
+          role: 'assistant',
+        }),
+        expect.objectContaining({
+          role: 'user',
+          content: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'tool_result',
+              tool_use_id: 'call_1',
+            }),
+          ]),
+        }),
+      ]),
+    });
+
+    expect(gemini).toMatchObject({
+      contents: expect.arrayContaining([
+        expect.objectContaining({
+          role: 'model',
+        }),
+        expect.objectContaining({
+          role: 'user',
+          parts: expect.arrayContaining([
+            expect.objectContaining({
+              functionResponse: expect.objectContaining({
+                name: 'generate_experience',
+              }),
+            }),
+          ]),
+        }),
+      ]),
+    });
   });
 });

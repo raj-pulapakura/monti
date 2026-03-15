@@ -16,6 +16,10 @@ interface GeminiPart {
     name?: string;
     args?: Record<string, unknown>;
   };
+  functionResponse?: {
+    name?: string;
+    response?: Record<string, unknown>;
+  };
 }
 
 interface GeminiNativeResponse {
@@ -64,6 +68,18 @@ export class GeminiNativeToolAdapter implements NativeToolAdapter {
       assistantText: parsed.assistantText,
       toolCalls: parsed.toolCalls,
       finishReason: parsed.finishReason,
+      providerContinuation:
+        parsed.toolCalls.length > 0
+          ? {
+              gemini: {
+                pendingToolCalls: parsed.toolCalls.map((toolCall) => ({
+                  id: toolCall.id,
+                  name: toolCall.name,
+                  arguments: toolCall.arguments,
+                })),
+              },
+            }
+          : undefined,
       rawRequest: body,
       rawResponse: payload as Record<string, unknown>,
     };
@@ -77,12 +93,36 @@ export function buildGeminiToolRequest(request: CanonicalToolTurnRequest): Recor
     .join('\n\n')
     .trim();
 
-  const contents = request.messages
-    .filter((message) => message.role !== 'system')
+  const pendingToolCalls = request.providerContinuation?.gemini?.pendingToolCalls ?? [];
+  const toolResults = extractTrailingToolMessages(request.messages);
+
+  const contents: Array<Record<string, unknown>> = request.messages
+    .filter((message) => message.role !== 'system' && message.role !== 'tool')
     .map((message) => ({
       role: message.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: message.content }],
     }));
+
+  if (pendingToolCalls.length > 0 && toolResults.length > 0) {
+    contents.push({
+      role: 'model',
+      parts: pendingToolCalls.map((toolCall) => ({
+        functionCall: {
+          name: toolCall.name,
+          args: toolCall.arguments,
+        },
+      })),
+    });
+    contents.push({
+      role: 'user',
+      parts: toolResults.map((toolResult, index) => ({
+        functionResponse: {
+          name: toolResult.toolName ?? pendingToolCalls[index]?.name ?? 'tool_result',
+          response: parseJsonObject(toolResult.content),
+        },
+      })),
+    });
+  }
 
   return {
     ...(systemPrompt.length > 0
@@ -146,4 +186,37 @@ export function parseGeminiToolResponse(payload: GeminiNativeResponse): {
     toolCalls,
     finishReason,
   };
+}
+
+function parseJsonObject(value: string): Record<string, unknown> {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // Ignore parse errors and return fallback.
+  }
+
+  return {
+    value,
+  };
+}
+
+function extractTrailingToolMessages(messages: CanonicalToolTurnRequest['messages']) {
+  const trailing: CanonicalToolTurnRequest['messages'] = [];
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role !== 'tool') {
+      break;
+    }
+    trailing.push(message);
+  }
+
+  return trailing.reverse();
 }

@@ -11,7 +11,7 @@ describe('ChatToolRegistryService', () => {
     const result = await service.executeToolCall({
       threadId: 'thread-1',
       runId: 'run-1',
-      clientId: 'client-1',
+      userId: 'client-1',
       toolCallId: 'call-1',
       name: 'generate_experience',
       arguments: {

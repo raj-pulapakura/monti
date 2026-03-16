@@ -6,8 +6,7 @@ export interface Database {
       experiences: {
         Row: {
           id: string;
-          user_id: string | null;
-          client_id: string;
+          user_id: string;
           title: string;
           slug: string | null;
           latest_version_id: string | null;
@@ -17,8 +16,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          user_id?: string | null;
-          client_id: string;
+          user_id: string;
           title: string;
           slug?: string | null;
           latest_version_id?: string | null;
@@ -28,8 +26,7 @@ export interface Database {
         };
         Update: {
           id?: string;
-          user_id?: string | null;
-          client_id?: string;
+          user_id?: string;
           title?: string;
           slug?: string | null;
           latest_version_id?: string | null;
@@ -110,7 +107,7 @@ export interface Database {
           request_id: string;
           experience_id: string | null;
           version_id: string | null;
-          client_id: string;
+          user_id: string;
           operation: 'generate' | 'refine';
           provider: string | null;
           model: string | null;
@@ -128,7 +125,7 @@ export interface Database {
           request_id: string;
           experience_id?: string | null;
           version_id?: string | null;
-          client_id: string;
+          user_id: string;
           operation: 'generate' | 'refine';
           provider?: string | null;
           model?: string | null;
@@ -158,8 +155,7 @@ export interface Database {
       chat_threads: {
         Row: {
           id: string;
-          user_id: string | null;
-          client_id: string;
+          user_id: string;
           title: string | null;
           archived_at: string | null;
           created_at: string;
@@ -167,16 +163,14 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          user_id?: string | null;
-          client_id: string;
+          user_id: string;
           title?: string | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
-          user_id?: string | null;
-          client_id?: string;
+          user_id?: string;
           title?: string | null;
           archived_at?: string | null;
           updated_at?: string;
@@ -187,7 +181,7 @@ export interface Database {
         Row: {
           id: string;
           thread_id: string;
-          client_id: string;
+          user_id: string;
           role: 'user' | 'assistant' | 'tool' | 'system';
           content: string;
           content_json: Record<string, unknown> | null;
@@ -197,7 +191,7 @@ export interface Database {
         Insert: {
           id?: string;
           thread_id: string;
-          client_id: string;
+          user_id: string;
           role: 'user' | 'assistant' | 'tool' | 'system';
           content: string;
           content_json?: Record<string, unknown> | null;
@@ -381,7 +375,7 @@ export interface Database {
       chat_submit_user_message: {
         Args: {
           p_thread_id: string;
-          p_client_id: string;
+          p_user_id: string;
           p_content: string;
           p_idempotency_key?: string | null;
         };

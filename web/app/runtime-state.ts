@@ -3,7 +3,7 @@ export type ChatMessageRole = 'user' | 'assistant' | 'tool' | 'system';
 export type ChatMessage = {
   id: string;
   threadId: string;
-  clientId: string;
+  userId: string;
   role: ChatMessageRole;
   content: string;
   contentJson: Record<string, unknown> | null;

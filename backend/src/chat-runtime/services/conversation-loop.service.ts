@@ -29,7 +29,7 @@ export class ConversationLoopService {
 
   async executeTurn(input: {
     threadId: string;
-    clientId: string;
+    userId: string;
     userMessage: ChatMessageRow;
     run: ConversationRunRow;
   }): Promise<ConversationRunRow> {
@@ -56,7 +56,7 @@ export class ConversationLoopService {
     try {
       const canonicalMessages = await this.buildConversationMessages({
         threadId: input.threadId,
-        clientId: input.clientId,
+        userId: input.userId,
       });
       let roundMessages: CanonicalChatMessage[] = canonicalMessages;
       let providerContinuation: ProviderContinuationState | undefined;
@@ -120,7 +120,7 @@ export class ConversationLoopService {
         if (response.assistantText.trim().length > 0 && response.toolCalls.length > 0) {
           const interimAssistantMessage = await this.repository.createAssistantMessage({
             threadId: input.threadId,
-            clientId: input.clientId,
+            userId: input.userId,
             content: response.assistantText.trim(),
             contentJson: {
               phase: 'pre_tool',
@@ -143,7 +143,7 @@ export class ConversationLoopService {
           const completedRun = await this.completeWithAssistantMessage({
             runId: input.run.id,
             threadId: input.threadId,
-            clientId: input.clientId,
+            userId: input.userId,
             content:
               response.assistantText.trim().length > 0
                 ? response.assistantText.trim()
@@ -257,7 +257,7 @@ export class ConversationLoopService {
           const execution = await this.toolRegistry.executeToolCall({
             threadId: input.threadId,
             runId: input.run.id,
-            clientId: input.clientId,
+            userId: input.userId,
             toolCallId: toolCall.id,
             name: toolCall.name,
             arguments: toolCall.arguments,
@@ -442,11 +442,11 @@ export class ConversationLoopService {
 
   private async buildConversationMessages(input: {
     threadId: string;
-    clientId: string;
+    userId: string;
   }): Promise<CanonicalChatMessage[]> {
     const hydration = await this.repository.hydrateThread({
       threadId: input.threadId,
-      clientId: input.clientId,
+      userId: input.userId,
     });
 
     const baseMessages = hydration.messages.map(mapPersistedMessageToCanonical);
@@ -463,13 +463,13 @@ export class ConversationLoopService {
   private async completeWithAssistantMessage(input: {
     runId: string;
     threadId: string;
-    clientId: string;
+    userId: string;
     content: string;
     contentJson?: Record<string, unknown>;
   }): Promise<ConversationRunRow> {
     const assistantMessage = await this.repository.createAssistantMessage({
       threadId: input.threadId,
-      clientId: input.clientId,
+      userId: input.userId,
       content: input.content,
       contentJson: input.contentJson ?? null,
     });

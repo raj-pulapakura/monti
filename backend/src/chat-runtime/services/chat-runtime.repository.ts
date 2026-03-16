@@ -25,7 +25,7 @@ export class ChatRuntimeRepository {
   ) {}
 
   async createThread(input: {
-    clientId: string;
+    userId: string;
     title?: string;
   }): Promise<{
     thread: ChatThreadRow;
@@ -34,7 +34,7 @@ export class ChatRuntimeRepository {
     const { data: thread, error: threadError } = await this.client
       .from('chat_threads')
       .insert({
-        client_id: input.clientId,
+        user_id: input.userId,
         title: input.title ?? null,
       })
       .select('*')
@@ -65,7 +65,7 @@ export class ChatRuntimeRepository {
 
   async hydrateThread(input: {
     threadId: string;
-    clientId: string;
+    userId: string;
   }): Promise<{
     thread: ChatThreadRow;
     messages: ChatMessageRow[];
@@ -75,7 +75,7 @@ export class ChatRuntimeRepository {
   }> {
     const thread = await this.findThread(input);
     if (!thread) {
-      throw new ValidationError('Thread not found for client scope.');
+      throw new ValidationError('Thread not found for user scope.');
     }
 
     const [
@@ -143,7 +143,7 @@ export class ChatRuntimeRepository {
 
   async submitUserMessage(input: {
     threadId: string;
-    clientId: string;
+    userId: string;
     content: string;
     idempotencyKey?: string;
   }): Promise<{
@@ -153,7 +153,7 @@ export class ChatRuntimeRepository {
   }> {
     const { data, error } = await this.client.rpc('chat_submit_user_message', {
       p_thread_id: input.threadId,
-      p_client_id: input.clientId,
+      p_user_id: input.userId,
       p_content: input.content,
       p_idempotency_key: input.idempotencyKey ?? null,
     });
@@ -236,9 +236,19 @@ export class ChatRuntimeRepository {
     return this.findRunById(runId);
   }
 
+  async assertThreadAccess(input: {
+    threadId: string;
+    userId: string;
+  }): Promise<void> {
+    const thread = await this.findThread(input);
+    if (!thread) {
+      throw new ValidationError('Thread not found for user scope.');
+    }
+  }
+
   async getSandboxPreview(input: {
     threadId: string;
-    clientId: string;
+    userId: string;
   }): Promise<{
     sandboxState: SandboxStateRow;
     activeExperience: {
@@ -252,7 +262,7 @@ export class ChatRuntimeRepository {
   }> {
     const thread = await this.findThread(input);
     if (!thread) {
-      throw new ValidationError('Thread not found for client scope.');
+      throw new ValidationError('Thread not found for user scope.');
     }
 
     const { data: sandboxState, error: sandboxError } = await this.client
@@ -369,7 +379,7 @@ export class ChatRuntimeRepository {
 
   async createAssistantMessage(input: {
     threadId: string;
-    clientId: string;
+    userId: string;
     content: string;
     contentJson?: Record<string, unknown> | null;
   }): Promise<ChatMessageRow> {
@@ -377,7 +387,7 @@ export class ChatRuntimeRepository {
       .from('chat_messages')
       .insert({
         thread_id: input.threadId,
-        client_id: input.clientId,
+        user_id: input.userId,
         role: 'assistant',
         content: input.content,
         content_json: input.contentJson ?? null,
@@ -543,13 +553,13 @@ export class ChatRuntimeRepository {
 
   private async findThread(input: {
     threadId: string;
-    clientId: string;
+    userId: string;
   }): Promise<ChatThreadRow | null> {
     const { data, error } = await this.client
       .from('chat_threads')
       .select('*')
       .eq('id', input.threadId)
-      .eq('client_id', input.clientId)
+      .eq('user_id', input.userId)
       .maybeSingle();
 
     if (error) {

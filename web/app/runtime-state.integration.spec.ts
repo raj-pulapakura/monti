@@ -15,7 +15,7 @@ function createBaseRuntimeState(): RuntimeState {
       {
         id: 'message-1',
         threadId: 'thread-1',
-        clientId: 'client-1',
+        userId: 'client-1',
         role: 'user',
         content: 'Build a solar system quiz',
         contentJson: null,
@@ -165,7 +165,7 @@ describe('runtime-state integration', () => {
         {
           id: 'assistant-1',
           threadId: 'thread-1',
-          clientId: 'client-1',
+          userId: 'client-1',
           role: 'assistant',
           content: 'Building now.',
           contentJson: null,
@@ -226,7 +226,7 @@ describe('runtime-state integration', () => {
         {
           id: 'assistant-1',
           threadId: 'thread-1',
-          clientId: 'client-1',
+          userId: 'client-1',
           role: 'assistant',
           content: 'That failed.',
           contentJson: null,

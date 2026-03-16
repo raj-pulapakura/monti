@@ -7,15 +7,17 @@ NestJS backend for Monti's chat-first runtime and sandbox orchestration.
 ### Chat Runtime (Primary)
 
 - `POST /api/chat/threads`
-  - Creates a thread and initializes sandbox state.
-- `GET /api/chat/threads/:threadId?clientId=<id>`
+  - Creates a thread and initializes sandbox state for the authenticated user.
+- `GET /api/chat/threads/:threadId`
   - Hydrates thread metadata, ordered messages, sandbox state, active run, and latest event cursor.
 - `POST /api/chat/threads/:threadId/messages`
   - Submits a user message (idempotent) and creates/updates run state.
-- `GET /api/chat/threads/:threadId/sandbox?clientId=<id>`
+- `GET /api/chat/threads/:threadId/sandbox`
   - Returns thread sandbox state and active artifact payload for iframe preview.
 - `GET /api/chat/threads/:threadId/events` (SSE)
   - Streams runtime events (`run_started`, `tool_started`, `tool_succeeded`, `tool_failed`, `assistant_message_created`, `sandbox_updated`, `run_failed`, `run_completed`).
+
+All `/api/chat/*` endpoints require `Authorization: Bearer <supabase-access-token>`.
 
 ### Health
 
@@ -67,7 +69,10 @@ Core variables:
 - `ANTHROPIC_API_KEY`
 - `GOOGLE_API_KEY`
 - `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_JWT_ISSUER` (optional; defaults from `SUPABASE_URL`)
+- `SUPABASE_JWT_AUDIENCE` (default `authenticated`)
 
 ## Supabase Schema
 
@@ -116,6 +121,10 @@ Additional docs:
 
 - `../docs/chat-runtime-observability.md`
 - `../docs/chat-runtime-parity-checklist.md`
+
+## Future Hardening
+
+- Require verified email before allowing full `/app` access in staging/production environments.
 
 ## Run
 

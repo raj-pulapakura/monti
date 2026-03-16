@@ -10,7 +10,7 @@ import type {
 export interface ChatMessageEnvelope {
   id: string;
   threadId: string;
-  clientId: string;
+  userId: string;
   role: ChatMessageRole;
   content: string;
   contentJson: Record<string, unknown> | null;

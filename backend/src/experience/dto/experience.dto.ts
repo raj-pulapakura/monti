@@ -16,7 +16,7 @@ export interface GeneratedExperiencePayload {
 }
 
 export interface GenerateExperienceRequest {
-  clientId: string;
+  userId: string;
   prompt: string;
   format?: ExperienceFormat;
   audience?: AudienceLevel;
@@ -28,7 +28,7 @@ export interface GenerateExperienceRequest {
 }
 
 export interface RefineExperienceRequest {
-  clientId: string;
+  userId: string;
   originalPrompt: string;
   priorGenerationId: string;
   refinementInstruction: string;
@@ -60,7 +60,7 @@ export interface ExperienceResponsePayload {
 }
 
 interface ParseSharedOptions {
-  clientId: string;
+  userId: string;
   qualityMode: QualityMode;
   provider?: ProviderKind;
   system?: string;
@@ -133,7 +133,7 @@ export function parseRefineExperienceRequest(body: unknown): RefineExperienceReq
 
 function parseSharedOptions(object: Record<string, unknown>): ParseSharedOptions {
   return {
-    clientId: asRequiredString(object.clientId, 'clientId'),
+    userId: asRequiredString(object.userId, 'userId'),
     qualityMode:
       object.qualityMode === undefined
         ? 'fast'

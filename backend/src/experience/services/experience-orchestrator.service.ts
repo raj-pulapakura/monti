@@ -40,7 +40,7 @@ export class ExperienceOrchestratorService {
       operation: 'generate',
       prompt,
       sourcePrompt: request.prompt,
-      clientId: request.clientId,
+      userId: request.userId,
       format: request.format,
       audience: request.audience,
       qualityMode: request.qualityMode,
@@ -59,7 +59,7 @@ export class ExperienceOrchestratorService {
       operation: 'refine',
       prompt,
       sourcePrompt: request.originalPrompt,
-      clientId: request.clientId,
+      userId: request.userId,
       refinementInstruction: request.refinementInstruction,
       parentGenerationId: request.priorGenerationId,
       qualityMode: request.qualityMode,
@@ -75,7 +75,7 @@ export class ExperienceOrchestratorService {
     operation: 'generate' | 'refine';
     prompt: string;
     sourcePrompt: string;
-    clientId: string;
+    userId: string;
     format?: ExperienceFormat;
     audience?: AudienceLevel;
     refinementInstruction?: string;
@@ -110,7 +110,7 @@ export class ExperienceOrchestratorService {
 
     await this.persistence.recordRunStarted({
       requestId: input.requestId,
-      clientId: input.clientId,
+      userId: input.userId,
       operation: input.operation,
       qualityMode: input.qualityMode,
       prompt: input.sourcePrompt,
@@ -158,7 +158,7 @@ export class ExperienceOrchestratorService {
         await this.persistence.persistSuccess({
           requestId: input.requestId,
           operation: input.operation,
-          clientId: input.clientId,
+          userId: input.userId,
           prompt: input.sourcePrompt,
           refinementInstruction: input.refinementInstruction,
           parentGenerationId: input.parentGenerationId,

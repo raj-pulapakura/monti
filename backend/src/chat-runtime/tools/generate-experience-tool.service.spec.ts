@@ -38,7 +38,7 @@ describe('GenerateExperienceToolService', () => {
     const result = await service.execute({
       runId: 'run-1',
       threadId: 'thread-1',
-      clientId: 'client-1',
+      userId: 'client-1',
       arguments: {
         operation: 'generate',
         prompt: 'Build a solar system game',

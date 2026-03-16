@@ -1,15 +1,30 @@
-import { Body, Controller, Get, MessageEvent, Param, Post, Query, Sse } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  MessageEvent,
+  Param,
+  Post,
+  Query,
+  Sse,
+  UseGuards,
+} from '@nestjs/common';
 import type { Observable } from 'rxjs';
+import { AuthGuard } from '../auth/auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/auth.types';
 import {
   parseCreateThreadRequest,
   parseHydrateThreadRequest,
-  parseStreamEventsRequest,
+  parseStreamEventsRequestWithHeader,
   parseSubmitMessageRequest,
 } from './dto/chat-runtime.dto';
 import { ChatRuntimeService } from './services/chat-runtime.service';
 import { ChatRuntimeEventService } from './services/chat-runtime-event.service';
 
 @Controller('api/chat/threads')
+@UseGuards(AuthGuard)
 export class ChatRuntimeController {
   constructor(
     private readonly chatRuntimeService: ChatRuntimeService,
@@ -17,9 +32,12 @@ export class ChatRuntimeController {
   ) {}
 
   @Post()
-  async createThread(@Body() body: unknown) {
+  async createThread(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
     const request = parseCreateThreadRequest(body);
-    const payload = await this.chatRuntimeService.createThread(request);
+    const payload = await this.chatRuntimeService.createThread({
+      request,
+      userId: user.id,
+    });
 
     return {
       ok: true,
@@ -28,9 +46,16 @@ export class ChatRuntimeController {
   }
 
   @Get(':threadId')
-  async hydrateThread(@Param('threadId') threadId: string, @Query() query: unknown) {
+  async hydrateThread(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('threadId') threadId: string,
+    @Query() query: unknown,
+  ) {
     const request = parseHydrateThreadRequest(threadId, query);
-    const payload = await this.chatRuntimeService.hydrateThread(request);
+    const payload = await this.chatRuntimeService.hydrateThread({
+      request,
+      userId: user.id,
+    });
 
     return {
       ok: true,
@@ -39,9 +64,17 @@ export class ChatRuntimeController {
   }
 
   @Post(':threadId/messages')
-  async submitMessage(@Param('threadId') threadId: string, @Body() body: unknown) {
+  async submitMessage(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('threadId') threadId: string,
+    @Body() body: unknown,
+  ) {
     const request = parseSubmitMessageRequest(threadId, body);
-    const payload = await this.chatRuntimeService.submitMessage(request);
+    const payload = await this.chatRuntimeService.submitMessage({
+      threadId: request.threadId,
+      request: request.request,
+      userId: user.id,
+    });
 
     return {
       ok: true,
@@ -50,9 +83,16 @@ export class ChatRuntimeController {
   }
 
   @Get(':threadId/sandbox')
-  async getSandboxPreview(@Param('threadId') threadId: string, @Query() query: unknown) {
+  async getSandboxPreview(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('threadId') threadId: string,
+    @Query() query: unknown,
+  ) {
     const request = parseHydrateThreadRequest(threadId, query);
-    const payload = await this.chatRuntimeService.getSandboxPreview(request);
+    const payload = await this.chatRuntimeService.getSandboxPreview({
+      threadId: request.threadId,
+      userId: user.id,
+    });
 
     return {
       ok: true,
@@ -61,11 +101,21 @@ export class ChatRuntimeController {
   }
 
   @Sse(':threadId/events')
-  streamEvents(
+  async streamEvents(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('threadId') threadId: string,
     @Query() query: unknown,
-  ): Observable<MessageEvent> {
-    const request = parseStreamEventsRequest(threadId, query);
+    @Headers('last-event-id') lastEventIdHeader?: string,
+  ): Promise<Observable<MessageEvent>> {
+    const request = parseStreamEventsRequestWithHeader(
+      threadId,
+      query,
+      lastEventIdHeader,
+    );
+    await this.chatRuntimeService.assertThreadAccess({
+      threadId: request.threadId,
+      userId: user.id,
+    });
     return this.chatRuntimeEvents.stream(request.threadId, request.cursor);
   }
 }

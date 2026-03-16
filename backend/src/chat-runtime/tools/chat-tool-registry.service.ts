@@ -83,7 +83,7 @@ export class ChatToolRegistryService {
   async executeToolCall(input: {
     threadId: string;
     runId: string;
-    clientId: string;
+    userId: string;
     toolCallId: string;
     name: string;
     arguments: Record<string, unknown>;
@@ -99,7 +99,7 @@ export class ChatToolRegistryService {
       result = await this.generateExperienceTool.execute({
         runId: input.runId,
         threadId: input.threadId,
-        clientId: input.clientId,
+        userId: input.userId,
         arguments: {
           ...parsedArguments,
           conversationContext: input.conversationContext,

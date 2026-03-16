@@ -1,1 +1,2 @@
 export const SUPABASE_CLIENT = Symbol('SUPABASE_CLIENT');
+export const SUPABASE_ADMIN_CLIENT = Symbol('SUPABASE_ADMIN_CLIENT');

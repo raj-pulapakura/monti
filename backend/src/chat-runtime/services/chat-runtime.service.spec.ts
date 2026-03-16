@@ -31,7 +31,7 @@ function createMessageRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'message-1',
     thread_id: 'thread-1',
-    client_id: 'client-1',
+    user_id: 'client-1',
     role: 'user' as const,
     content: 'Build a quiz',
     content_json: null,
@@ -84,7 +84,7 @@ describe('ChatRuntimeService', () => {
     const result = await service.submitMessage({
       threadId: 'thread-1',
       request: {
-        clientId: 'client-1',
+        userId: 'client-1',
         content: 'Build a quiz',
       },
     });
@@ -126,7 +126,7 @@ describe('ChatRuntimeService', () => {
     const result = await service.submitMessage({
       threadId: 'thread-1',
       request: {
-        clientId: 'client-1',
+        userId: 'client-1',
         content: 'Build a quiz',
       },
     });
@@ -168,7 +168,7 @@ describe('ChatRuntimeService', () => {
     const result = await service.submitMessage({
       threadId: 'thread-1',
       request: {
-        clientId: 'client-1',
+        userId: 'client-1',
         content: 'Build a quiz',
       },
     });

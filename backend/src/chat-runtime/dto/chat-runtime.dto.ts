@@ -7,24 +7,21 @@ import type {
 } from '../runtime.types';
 
 export interface CreateThreadRequest {
-  clientId: string;
   title?: string;
 }
 
 export interface SubmitMessageRequest {
-  clientId: string;
   content: string;
   idempotencyKey?: string;
 }
 
 export interface HydrateThreadRequest {
   threadId: string;
-  clientId: string;
 }
 
 export interface ThreadEnvelope {
   id: string;
-  clientId: string;
+  userId: string;
   title: string | null;
   archivedAt: string | null;
   createdAt: string;
@@ -51,7 +48,6 @@ export function parseCreateThreadRequest(body: unknown): CreateThreadRequest {
   const object = asRecord(body, 'Request body must be a JSON object.');
 
   return {
-    clientId: asRequiredString(object.clientId, 'clientId'),
     title: asOptionalString(object.title, 'title'),
   };
 }
@@ -61,11 +57,10 @@ export function parseHydrateThreadRequest(threadId: string, query: unknown): Hyd
     throw new ValidationError('threadId must be a UUID string.');
   }
 
-  const object = asRecord(query, 'Query params must be an object.');
+  asRecord(query, 'Query params must be an object.');
 
   return {
     threadId,
-    clientId: asRequiredString(object.clientId, 'clientId'),
   };
 }
 
@@ -82,7 +77,6 @@ export function parseSubmitMessageRequest(threadId: string, body: unknown): {
   return {
     threadId,
     request: {
-      clientId: asRequiredString(object.clientId, 'clientId'),
       content: asRequiredString(object.content, 'content'),
       idempotencyKey: asOptionalString(object.idempotencyKey, 'idempotencyKey'),
     },
@@ -93,16 +87,31 @@ export function parseStreamEventsRequest(threadId: string, query: unknown): {
   threadId: string;
   cursor?: string;
 } {
+  return parseStreamEventsRequestWithHeader(threadId, query);
+}
+
+export function parseStreamEventsRequestWithHeader(
+  threadId: string,
+  query: unknown,
+  lastEventIdHeader?: string | string[] | undefined,
+): {
+  threadId: string;
+  cursor?: string;
+} {
   if (!isUuidLike(threadId)) {
     throw new ValidationError('threadId must be a UUID string.');
   }
 
   const object = asRecord(query, 'Query params must be an object.');
   const cursor = asOptionalString(object.cursor, 'cursor');
+  const headerValue = Array.isArray(lastEventIdHeader)
+    ? lastEventIdHeader[0]
+    : lastEventIdHeader;
+  const normalizedHeaderCursor = asOptionalString(headerValue, 'last-event-id');
 
   return {
     threadId,
-    cursor,
+    cursor: cursor ?? normalizedHeaderCursor,
   };
 }
 

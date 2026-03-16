@@ -28,12 +28,18 @@ export class ChatRuntimeService {
     private readonly conversationLoop: ConversationLoopService,
   ) {}
 
-  async createThread(request: CreateThreadRequest): Promise<{
+  async createThread(input: {
+    request: CreateThreadRequest;
+    userId: string;
+  }): Promise<{
     thread: ThreadEnvelope;
     sandboxState: SandboxStateEnvelope;
   }> {
     assertChatRuntimeEnabled();
-    const result = await this.repository.createThread(request);
+    const result = await this.repository.createThread({
+      title: input.request.title,
+      userId: input.userId,
+    });
 
     return {
       thread: mapThread(result.thread),
@@ -41,9 +47,15 @@ export class ChatRuntimeService {
     };
   }
 
-  async hydrateThread(request: HydrateThreadRequest): Promise<ThreadHydrationPayload> {
+  async hydrateThread(input: {
+    request: HydrateThreadRequest;
+    userId: string;
+  }): Promise<ThreadHydrationPayload> {
     assertChatRuntimeEnabled();
-    const result = await this.repository.hydrateThread(request);
+    const result = await this.repository.hydrateThread({
+      threadId: input.request.threadId,
+      userId: input.userId,
+    });
 
     return {
       thread: mapThread(result.thread),
@@ -53,13 +65,13 @@ export class ChatRuntimeService {
       activeToolInvocation: result.activeToolInvocation
         ? mapToolInvocation(result.activeToolInvocation)
         : null,
-      latestEventId: this.events.latestEventId(request.threadId),
+      latestEventId: this.events.latestEventId(input.request.threadId),
     };
   }
 
   async getSandboxPreview(input: {
     threadId: string;
-    clientId: string;
+    userId: string;
   }): Promise<{
     sandboxState: SandboxStateEnvelope;
     activeExperience: {
@@ -80,14 +92,23 @@ export class ChatRuntimeService {
     };
   }
 
+  async assertThreadAccess(input: {
+    threadId: string;
+    userId: string;
+  }): Promise<void> {
+    assertChatRuntimeEnabled();
+    await this.repository.assertThreadAccess(input);
+  }
+
   async submitMessage(input: {
     threadId: string;
     request: SubmitMessageRequest;
+    userId: string;
   }): Promise<SubmitMessagePayload> {
     assertChatRuntimeEnabled();
     const result = await this.repository.submitUserMessage({
       threadId: input.threadId,
-      clientId: input.request.clientId,
+      userId: input.userId,
       content: input.request.content,
       idempotencyKey: input.request.idempotencyKey,
     });
@@ -96,7 +117,7 @@ export class ChatRuntimeService {
     if (run && run.status === 'queued' && isConversationLoopEnabled()) {
       const executedRun = await this.conversationLoop.executeTurn({
         threadId: input.threadId,
-        clientId: input.request.clientId,
+        userId: input.userId,
         userMessage: result.message,
         run,
       });
@@ -129,7 +150,7 @@ export class ChatRuntimeService {
 
 function mapThread(row: {
   id: string;
-  client_id: string;
+  user_id: string;
   title: string | null;
   archived_at: string | null;
   created_at: string;
@@ -137,7 +158,7 @@ function mapThread(row: {
 }): ThreadEnvelope {
   return {
     id: row.id,
-    clientId: row.client_id,
+    userId: row.user_id,
     title: row.title,
     archivedAt: row.archived_at,
     createdAt: row.created_at,
@@ -148,7 +169,7 @@ function mapThread(row: {
 function mapMessage(row: {
   id: string;
   thread_id: string;
-  client_id: string;
+  user_id: string;
   role: 'user' | 'assistant' | 'tool' | 'system';
   content: string;
   content_json: Record<string, unknown> | null;
@@ -158,7 +179,7 @@ function mapMessage(row: {
   return {
     id: row.id,
     threadId: row.thread_id,
-    clientId: row.client_id,
+    userId: row.user_id,
     role: row.role,
     content: row.content,
     contentJson: row.content_json,

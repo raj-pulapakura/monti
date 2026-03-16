@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
 import { ExperienceModule } from '../experience/experience.module';
 import { LlmModule } from '../llm/llm.module';
 import { SupabaseModule } from '../supabase/supabase.module';
@@ -11,7 +12,7 @@ import { ChatToolRegistryService } from './tools/chat-tool-registry.service';
 import { GenerateExperienceToolService } from './tools/generate-experience-tool.service';
 
 @Module({
-  imports: [SupabaseModule, LlmModule, ExperienceModule],
+  imports: [AuthModule, SupabaseModule, LlmModule, ExperienceModule],
   controllers: [ChatRuntimeController],
   providers: [
     ChatRuntimeRepository,

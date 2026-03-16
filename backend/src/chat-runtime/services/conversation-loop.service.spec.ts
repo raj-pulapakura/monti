@@ -37,7 +37,7 @@ describe('ConversationLoopService', () => {
           {
             id: 'message-1',
             thread_id: 'thread-1',
-            client_id: 'client-1',
+            user_id: 'client-1',
             role: 'user',
             content: 'Teach me planets',
             content_json: null,
@@ -101,11 +101,11 @@ describe('ConversationLoopService', () => {
 
     const result = await service.executeTurn({
       threadId: 'thread-1',
-      clientId: 'client-1',
+      userId: 'client-1',
       userMessage: {
         id: 'message-1',
         thread_id: 'thread-1',
-        client_id: 'client-1',
+        user_id: 'client-1',
         role: 'user',
         content: 'Teach me planets',
         content_json: null,
@@ -129,7 +129,7 @@ describe('ConversationLoopService', () => {
           {
             id: 'message-1',
             thread_id: 'thread-1',
-            client_id: 'client-1',
+            user_id: 'client-1',
             role: 'user',
             content: 'Build a quiz',
             content_json: null,
@@ -250,11 +250,11 @@ describe('ConversationLoopService', () => {
 
     const result = await service.executeTurn({
       threadId: 'thread-1',
-      clientId: 'client-1',
+      userId: 'client-1',
       userMessage: {
         id: 'message-1',
         thread_id: 'thread-1',
-        client_id: 'client-1',
+        user_id: 'client-1',
         role: 'user',
         content: 'Build a quiz',
         content_json: null,
@@ -310,7 +310,7 @@ describe('ConversationLoopService', () => {
           {
             id: 'message-1',
             thread_id: 'thread-1',
-            client_id: 'client-1',
+            user_id: 'client-1',
             role: 'user',
             content: 'Keep going forever',
             content_json: null,
@@ -416,11 +416,11 @@ describe('ConversationLoopService', () => {
 
     const result = await service.executeTurn({
       threadId: 'thread-1',
-      clientId: 'client-1',
+      userId: 'client-1',
       userMessage: {
         id: 'message-1',
         thread_id: 'thread-1',
-        client_id: 'client-1',
+        user_id: 'client-1',
         role: 'user',
         content: 'Loop',
         content_json: null,

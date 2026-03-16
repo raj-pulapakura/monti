@@ -11,7 +11,7 @@ import { ExperiencePersistenceRepository } from './experience-persistence.reposi
 interface PersistSuccessInput {
   requestId: string;
   operation: 'generate' | 'refine';
-  clientId: string;
+  userId: string;
   prompt: string;
   refinementInstruction?: string;
   parentGenerationId?: string;
@@ -31,14 +31,14 @@ export class ExperiencePersistenceService {
 
   async recordRunStarted(input: {
     requestId: string;
-    clientId: string;
+    userId: string;
     operation: 'generate' | 'refine';
     qualityMode: QualityMode;
     prompt: string;
   }): Promise<void> {
     await this.repository.createRun({
       requestId: input.requestId,
-      clientId: input.clientId,
+      userId: input.userId,
       operation: input.operation,
       qualityMode: input.qualityMode,
       inputPrompt: input.prompt,
@@ -82,7 +82,7 @@ export class ExperiencePersistenceService {
     versionId: string;
   }> {
     const experienceId = await this.repository.createExperience({
-      clientId: input.clientId,
+      userId: input.userId,
       title: input.experience.title,
     });
 

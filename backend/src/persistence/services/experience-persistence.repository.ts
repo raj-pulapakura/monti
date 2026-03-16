@@ -31,14 +31,14 @@ export class ExperiencePersistenceRepository {
 
   async createRun(input: {
     requestId: string;
-    clientId: string;
+    userId: string;
     operation: 'generate' | 'refine';
     qualityMode: QualityMode;
     inputPrompt: string;
   }): Promise<void> {
     const { error } = await this.client.from('generation_runs').insert({
       request_id: input.requestId,
-      client_id: input.clientId,
+      user_id: input.userId,
       operation: input.operation,
       quality_mode: input.qualityMode,
       input_prompt: input.inputPrompt,
@@ -103,13 +103,13 @@ export class ExperiencePersistenceRepository {
   }
 
   async createExperience(input: {
-    clientId: string;
+    userId: string;
     title: string;
   }): Promise<string> {
     const { data, error } = await this.client
       .from('experiences')
       .insert({
-        client_id: input.clientId,
+        user_id: input.userId,
         title: input.title,
       })
       .select('id')

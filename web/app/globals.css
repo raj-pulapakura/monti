@@ -125,6 +125,218 @@ button {
   color: #6a3e2a;
 }
 
+.signout-button {
+  border: 1px solid #d8b79c;
+  border-radius: 999px;
+  background: #fff5ec;
+  color: #7b4027;
+  padding: 0.42rem 0.8rem;
+  font-weight: 700;
+}
+
+.landing-shell {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 1.2rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.landing-hero {
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  background:
+    radial-gradient(circle at 90% 20%, rgba(218, 109, 59, 0.16), transparent 40%),
+    linear-gradient(165deg, #fffdf8, #f7ead9);
+  padding: clamp(1rem, 5vw, 2rem);
+  display: grid;
+  gap: 0.9rem;
+}
+
+.landing-kicker {
+  width: fit-content;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b3320;
+  background: #f4d9c7;
+  border-radius: 999px;
+  padding: 0.26rem 0.62rem;
+}
+
+.landing-hero h1 {
+  font-size: clamp(1.55rem, 4.4vw, 2.65rem);
+  max-width: 16ch;
+  line-height: 1.12;
+}
+
+.landing-hero p {
+  max-width: 56ch;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.landing-actions {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.landing-primary,
+.landing-secondary {
+  border-radius: 999px;
+  padding: 0.62rem 1rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.landing-primary {
+  color: #fff;
+  background: linear-gradient(145deg, var(--accent), var(--accent-strong));
+}
+
+.landing-secondary {
+  color: #7b4128;
+  background: #fff5ec;
+  border: 1px solid #ddbfa5;
+}
+
+.landing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.landing-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  background: linear-gradient(180deg, #fffefb, #f7ecdd);
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.landing-card h2 {
+  font-size: 1rem;
+}
+
+.landing-card p {
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.auth-shell {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 1.2rem;
+}
+
+.auth-card {
+  width: min(480px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  background: linear-gradient(180deg, #fffdf8, #f7ebdc);
+  padding: 1.1rem;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.auth-card h1 {
+  font-size: clamp(1.35rem, 4vw, 2rem);
+}
+
+.auth-copy {
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.auth-oauth-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.auth-oauth-list button {
+  border: 1px solid #dac3ad;
+  border-radius: 12px;
+  background: #fff8ef;
+  color: #5f3522;
+  font-weight: 600;
+  padding: 0.58rem 0.72rem;
+}
+
+.auth-oauth-list button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 0.32rem;
+  font-size: 0.95rem;
+}
+
+.auth-form input {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fffefb;
+  padding: 0.58rem 0.65rem;
+}
+
+.auth-form button {
+  border-radius: 999px;
+  background: linear-gradient(145deg, var(--accent), var(--accent-strong));
+  color: #fff;
+  font-weight: 700;
+  padding: 0.6rem 0.95rem;
+}
+
+.auth-form button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.auth-error,
+.auth-success {
+  border-radius: 12px;
+  padding: 0.58rem 0.66rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.auth-error {
+  border: 1px solid rgba(154, 58, 45, 0.34);
+  background: rgba(154, 58, 45, 0.08);
+  color: var(--warn);
+}
+
+.auth-success {
+  border: 1px solid rgba(43, 127, 97, 0.34);
+  background: rgba(43, 127, 97, 0.09);
+  color: var(--ok);
+}
+
+.auth-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.auth-links a {
+  color: #8d4f31;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .workspace-grid {
   display: grid;
   grid-template-columns: minmax(290px, 420px) 1fr;
@@ -294,6 +506,10 @@ button {
 }
 
 @media (max-width: 1020px) {
+  .landing-grid {
+    grid-template-columns: 1fr;
+  }
+
   .workspace-grid {
     grid-template-columns: 1fr;
   }

@@ -3,10 +3,12 @@ import { Injectable } from '@nestjs/common';
 @Injectable()
 export class SupabaseConfigService {
   private readonly projectUrl: string;
+  private readonly anonKeyValue: string;
   private readonly serviceRoleKey: string;
 
   constructor() {
     const url = process.env.SUPABASE_URL?.trim() ?? '';
+    const anonKey = process.env.SUPABASE_ANON_KEY?.trim() ?? '';
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? '';
 
     if (url.length === 0) {
@@ -24,7 +26,12 @@ export class SupabaseConfigService {
       throw new Error('SUPABASE_SERVICE_ROLE_KEY is required.');
     }
 
+    if (anonKey.length === 0) {
+      throw new Error('SUPABASE_ANON_KEY is required.');
+    }
+
     this.projectUrl = url;
+    this.anonKeyValue = anonKey;
     this.serviceRoleKey = key;
   }
 
@@ -34,5 +41,9 @@ export class SupabaseConfigService {
 
   get key(): string {
     return this.serviceRoleKey;
+  }
+
+  get anonKey(): string {
+    return this.anonKeyValue;
   }
 }

@@ -59,6 +59,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
 }
 
 function mapHttpStatusToErrorCode(status: number): ApiErrorCode {
+  if (status === HttpStatus.UNAUTHORIZED || status === HttpStatus.FORBIDDEN) {
+    return 'AUTHENTICATION_ERROR';
+  }
+
   if (status >= 400 && status < 500) {
     return 'VALIDATION_ERROR';
   }

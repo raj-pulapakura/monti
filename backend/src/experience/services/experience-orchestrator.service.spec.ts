@@ -24,7 +24,7 @@ class FakeLlmRouterService {
 }
 
 class FakePersistenceService {
-  readonly startedRuns: Array<{ requestId: string; clientId: string }> = [];
+  readonly startedRuns: Array<{ requestId: string; userId: string }> = [];
   readonly successfulWrites: Array<{ requestId: string; operation: 'generate' | 'refine' }> = [];
   readonly failedRuns: Array<{ requestId: string; errorMessage: string }> = [];
 
@@ -32,7 +32,7 @@ class FakePersistenceService {
 
   async recordRunStarted(input: {
     requestId: string;
-    clientId: string;
+    userId: string;
   }): Promise<void> {
     this.startedRuns.push(input);
   }
@@ -75,7 +75,7 @@ describe('ExperienceOrchestratorService', () => {
 
     await expect(
       service.generate({
-        clientId: 'test-client',
+        userId: 'test-client',
         prompt: 'Build a quiz',
         qualityMode: 'fast',
       }),
@@ -109,7 +109,7 @@ describe('ExperienceOrchestratorService', () => {
 
     await expect(
       service.generate({
-        clientId: 'test-client',
+        userId: 'test-client',
         prompt: 'Build a quiz',
         qualityMode: 'fast',
       }),
@@ -141,7 +141,7 @@ describe('ExperienceOrchestratorService', () => {
 
     await expect(
       service.generate({
-        clientId: 'test-client',
+        userId: 'test-client',
         prompt: 'Build a quiz',
         qualityMode: 'fast',
       }),
@@ -172,7 +172,7 @@ describe('ExperienceOrchestratorService', () => {
     );
 
     const result = await service.generate({
-      clientId: 'test-client',
+      userId: 'test-client',
       prompt: 'Build a quiz',
       qualityMode: 'fast',
       format: 'quiz',
@@ -208,7 +208,7 @@ describe('ExperienceOrchestratorService', () => {
 
     await expect(
       service.generate({
-        clientId: 'test-client',
+        userId: 'test-client',
         prompt: 'Build a quiz',
         qualityMode: 'fast',
       }),

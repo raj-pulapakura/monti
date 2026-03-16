@@ -20,7 +20,7 @@ export class GenerateExperienceToolService {
   async execute(input: {
     runId: string;
     threadId: string;
-    clientId: string;
+    userId: string;
     arguments: GenerateExperienceToolArguments;
   }): Promise<GenerateExperienceToolResult> {
     const routingPrompt = withConversationContext(
@@ -42,7 +42,7 @@ export class GenerateExperienceToolService {
       const payload =
         input.arguments.operation === 'generate'
           ? await this.orchestrator.generate({
-              clientId: input.clientId,
+              userId: input.userId,
               prompt: generationPrompt,
               format: input.arguments.format,
               audience: input.arguments.audience,
@@ -50,7 +50,7 @@ export class GenerateExperienceToolService {
               provider: route.selectedProvider,
             })
           : await this.orchestrator.refine({
-              clientId: input.clientId,
+              userId: input.userId,
               originalPrompt: generationPrompt,
               priorGenerationId: input.arguments.priorGenerationId!,
               refinementInstruction: input.arguments.refinementInstruction!,

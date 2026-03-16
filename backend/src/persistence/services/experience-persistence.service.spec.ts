@@ -28,7 +28,7 @@ describe('ExperiencePersistenceService', () => {
     await service.persistSuccess({
       requestId: '6f8f7e0f-3fda-4f26-aec2-624ec5ebf0d6',
       operation: 'generate',
-      clientId: 'client-1',
+      userId: 'client-1',
       prompt: 'Teach my kid the solar system.',
       format: 'quiz',
       audience: 'elementary',
@@ -41,7 +41,7 @@ describe('ExperiencePersistenceService', () => {
     });
 
     expect(repository.createExperience).toHaveBeenCalledWith({
-      clientId: 'client-1',
+      userId: 'client-1',
       title: 'Solar Quest',
     });
     expect(repository.createVersion).toHaveBeenCalledWith(
@@ -70,7 +70,7 @@ describe('ExperiencePersistenceService', () => {
       service.persistSuccess({
         requestId: 'd8006296-f071-48e6-b629-243f76dc3b40',
         operation: 'refine',
-        clientId: 'client-1',
+        userId: 'client-1',
         prompt: 'Teach my kid the solar system.',
         refinementInstruction: 'Use simpler language.',
         qualityMode: 'quality',
@@ -97,7 +97,7 @@ describe('ExperiencePersistenceService', () => {
     await service.persistSuccess({
       requestId: 'f0443e3b-5505-467b-82f1-c64c97a4ced9',
       operation: 'refine',
-      clientId: 'client-1',
+      userId: 'client-1',
       prompt: 'Teach my kid the solar system.',
       refinementInstruction: 'Use simpler language.',
       parentGenerationId: 'a7ce8286-3d1d-42d7-b27a-56adf57edfd6',
@@ -131,7 +131,7 @@ describe('ExperiencePersistenceService', () => {
       service.persistSuccess({
         requestId: '93f1f0cc-e704-4eba-bcb7-249bf73ad33d',
         operation: 'refine',
-        clientId: 'client-1',
+        userId: 'client-1',
         prompt: 'Teach my kid the solar system.',
         refinementInstruction: 'Use simpler language.',
         parentGenerationId: 'ab5b9ec6-17e4-4dbf-9bab-7db66e82b4ea',

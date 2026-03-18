@@ -3,13 +3,9 @@ type SupabasePublicEnv = {
   anonKey: string;
 };
 
-function readEnvValue(name: string): string {
-  return process.env[name]?.trim() ?? '';
-}
-
 export function getSupabasePublicEnv(): SupabasePublicEnv | null {
-  const url = readEnvValue('NEXT_PUBLIC_SUPABASE_URL');
-  const anonKey = readEnvValue('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? '';
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? '';
 
   if (url.length === 0 || anonKey.length === 0) {
     return null;

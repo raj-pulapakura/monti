@@ -3,6 +3,11 @@
 import { FormEvent, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import type { Provider } from '@supabase/supabase-js';
+import {
+  signInWithOAuthProvider,
+  signUpWithEmailPassword,
+} from '@/lib/auth/auth-flow';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export default function SignUpPage() {
@@ -64,12 +69,10 @@ export default function SignUpPage() {
     }
 
     const origin = window.location.origin;
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
+    const { data, error } = await signUpWithEmailPassword(supabase.auth, {
+      email,
       password,
-      options: {
-        emailRedirectTo: `${origin}/auth/callback?next=/app`,
-      },
+      origin,
     });
 
     if (error) {
@@ -87,6 +90,34 @@ export default function SignUpPage() {
     setSuccessMessage('Account created. Check your email if confirmation is enabled.');
   }
 
+  async function handleOAuth(provider: Provider) {
+    if (submitting) {
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setSubmitting(false);
+      return;
+    }
+
+    const origin = window.location.origin;
+    const { error } = await signInWithOAuthProvider(supabase.auth, {
+      provider,
+      origin,
+      nextPath: '/app',
+    });
+
+    if (error) {
+      setSubmitting(false);
+      setErrorMessage(error.message);
+    }
+  }
+
   return (
     <main className="auth-shell">
       <section className="auth-card">
@@ -94,6 +125,18 @@ export default function SignUpPage() {
         <p className="auth-copy">
           Start building and refining experiences in your protected workspace.
         </p>
+
+        <div className="auth-oauth-list">
+          <button type="button" onClick={() => void handleOAuth('google')} disabled={submitting}>
+            Continue with Google
+          </button>
+          <button type="button" onClick={() => void handleOAuth('azure')} disabled={submitting}>
+            Continue with Microsoft
+          </button>
+          <button type="button" onClick={() => void handleOAuth('apple')} disabled={submitting}>
+            Continue with Apple
+          </button>
+        </div>
 
         <form onSubmit={handleSignUp} className="auth-form">
           <label>

@@ -4,12 +4,15 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AppError, type ApiErrorCode } from '../errors/app-error';
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(ApiExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
 
@@ -48,11 +51,23 @@ export class ApiExceptionFilter implements ExceptionFilter {
       return;
     }
 
+    const isProduction = process.env.NODE_ENV === 'production';
+    const fallbackMessage =
+      exception instanceof Error && !isProduction
+        ? `Unexpected error: ${exception.message}`
+        : 'An unexpected error occurred.';
+
+    if (exception instanceof Error) {
+      this.logger.error(exception.message, exception.stack);
+    } else {
+      this.logger.error('Unhandled non-Error exception thrown', JSON.stringify(exception));
+    }
+
     response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       ok: false,
       error: {
         code: 'INTERNAL_ERROR',
-        message: 'An unexpected error occurred.',
+        message: fallbackMessage,
       },
     });
   }

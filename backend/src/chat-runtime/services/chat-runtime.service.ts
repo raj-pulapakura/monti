@@ -108,7 +108,6 @@ export class ChatRuntimeService {
     assertChatRuntimeEnabled();
     const result = await this.repository.submitUserMessage({
       threadId: input.threadId,
-      userId: input.userId,
       content: input.request.content,
       idempotencyKey: input.request.idempotencyKey,
     });

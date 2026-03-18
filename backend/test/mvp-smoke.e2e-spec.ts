@@ -13,6 +13,7 @@ describe('MVP Smoke Flow (e2e)', () => {
   beforeEach(async () => {
     process.env.SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+    process.env.SUPABASE_ANON_KEY = 'test-anon-key';
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -41,12 +42,12 @@ describe('MVP Smoke Flow (e2e)', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('prompt -> generate -> refine should succeed', async () => {
     const generateResponse = await orchestrator.generate({
-      clientId: 'test-client',
+      userId: '00000000-0000-4000-8000-000000000001',
       prompt: 'Teach me about photosynthesis with a mini quiz.',
       format: 'quiz',
       audience: 'middle-school',
@@ -56,7 +57,7 @@ describe('MVP Smoke Flow (e2e)', () => {
     expect(generateResponse.experience.title).toBeTruthy();
 
     const refineResponse = await orchestrator.refine({
-      clientId: 'test-client',
+      userId: '00000000-0000-4000-8000-000000000001',
       originalPrompt: 'Teach me about photosynthesis with a mini quiz.',
       priorGenerationId: generateResponse.metadata.generationId,
       refinementInstruction: 'Make it easier for younger students.',

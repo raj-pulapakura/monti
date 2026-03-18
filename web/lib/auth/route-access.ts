@@ -12,6 +12,10 @@ export function resolveAuthRouteRedirect(input: {
   hasUser: boolean;
 }): string | null {
   const { pathname, search, hasUser } = input;
+  if (pathname === '/' && hasUser) {
+    return '/app';
+  }
+
   if (pathname === '/auth') {
     return '/auth/sign-in';
   }

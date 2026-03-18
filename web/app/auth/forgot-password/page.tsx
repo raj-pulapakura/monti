@@ -2,6 +2,7 @@
 
 import { FormEvent, useRef, useState } from 'react';
 import Link from 'next/link';
+import { sendPasswordRecoveryEmail } from '@/lib/auth/auth-flow';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export default function ForgotPasswordPage() {
@@ -48,8 +49,9 @@ export default function ForgotPasswordPage() {
     }
 
     const origin = window.location.origin;
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${origin}/auth/reset-password`,
+    const { error } = await sendPasswordRecoveryEmail(supabase.auth, {
+      email,
+      origin,
     });
 
     setSubmitting(false);

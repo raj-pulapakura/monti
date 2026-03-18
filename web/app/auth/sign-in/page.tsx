@@ -4,6 +4,10 @@ import { FormEvent, Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { Provider } from '@supabase/supabase-js';
+import {
+  signInWithEmailPassword,
+  signInWithOAuthProvider,
+} from '@/lib/auth/auth-flow';
 import { resolveSafeNextPath } from '@/lib/auth/next-path';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
@@ -77,8 +81,8 @@ function SignInForm() {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+    const { error } = await signInWithEmailPassword(supabase.auth, {
+      email,
       password,
     });
 
@@ -106,11 +110,10 @@ function SignInForm() {
     }
 
     const origin = window.location.origin;
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await signInWithOAuthProvider(supabase.auth, {
       provider,
-      options: {
-        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
-      },
+      origin,
+      nextPath,
     });
 
     if (error) {

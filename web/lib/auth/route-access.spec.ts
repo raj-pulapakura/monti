@@ -2,6 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { resolveAuthRouteRedirect } from './route-access';
 
 describe('resolveAuthRouteRedirect', () => {
+  it('redirects authenticated root visits to /app', () => {
+    const redirect = resolveAuthRouteRedirect({
+      pathname: '/',
+      search: '',
+      hasUser: true,
+    });
+
+    expect(redirect).toBe('/app');
+  });
+
   it('redirects /auth to /auth/sign-in', () => {
     const redirect = resolveAuthRouteRedirect({
       pathname: '/auth',

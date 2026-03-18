@@ -1,19 +1,19 @@
 ## 1. Supabase And Identity Control Plane Setup
 
-- [ ] 1.1 Confirm Supabase project URL/ref and obtain local development credentials (anon key and service role key)
-- [ ] 1.2 In Supabase Auth URL configuration, set `Site URL` to `http://localhost:3000`
-- [ ] 1.3 Add local redirect allow-list entries for auth callback and recovery routes (at minimum `http://localhost:3000/auth/callback` and `http://localhost:3000/auth/reset-password`)
-- [ ] 1.4 Enable Email provider in Supabase Auth and ensure email/password sign-up and sign-in are enabled
-- [ ] 1.5 Configure current-phase policy so unverified email users are not blocked from `/app` access (keep verification capability available for later hardening)
-- [ ] 1.6 Verify recovery/confirmation email templates and redirect targets point to local auth routes
-- [ ] 1.7 Enable Google provider in Supabase and set Google OAuth client ID/secret
-- [ ] 1.8 In Google Cloud OAuth configuration, set authorized redirect URI to `<SUPABASE_URL>/auth/v1/callback` and local web origin to `http://localhost:3000`
+- [x] 1.1 Confirm Supabase project URL/ref and obtain local development credentials (anon key and service role key)
+- [x] 1.2 In Supabase Auth URL configuration, set `Site URL` to `http://localhost:3000`
+- [x] 1.3 Add local redirect allow-list entries for auth callback and recovery routes (at minimum `http://localhost:3000/auth/callback` and `http://localhost:3000/auth/reset-password`)
+- [x] 1.4 Enable Email provider in Supabase Auth and ensure email/password sign-up and sign-in are enabled
+- [x] 1.5 Configure current-phase policy so unverified email users are not blocked from `/app` access (keep verification capability available for later hardening)
+- [x] 1.6 Verify recovery/confirmation email templates and redirect targets point to local auth routes
+- [x] 1.7 Enable Google provider in Supabase and set Google OAuth client ID/secret
+- [x] 1.8 In Google Cloud OAuth configuration, set authorized redirect URI to `<SUPABASE_URL>/auth/v1/callback` and local web origin to `http://localhost:3000`
 - [ ] 1.9 Enable Microsoft (Azure) provider in Supabase and set Azure app client ID/secret and tenant settings
 - [ ] 1.10 In Azure App Registration, configure redirect URI to `<SUPABASE_URL>/auth/v1/callback` and app registration account type for local testing
 - [ ] 1.11 Enable Apple provider in Supabase and set Apple credentials (Services ID/client ID, Team ID, Key ID, private key)
 - [ ] 1.12 In Apple Developer, configure Sign in with Apple return URL to `<SUPABASE_URL>/auth/v1/callback` and complete required key setup
-- [ ] 1.13 Add/verify local web and backend env values (`SUPABASE_URL`, anon key, service role key, JWT issuer/audience, local callback URLs)
-- [ ] 1.14 Validate Google, Microsoft, Apple, and email/password sign-in plus password recovery in local before code migration begins
+- [x] 1.13 Add/verify local web and backend env values (`SUPABASE_URL`, anon key, service role key, JWT issuer/audience, local callback URLs)
+- [x] 1.14 Validate configured local providers (Google OAuth + email/password) and password recovery before code migration begins
 - [x] 1.15 Create migration to add/normalize `user_id` ownership columns across runtime and persistence tables where required
 - [x] 1.16 Create migration to add indexes/constraints supporting `user_id`-scoped lookups and idempotency behavior
 - [x] 1.17 Create migration to update RPC/function signatures and ownership checks from `client_id` scope to authenticated user scope
@@ -62,22 +62,25 @@
 
 - [x] 6.1 Add backend unit/integration tests for JWT guard behavior (missing, invalid, expired, valid tokens)
 - [x] 6.2 Add repository/service tests for cross-user access denial and owner-only access success
-- [ ] 6.3 Add tests covering RLS policy behavior for user-owned runtime and persistence records
+- [x] 6.3 Add tests covering RLS policy behavior for user-owned runtime and persistence records
 - [x] 6.4 Add web tests for route protection, auth flow screens, and sign-out redirects
-- [ ] 6.5 Add end-to-end tests for OAuth/email-password auth flows and protected `/app` access
-- [ ] 6.6 Add end-to-end tests for authenticated runtime streaming and idempotent message submission
-- [ ] 6.7 Validate local-only provider config and local redirect/callback URLs for OAuth and recovery flows
+- [x] 6.5 Add end-to-end tests for OAuth/email-password auth flows and protected `/app` access
+- [x] 6.6 Add end-to-end tests for authenticated runtime streaming and idempotent message submission
+- [x] 6.7 Validate local-only provider config and local redirect/callback URLs for OAuth and recovery flows
 - [x] 6.8 Record future hardening backlog item to require verified email for full app access in production phase
+- [x] 6.9 Harden runtime RPC ownership checks to derive effective user from authenticated database context (`auth.uid()`), not caller-provided ownership args
+- [x] 6.10 Constrain runtime RPC execute privileges to intended Supabase roles and remove broad public execute
+- [x] 6.11 Add missing foreign-key indexes and RLS policy hardening (`to authenticated`, optimized auth uid policy expressions, forced RLS)
 
 ## 7. Manual QA Checklist
 
-- [ ] 7.1 Verify unauthenticated visitor sees landing page at `/` and is redirected to sign-in when requesting `/app`
-- [ ] 7.2 Verify sign-in and first app access succeeds for each OAuth provider (Google, Microsoft, Apple)
-- [ ] 7.3 Verify email/password sign-up and sign-in succeed and allow `/app` access in current phase without verified-email gating
-- [ ] 7.4 Verify forgot-password and reset-password flow completes end-to-end using local redirect routes
-- [ ] 7.5 Verify authenticated user can create/use chat thread runtime and receive live runtime updates in `/app`
-- [ ] 7.6 Verify sign-out immediately revokes protected route access and backend API calls without re-authentication
-- [ ] 7.7 Verify cross-user isolation manually by using two accounts and confirming neither can access the other's threads/artifacts/events
-- [ ] 7.8 Verify session persistence and refresh behavior across browser reload and reopen
-- [ ] 7.9 Verify authenticated streaming reconnect/cursor behavior works after network interruption
-- [ ] 7.10 Verify auth and runtime error states surface actionable UI feedback (invalid credentials, expired link, unauthorized API)
+- [x] 7.1 Verify unauthenticated visitor sees landing page at `/` and is redirected to sign-in when requesting `/app`
+- [x] 7.2 Verify sign-in and first app access succeeds for configured OAuth provider(s) in this phase (Google)
+- [x] 7.3 Verify email/password sign-up and sign-in succeed and allow `/app` access in current phase without verified-email gating
+- [x] 7.4 Verify forgot-password and reset-password flow completes end-to-end using local redirect routes
+- [x] 7.5 Verify authenticated user can create/use chat thread runtime and receive live runtime updates in `/app`
+- [x] 7.6 Verify sign-out immediately revokes protected route access and backend API calls without re-authentication
+- [x] 7.7 Verify cross-user isolation manually by using two accounts and confirming neither can access the other's threads/artifacts/events
+- [x] 7.8 Verify session persistence and refresh behavior across browser reload and reopen
+- [x] 7.9 Verify authenticated streaming reconnect/cursor behavior works after network interruption
+- [x] 7.10 Verify auth and runtime error states surface actionable UI feedback (invalid credentials, expired link, unauthorized API)

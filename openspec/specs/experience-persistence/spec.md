@@ -4,35 +4,46 @@
 TBD - created by archiving change add-supabase-persistence. Update Purpose after archive.
 ## Requirements
 ### Requirement: Persist experiences and versioned artifacts in Supabase
-The system SHALL persist generated learning experiences in a normalized data model with a top-level experience record and versioned artifact records produced by tool invocations in assistant runs.
+The system SHALL persist generated learning experiences in a normalized data model with authenticated user ownership, a top-level experience record, and versioned artifact records produced by tool invocations in assistant runs.
 
 #### Scenario: Successful generation creates persisted experience and version
 - **WHEN** a generation tool invocation completes successfully after payload validation and safety checks
-- **THEN** the system creates or reuses an experience record and inserts a new version record containing generated artifact fields and metadata
+- **THEN** the system creates or reuses a user-owned experience record and inserts a new version record containing generated artifact fields and metadata
 
 #### Scenario: Version numbering is unique per experience
 - **WHEN** a new version is inserted for an existing experience
 - **THEN** the version is stored with a unique incrementing `version_number` scoped to that experience
 
 ### Requirement: Persist generation/refinement run telemetry
-The system SHALL persist run telemetry for successful and failed execution across conversation runs, routing decisions, generation runs, and tool invocations.
+The system SHALL persist run telemetry for successful and failed execution across conversation runs, routing decisions, generation runs, and tool invocations with authenticated user ownership linkage.
 
 #### Scenario: Successful execution telemetry is recorded
 - **WHEN** conversation orchestration and generation execution succeed
-- **THEN** the system stores conversation run status, routing metadata, generation provider/model selection, timing, and linkage across thread/message/tool/artifact records
+- **THEN** the system stores conversation run status, routing metadata, generation provider/model selection, timing, and linkage across user-owned thread/message/tool/artifact records
 
 #### Scenario: Failed execution telemetry is recorded
 - **WHEN** conversation orchestration, routing, or generation tool execution fails after run creation
-- **THEN** the system stores failed status and normalized error context with correlation to the affected conversation run and tool invocation
+- **THEN** the system stores failed status and normalized error context with correlation to the affected conversation run and tool invocation under the authenticated user scope
 
-### Requirement: Support anonymous client scoping for persistence
-The system SHALL support persistence without auth by associating thread and artifact records with a required client-scoping identifier.
+### Requirement: Support authenticated user scoping for persistence
+The system SHALL require authenticated user context for persistence writes and associate persisted thread/artifact records with that user identity.
 
-#### Scenario: Anonymous client creates first persisted thread and experience
-- **WHEN** a request includes a client-scoping identifier and no matching thread context exists
-- **THEN** the system creates thread-scoped records and allows subsequent artifact persistence under that client scope
+#### Scenario: Authenticated user creates first persisted thread and experience
+- **WHEN** a valid authenticated user performs a persistence-producing action without existing records
+- **THEN** the system creates user-owned persistence records that are linked to that user identifier
 
-#### Scenario: Missing client-scoping identifier is rejected
-- **WHEN** a persistence write is attempted without a required client-scoping identifier
-- **THEN** the system returns a validation error and does not write persistence records
+#### Scenario: Missing authenticated user context is rejected
+- **WHEN** a persistence write is attempted without a valid authenticated user context
+- **THEN** the system returns an authentication error and does not write persistence records
+
+### Requirement: Enforce row-level access controls for user-owned persistence data
+The system MUST enforce RLS policies that allow users to access only their own persisted runtime and experience records.
+
+#### Scenario: User reads own persistence records
+- **WHEN** an authenticated user requests persistence data they own
+- **THEN** the system returns the matching records successfully
+
+#### Scenario: User requests another user's persistence records
+- **WHEN** an authenticated user requests persistence data owned by a different user
+- **THEN** the system denies access and does not disclose the other user's records
 

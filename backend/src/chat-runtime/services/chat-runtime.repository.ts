@@ -44,6 +44,10 @@ export class ChatRuntimeRepository {
       this.throwQueryError('create chat thread', threadError);
     }
 
+    if (!thread) {
+      throw new AppError('INTERNAL_ERROR', 'Created chat thread was not returned.', 500);
+    }
+
     const { data: sandboxState, error: sandboxError } = await this.client
       .from('sandbox_states')
       .insert({
@@ -55,6 +59,10 @@ export class ChatRuntimeRepository {
 
     if (sandboxError) {
       this.throwQueryError('create initial sandbox state', sandboxError);
+    }
+
+    if (!sandboxState) {
+      throw new AppError('INTERNAL_ERROR', 'Created sandbox state was not returned.', 500);
     }
 
     return {
@@ -143,7 +151,6 @@ export class ChatRuntimeRepository {
 
   async submitUserMessage(input: {
     threadId: string;
-    userId: string;
     content: string;
     idempotencyKey?: string;
   }): Promise<{
@@ -153,7 +160,6 @@ export class ChatRuntimeRepository {
   }> {
     const { data, error } = await this.client.rpc('chat_submit_user_message', {
       p_thread_id: input.threadId,
-      p_user_id: input.userId,
       p_content: input.content,
       p_idempotency_key: input.idempotencyKey ?? null,
     });
@@ -161,6 +167,20 @@ export class ChatRuntimeRepository {
     if (error) {
       if (error.code === 'P0001') {
         throw new ValidationError(error.message);
+      }
+
+      if (error.code === 'PGRST202') {
+        throw new AppError(
+          'INTERNAL_ERROR',
+          'Supabase chat submit RPC is outdated. Apply migration 20260318000100_harden_auth_rpc_and_rls.sql and retry.',
+          500,
+          {
+            code: error.code ?? undefined,
+            message: error.message,
+            details: error.details ?? undefined,
+            hint: error.hint ?? undefined,
+          },
+        );
       }
 
       this.throwQueryError('submit chat message', error);
@@ -597,7 +617,12 @@ export class ChatRuntimeRepository {
     return data;
   }
 
-  private throwQueryError(action: string, error: { message: string; code?: string | null }): never {
+  private throwQueryError(action: string, error: {
+    message: string;
+    code?: string | null;
+    details?: string | null;
+    hint?: string | null;
+  }): never {
     throw new AppError(
       'INTERNAL_ERROR',
       `Failed to ${action}.`,
@@ -605,6 +630,8 @@ export class ChatRuntimeRepository {
       {
         code: error.code ?? undefined,
         message: error.message,
+        details: error.details ?? undefined,
+        hint: error.hint ?? undefined,
       },
     );
   }

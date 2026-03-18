@@ -151,7 +151,9 @@ export default function AppPage() {
       return;
     }
 
-    void bootstrapThread(accessToken);
+    void bootstrapThread(accessToken).catch((error) => {
+      setErrorMessage(toErrorMessage(error));
+    });
   }, [accessToken, thread?.id]);
 
   useEffect(() => {
@@ -301,14 +303,21 @@ export default function AppPage() {
 
   async function bootstrapThread(token: string) {
     let threadId = readStoredThreadId();
-    if (!threadId) {
-      threadId = await createThread(token);
+    if (threadId) {
+      try {
+        await hydrateAndSetThreadState(threadId, token);
+        return;
+      } catch {
+        clearStoredThreadId();
+      }
     }
 
-    const hydrated = await fetchThreadHydration(threadId, token).catch(async () => {
-      const replacementId = await createThread(token);
-      return fetchThreadHydration(replacementId, token);
-    });
+    threadId = await createThread(token);
+    await hydrateAndSetThreadState(threadId, token);
+  }
+
+  async function hydrateAndSetThreadState(threadId: string, token: string) {
+    const hydrated = await fetchThreadHydration(threadId, token);
 
     setThread(hydrated.thread);
     setRuntimeState({
@@ -320,6 +329,25 @@ export default function AppPage() {
     });
 
     await refreshSandboxPreview(hydrated.thread.id, token);
+    return hydrated.thread;
+  }
+
+  async function ensureThreadForSubmission(token: string): Promise<ThreadEnvelope> {
+    if (thread?.id) {
+      return thread;
+    }
+
+    const storedThreadId = readStoredThreadId();
+    if (storedThreadId) {
+      try {
+        return await hydrateAndSetThreadState(storedThreadId, token);
+      } catch {
+        clearStoredThreadId();
+      }
+    }
+
+    const threadId = await createThread(token);
+    return hydrateAndSetThreadState(threadId, token);
   }
 
   async function createThread(token: string): Promise<string> {
@@ -353,7 +381,7 @@ export default function AppPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
 
-    if (!thread?.id || !accessToken || submitting) {
+    if (!accessToken || submitting) {
       return;
     }
 
@@ -362,29 +390,33 @@ export default function AppPage() {
       return;
     }
 
-    const optimisticId = `temp-${Date.now()}`;
-    const optimisticMessage: ChatMessage = {
-      id: optimisticId,
-      threadId: thread.id,
-      userId: thread.userId,
-      role: 'user',
-      content: trimmed,
-      contentJson: null,
-      idempotencyKey: null,
-      createdAt: new Date().toISOString(),
-    };
-
     setErrorMessage(null);
     setSubmitting(true);
-    setComposerText('');
-    setRuntimeState((previous) => ({
-      ...previous,
-      messages: [...previous.messages, optimisticMessage],
-    }));
+    let optimisticId: string | null = null;
 
     try {
+      const activeThread = await ensureThreadForSubmission(accessToken);
+      optimisticId = `temp-${Date.now()}`;
+
+      const optimisticMessage: ChatMessage = {
+        id: optimisticId,
+        threadId: activeThread.id,
+        userId: activeThread.userId,
+        role: 'user',
+        content: trimmed,
+        contentJson: null,
+        idempotencyKey: null,
+        createdAt: new Date().toISOString(),
+      };
+
+      setComposerText('');
+      setRuntimeState((previous) => ({
+        ...previous,
+        messages: [...previous.messages, optimisticMessage],
+      }));
+
       const response = await apiClientFor(accessToken).postJson<SubmitMessageResponse>(
-        `/api/chat/threads/${thread.id}/messages`,
+        `/api/chat/threads/${activeThread.id}/messages`,
         {
           content: buildPromptWithContext(trimmed, format, audience),
           idempotencyKey: createIdempotencyKey(),
@@ -398,14 +430,16 @@ export default function AppPage() {
       }));
 
       await Promise.all([
-        refreshThreadSnapshot(thread.id, accessToken),
-        refreshSandboxPreview(thread.id, accessToken),
+        refreshThreadSnapshot(activeThread.id, accessToken),
+        refreshSandboxPreview(activeThread.id, accessToken),
       ]);
     } catch (error) {
-      setRuntimeState((previous) => ({
-        ...previous,
-        messages: previous.messages.filter((message) => message.id !== optimisticId),
-      }));
+      if (optimisticId) {
+        setRuntimeState((previous) => ({
+          ...previous,
+          messages: previous.messages.filter((message) => message.id !== optimisticId),
+        }));
+      }
       setComposerText(trimmed);
       setErrorMessage(toErrorMessage(error));
     } finally {
@@ -435,7 +469,13 @@ export default function AppPage() {
         </div>
         <div className="status-badges">
           <span className={`connection-badge ${streamConnected ? 'online' : 'offline'}`}>
-            {streamConnected ? 'Live updates' : 'Reconnecting'}
+            {errorMessage && !thread?.id
+              ? 'Setup failed'
+              : !accessToken || !thread?.id
+              ? 'Initializing'
+              : streamConnected
+                ? 'Live updates'
+                : 'Reconnecting'}
           </span>
           {statusLabel ? <span className="status-pill">{statusLabel}</span> : null}
           <button type="button" className="signout-button" onClick={() => void handleSignOut()}>
@@ -498,11 +538,11 @@ export default function AppPage() {
               value={composerText}
               onChange={(event) => setComposerText(event.target.value)}
               placeholder="Create anything..."
-              disabled={!thread?.id || !accessToken || submitting}
+              disabled={submitting}
             />
             <button
               type="submit"
-              disabled={!thread?.id || !accessToken || submitting || composerText.trim().length === 0}
+              disabled={!accessToken || submitting || composerText.trim().length === 0}
             >
               {submitting ? 'Sending...' : 'Send'}
             </button>
@@ -631,6 +671,14 @@ function writeStoredThreadId(threadId: string): void {
   }
 
   window.localStorage.setItem(ACTIVE_THREAD_STORAGE_KEY, threadId);
+}
+
+function clearStoredThreadId(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.removeItem(ACTIVE_THREAD_STORAGE_KEY);
 }
 
 function apiClientFor(accessToken: string) {

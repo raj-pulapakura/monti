@@ -121,6 +121,19 @@ Constraints:
 **Alternatives considered:**
 - **Require verified email now**: Stronger identity assurance, but additional friction and setup not needed for current phase.
 
+### 10) Derive ownership inside SQL boundary and harden RLS policy posture
+
+**Decision:**
+- Runtime SQL/RPC mutation paths derive effective user ownership from `auth.uid()` inside database logic.
+- SQL function execute privileges are constrained to intended roles.
+- User-owned tables use forced RLS and policy expressions optimized for Supabase/Postgres recommendations.
+
+**Rationale:** Prevents caller-forged ownership claims and improves RLS performance/defense-in-depth under scale.
+
+**Alternatives considered:**
+- **Trusting caller-provided `user_id` in RPC args**: simpler plumbing, but unacceptable authorization risk.
+- **Keeping permissive default function execute privileges**: higher exposure surface than needed.
+
 ## Risks / Trade-offs
 
 - **[Auth scope creep across modules]** → Mitigation: centralize request auth context and remove `clientId` fields from public contracts in one coordinated pass.

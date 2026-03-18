@@ -22,6 +22,13 @@ The system MUST NOT use caller-provided anonymous client ownership identifiers a
 - **WHEN** a runtime API request is made without a valid authenticated user
 - **THEN** the system rejects the request as unauthorized
 
+### Requirement: Prevent caller-forged user ownership in runtime mutation paths
+The runtime mutation path (including RPC-backed message submission) MUST enforce authenticated ownership from server-derived auth context and MUST NOT trust caller-provided `user_id`.
+
+#### Scenario: Caller submits mismatched user ownership
+- **WHEN** a caller attempts to submit a runtime mutation with a user identifier that does not match the authenticated token identity
+- **THEN** the runtime rejects the request and does not persist cross-user records
+
 ## MODIFIED Requirements
 
 ### Requirement: Enforce idempotent message submission

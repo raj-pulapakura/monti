@@ -375,7 +375,6 @@ export interface Database {
       chat_submit_user_message: {
         Args: {
           p_thread_id: string;
-          p_user_id: string;
           p_content: string;
           p_idempotency_key?: string | null;
         };

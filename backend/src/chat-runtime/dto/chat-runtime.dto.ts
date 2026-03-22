@@ -19,6 +19,13 @@ export interface HydrateThreadRequest {
   threadId: string;
 }
 
+const DEFAULT_THREAD_LIST_LIMIT = 1000;
+const MAX_THREAD_LIST_LIMIT = 5000;
+
+export interface ListThreadsRequest {
+  limit: number;
+}
+
 export interface ThreadEnvelope {
   id: string;
   userId: string;
@@ -35,6 +42,21 @@ export interface ThreadHydrationPayload {
   activeRun: AssistantRunEnvelope | null;
   activeToolInvocation: ToolInvocationEnvelope | null;
   latestEventId: string | null;
+}
+
+export interface ThreadListItemEnvelope {
+  id: string;
+  userId: string;
+  title: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  sandboxStatus: 'empty' | 'creating' | 'ready' | 'error' | null;
+  sandboxUpdatedAt: string | null;
+}
+
+export interface ThreadListPayload {
+  threads: ThreadListItemEnvelope[];
 }
 
 export interface SubmitMessagePayload {
@@ -61,6 +83,20 @@ export function parseHydrateThreadRequest(threadId: string, query: unknown): Hyd
 
   return {
     threadId,
+  };
+}
+
+export function parseListThreadsRequest(query: unknown): ListThreadsRequest {
+  const object = asRecord(query, 'Query params must be an object.');
+  const limit = asOptionalInteger(object.limit, 'limit');
+  const resolvedLimit = limit ?? DEFAULT_THREAD_LIST_LIMIT;
+
+  if (resolvedLimit <= 0) {
+    throw new ValidationError('limit must be greater than 0 when provided.');
+  }
+
+  return {
+    limit: Math.min(resolvedLimit, MAX_THREAD_LIST_LIMIT),
   };
 }
 
@@ -147,6 +183,34 @@ function asOptionalString(value: unknown, fieldName: string): string | undefined
 
   const trimmed = value.trim();
   return trimmed.length === 0 ? undefined : trimmed;
+}
+
+function asOptionalInteger(value: unknown, fieldName: string): number | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  let parsed: number | null = null;
+  if (typeof value === 'number') {
+    parsed = Number.isInteger(value) ? value : null;
+  } else if (typeof value === 'string') {
+    const normalized = value.trim();
+    if (normalized.length === 0) {
+      return undefined;
+    }
+
+    if (!/^-?\d+$/.test(normalized)) {
+      throw new ValidationError(`${fieldName} must be an integer when provided.`);
+    }
+
+    parsed = Number.parseInt(normalized, 10);
+  }
+
+  if (!Number.isInteger(parsed)) {
+    throw new ValidationError(`${fieldName} must be an integer when provided.`);
+  }
+
+  return parsed as number;
 }
 
 function isUuidLike(value: string): boolean {

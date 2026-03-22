@@ -2,11 +2,13 @@
 
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
 import {
   API_BASE_URL,
   createAuthenticatedApiClient,
 } from '@/lib/api/authenticated-api-client';
+import { consumeHomePromptHandoff } from '@/lib/chat/prompt-handoff';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import {
   getRetryComposerValue,
@@ -20,7 +22,7 @@ import {
   type RuntimeState,
   type SandboxState,
   type ToolInvocation,
-} from '../runtime-state';
+} from '../../runtime-state';
 
 type AudienceLevel = 'young-kids' | 'elementary' | 'middle-school';
 type ExperienceFormat = 'quiz' | 'game' | 'explainer';
@@ -41,14 +43,6 @@ type ExperiencePayload = {
   css: string;
   js: string;
   generationId: string;
-};
-
-type ThreadCreateResponse = {
-  ok: true;
-  data: {
-    thread: ThreadEnvelope;
-    sandboxState: SandboxState;
-  };
 };
 
 type ThreadHydrationResponse = {
@@ -81,10 +75,12 @@ type SandboxPreviewResponse = {
   };
 };
 
-const ACTIVE_THREAD_STORAGE_KEY = 'monti_active_thread_id_v1';
 class FatalStreamAuthError extends Error {}
 
-export default function AppPage() {
+export default function ChatThreadPage() {
+  const params = useParams<{ threadId: string }>();
+  const routeThreadId = resolveRouteThreadId(params.threadId);
+  const threadIdIsValid = isUuidLike(routeThreadId);
   const router = useRouter();
   const supabaseRef = useRef<ReturnType<typeof createSupabaseBrowserClient> | null>(
     null,
@@ -100,6 +96,7 @@ export default function AppPage() {
   const [streamConnected, setStreamConnected] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const latestEventIdRef = useRef<string | null>(null);
+  const handoffAttemptedThreadRef = useRef<string | null>(null);
 
   function getSupabaseClient() {
     if (supabaseRef.current) {
@@ -122,6 +119,14 @@ export default function AppPage() {
   useEffect(() => {
     latestEventIdRef.current = runtimeState.latestEventId;
   }, [runtimeState.latestEventId]);
+
+  useEffect(() => {
+    setThread(null);
+    setRuntimeState(INITIAL_RUNTIME_STATE);
+    setActiveExperience(null);
+    setErrorMessage(null);
+    handoffAttemptedThreadRef.current = null;
+  }, [routeThreadId]);
 
   useEffect(() => {
     const supabaseClient = getSupabaseClient();
@@ -147,12 +152,41 @@ export default function AppPage() {
   }, [router]);
 
   useEffect(() => {
-    if (!accessToken || thread?.id) {
+    if (!accessToken) {
       return;
     }
 
-    void bootstrapThread(accessToken).catch((error) => {
+    if (!threadIdIsValid) {
+      setErrorMessage('Invalid chat URL. Use a valid thread link.');
+      return;
+    }
+
+    void hydrateAndSetThreadState(routeThreadId, accessToken).catch((error) => {
+      setThread(null);
       setErrorMessage(toErrorMessage(error));
+    });
+  }, [accessToken, routeThreadId, threadIdIsValid]);
+
+  useEffect(() => {
+    if (!accessToken || !thread?.id) {
+      return;
+    }
+
+    if (handoffAttemptedThreadRef.current === thread.id) {
+      return;
+    }
+    handoffAttemptedThreadRef.current = thread.id;
+
+    const handoffPrompt = consumeHomePromptHandoff(thread.id);
+    if (!handoffPrompt) {
+      return;
+    }
+
+    void submitPrompt({
+      prompt: handoffPrompt,
+      token: accessToken,
+      activeThread: thread,
+      resetComposerOnSuccess: false,
     });
   }, [accessToken, thread?.id]);
 
@@ -301,21 +335,6 @@ export default function AppPage() {
     }
   }
 
-  async function bootstrapThread(token: string) {
-    let threadId = readStoredThreadId();
-    if (threadId) {
-      try {
-        await hydrateAndSetThreadState(threadId, token);
-        return;
-      } catch {
-        clearStoredThreadId();
-      }
-    }
-
-    threadId = await createThread(token);
-    await hydrateAndSetThreadState(threadId, token);
-  }
-
   async function hydrateAndSetThreadState(threadId: string, token: string) {
     const hydrated = await fetchThreadHydration(threadId, token);
 
@@ -330,34 +349,6 @@ export default function AppPage() {
 
     await refreshSandboxPreview(hydrated.thread.id, token);
     return hydrated.thread;
-  }
-
-  async function ensureThreadForSubmission(token: string): Promise<ThreadEnvelope> {
-    if (thread?.id) {
-      return thread;
-    }
-
-    const storedThreadId = readStoredThreadId();
-    if (storedThreadId) {
-      try {
-        return await hydrateAndSetThreadState(storedThreadId, token);
-      } catch {
-        clearStoredThreadId();
-      }
-    }
-
-    const threadId = await createThread(token);
-    return hydrateAndSetThreadState(threadId, token);
-  }
-
-  async function createThread(token: string): Promise<string> {
-    const response = await apiClientFor(token).postJson<ThreadCreateResponse>(
-      '/api/chat/threads',
-      {},
-    );
-    const nextThreadId = response.data.thread.id;
-    writeStoredThreadId(nextThreadId);
-    return nextThreadId;
   }
 
   async function refreshThreadSnapshot(threadId: string, token: string) {
@@ -381,11 +372,34 @@ export default function AppPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
 
-    if (!accessToken || submitting) {
+    if (!accessToken || submitting || !thread?.id) {
       return;
     }
 
     const trimmed = composerText.trim();
+    if (trimmed.length === 0) {
+      return;
+    }
+
+    await submitPrompt({
+      prompt: trimmed,
+      token: accessToken,
+      activeThread: thread,
+      resetComposerOnSuccess: true,
+    });
+  }
+
+  async function submitPrompt(input: {
+    prompt: string;
+    token: string;
+    activeThread: ThreadEnvelope;
+    resetComposerOnSuccess: boolean;
+  }) {
+    if (submitting) {
+      return;
+    }
+
+    const trimmed = input.prompt.trim();
     if (trimmed.length === 0) {
       return;
     }
@@ -395,13 +409,12 @@ export default function AppPage() {
     let optimisticId: string | null = null;
 
     try {
-      const activeThread = await ensureThreadForSubmission(accessToken);
       optimisticId = `temp-${Date.now()}`;
 
       const optimisticMessage: ChatMessage = {
         id: optimisticId,
-        threadId: activeThread.id,
-        userId: activeThread.userId,
+        threadId: input.activeThread.id,
+        userId: input.activeThread.userId,
         role: 'user',
         content: trimmed,
         contentJson: null,
@@ -409,14 +422,16 @@ export default function AppPage() {
         createdAt: new Date().toISOString(),
       };
 
-      setComposerText('');
+      if (input.resetComposerOnSuccess) {
+        setComposerText('');
+      }
       setRuntimeState((previous) => ({
         ...previous,
         messages: [...previous.messages, optimisticMessage],
       }));
 
-      const response = await apiClientFor(accessToken).postJson<SubmitMessageResponse>(
-        `/api/chat/threads/${activeThread.id}/messages`,
+      const response = await apiClientFor(input.token).postJson<SubmitMessageResponse>(
+        `/api/chat/threads/${input.activeThread.id}/messages`,
         {
           content: buildPromptWithContext(trimmed, format, audience),
           idempotencyKey: createIdempotencyKey(),
@@ -430,8 +445,8 @@ export default function AppPage() {
       }));
 
       await Promise.all([
-        refreshThreadSnapshot(activeThread.id, accessToken),
-        refreshSandboxPreview(activeThread.id, accessToken),
+        refreshThreadSnapshot(input.activeThread.id, input.token),
+        refreshSandboxPreview(input.activeThread.id, input.token),
       ]);
     } catch (error) {
       if (optimisticId) {
@@ -440,7 +455,9 @@ export default function AppPage() {
           messages: previous.messages.filter((message) => message.id !== optimisticId),
         }));
       }
-      setComposerText(trimmed);
+      if (input.resetComposerOnSuccess) {
+        setComposerText(trimmed);
+      }
       setErrorMessage(toErrorMessage(error));
     } finally {
       setSubmitting(false);
@@ -454,7 +471,7 @@ export default function AppPage() {
     }
 
     await supabaseClient.auth.signOut();
-    router.replace('/auth/sign-in');
+    router.replace('/');
   }
 
   return (
@@ -478,6 +495,9 @@ export default function AppPage() {
                 : 'Reconnecting'}
           </span>
           {statusLabel ? <span className="status-pill">{statusLabel}</span> : null}
+          <Link href="/" className="signout-button">
+            Home
+          </Link>
           <button type="button" className="signout-button" onClick={() => void handleSignOut()}>
             Sign out
           </button>
@@ -487,7 +507,15 @@ export default function AppPage() {
       <main className="workspace-grid">
         <section className="chat-panel">
           <div className="chat-scroll">
-            {runtimeState.messages.length === 0 ? (
+            {!threadIdIsValid ? (
+              <p className="empty-state">
+                Invalid thread URL. Return to home and open a creation from the list.
+              </p>
+            ) : !thread?.id && errorMessage ? (
+              <p className="empty-state">{errorMessage}</p>
+            ) : !thread?.id ? (
+              <p className="empty-state">Loading thread...</p>
+            ) : runtimeState.messages.length === 0 ? (
               <p className="empty-state">Send a message to start generating an experience.</p>
             ) : (
               runtimeState.messages.map((message) => (
@@ -538,11 +566,17 @@ export default function AppPage() {
               value={composerText}
               onChange={(event) => setComposerText(event.target.value)}
               placeholder="Create anything..."
-              disabled={submitting}
+              disabled={submitting || !thread?.id || !threadIdIsValid}
             />
             <button
               type="submit"
-              disabled={!accessToken || submitting || composerText.trim().length === 0}
+              disabled={
+                !accessToken ||
+                submitting ||
+                composerText.trim().length === 0 ||
+                !thread?.id ||
+                !threadIdIsValid
+              }
             >
               {submitting ? 'Sending...' : 'Send'}
             </button>
@@ -562,7 +596,7 @@ export default function AppPage() {
             </button>
           ) : null}
 
-          {errorMessage ? <p className="error-banner">{errorMessage}</p> : null}
+          {errorMessage && thread?.id ? <p className="error-banner">{errorMessage}</p> : null}
         </section>
 
         <section className="sandbox-panel">
@@ -652,33 +686,18 @@ async function fetchThreadHydration(
   return response.data;
 }
 
-function readStoredThreadId(): string | null {
-  if (typeof window === 'undefined') {
-    return null;
+function resolveRouteThreadId(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) {
+    return value[0] ?? '';
   }
 
-  const value = window.localStorage.getItem(ACTIVE_THREAD_STORAGE_KEY);
-  if (!value || value.trim().length === 0) {
-    return null;
-  }
-
-  return value;
+  return value ?? '';
 }
 
-function writeStoredThreadId(threadId: string): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.setItem(ACTIVE_THREAD_STORAGE_KEY, threadId);
-}
-
-function clearStoredThreadId(): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.removeItem(ACTIVE_THREAD_STORAGE_KEY);
+function isUuidLike(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
 }
 
 function apiClientFor(accessToken: string) {

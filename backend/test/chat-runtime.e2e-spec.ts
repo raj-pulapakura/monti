@@ -111,6 +111,31 @@ class InMemoryChatRuntimeRepository {
     };
   }
 
+  async listThreads(input: {
+    userId: string;
+    limit: number;
+  }): Promise<
+    Array<
+      ThreadRow & {
+        sandbox_status: 'empty' | 'creating' | 'ready' | 'error' | null;
+        sandbox_updated_at: string | null;
+      }
+    >
+  > {
+    return [...this.threads.values()]
+      .filter((thread) => thread.user_id === input.userId)
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      .slice(0, input.limit)
+      .map((thread) => {
+        const sandbox = this.sandboxStates.get(thread.id);
+        return {
+          ...thread,
+          sandbox_status: sandbox?.status ?? null,
+          sandbox_updated_at: sandbox?.updated_at ?? null,
+        };
+      });
+  }
+
   async hydrateThread(input: {
     threadId: string;
     userId: string;
@@ -215,6 +240,11 @@ class InMemoryChatRuntimeRepository {
 
     this.messages.push(message);
     this.runs.set(run.id, run);
+    if (!thread.title || thread.title.trim().length === 0) {
+      thread.title = buildThreadTitleSnippet(message.content);
+    }
+    thread.updated_at = now;
+    this.threads.set(thread.id, thread);
     if (dedupKey) {
       this.idempotency.set(dedupKey, {
         messageId: message.id,
@@ -371,6 +401,110 @@ describe('Chat Runtime (e2e)', () => {
     await request(app.getHttpServer()).get(`/api/chat/threads/${threadId}`).expect(401);
   });
 
+  it('lists only owner threads in updated-at order and rejects unauthenticated access', async () => {
+    const ownerFirstThread = await request(app.getHttpServer())
+      .post('/api/chat/threads')
+      .set('Authorization', `Bearer ${USER_A_TOKEN}`)
+      .send({ title: 'Older thread' })
+      .expect(201);
+
+    const ownerSecondThread = await request(app.getHttpServer())
+      .post('/api/chat/threads')
+      .set('Authorization', `Bearer ${USER_A_TOKEN}`)
+      .send({ title: 'Newest thread' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/api/chat/threads')
+      .set('Authorization', `Bearer ${USER_B_TOKEN}`)
+      .send({ title: 'Other user thread' })
+      .expect(201);
+
+    const listResponse = await request(app.getHttpServer())
+      .get('/api/chat/threads')
+      .set('Authorization', `Bearer ${USER_A_TOKEN}`)
+      .expect(200);
+
+    expect(listResponse.body.data.threads).toHaveLength(2);
+    expect(listResponse.body.data.threads[0].id).toBe(ownerSecondThread.body.data.thread.id);
+    expect(listResponse.body.data.threads[1].id).toBe(ownerFirstThread.body.data.thread.id);
+    expect(
+      listResponse.body.data.threads.every(
+        (thread: { userId: string }) => thread.userId === USER_A_ID,
+      ),
+    ).toBe(true);
+
+    await request(app.getHttpServer()).get('/api/chat/threads').expect(401);
+  });
+
+  it('seeds title from first accepted prompt and preserves existing titles', async () => {
+    const untitledCreate = await request(app.getHttpServer())
+      .post('/api/chat/threads')
+      .set('Authorization', `Bearer ${USER_A_TOKEN}`)
+      .send({})
+      .expect(201);
+    const untitledThreadId = untitledCreate.body.data.thread.id as string;
+
+    await request(app.getHttpServer())
+      .post(`/api/chat/threads/${untitledThreadId}/messages`)
+      .set('Authorization', `Bearer ${USER_A_TOKEN}`)
+      .send({
+        content: 'Build a plane simulator for year 6 students',
+        idempotencyKey: randomUUID(),
+      })
+      .expect(201);
+
+    const hydratedUntitledAfterFirstMessage = await request(app.getHttpServer())
+      .get(`/api/chat/threads/${untitledThreadId}`)
+      .set('Authorization', `Bearer ${USER_A_TOKEN}`)
+      .expect(200);
+
+    expect(hydratedUntitledAfterFirstMessage.body.data.thread.title).toBe(
+      'Build a plane simulator for year 6 students',
+    );
+
+    await request(app.getHttpServer())
+      .post(`/api/chat/threads/${untitledThreadId}/messages`)
+      .set('Authorization', `Bearer ${USER_A_TOKEN}`)
+      .send({
+        content: 'Completely different follow-up prompt text',
+        idempotencyKey: randomUUID(),
+      })
+      .expect(201);
+
+    const hydratedUntitledAfterSecondMessage = await request(app.getHttpServer())
+      .get(`/api/chat/threads/${untitledThreadId}`)
+      .set('Authorization', `Bearer ${USER_A_TOKEN}`)
+      .expect(200);
+
+    expect(hydratedUntitledAfterSecondMessage.body.data.thread.title).toBe(
+      'Build a plane simulator for year 6 students',
+    );
+
+    const titledCreate = await request(app.getHttpServer())
+      .post('/api/chat/threads')
+      .set('Authorization', `Bearer ${USER_A_TOKEN}`)
+      .send({ title: 'Manual thread title' })
+      .expect(201);
+    const titledThreadId = titledCreate.body.data.thread.id as string;
+
+    await request(app.getHttpServer())
+      .post(`/api/chat/threads/${titledThreadId}/messages`)
+      .set('Authorization', `Bearer ${USER_A_TOKEN}`)
+      .send({
+        content: 'First message should not override explicit title',
+        idempotencyKey: randomUUID(),
+      })
+      .expect(201);
+
+    const hydratedTitledThread = await request(app.getHttpServer())
+      .get(`/api/chat/threads/${titledThreadId}`)
+      .set('Authorization', `Bearer ${USER_A_TOKEN}`)
+      .expect(200);
+
+    expect(hydratedTitledThread.body.data.thread.title).toBe('Manual thread title');
+  });
+
   it('enforces authenticated streaming access and supports cursor replay semantics', async () => {
     const createThreadResponse = await request(app.getHttpServer())
       .post('/api/chat/threads')
@@ -424,4 +558,13 @@ function createAuthUser(id: string, token: string): AuthenticatedUser {
       iss: 'https://example.supabase.co/auth/v1',
     },
   };
+}
+
+function buildThreadTitleSnippet(content: string): string {
+  const normalized = content.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= 96) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, 93)}...`;
 }

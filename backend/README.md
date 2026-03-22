@@ -6,6 +6,8 @@ NestJS backend for Monti's chat-first runtime and sandbox orchestration.
 
 ### Chat Runtime (Primary)
 
+- `GET /api/chat/threads`
+  - Lists authenticated user's threads for home/workspace cards (newest first).
 - `POST /api/chat/threads`
   - Creates a thread and initializes sandbox state for the authenticated user.
 - `GET /api/chat/threads/:threadId`
@@ -124,7 +126,7 @@ Additional docs:
 
 ## Future Hardening
 
-- Require verified email before allowing full `/app` access in staging/production environments.
+- Require verified email before allowing full authenticated workspace access in staging/production environments.
 
 ## Run
 

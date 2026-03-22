@@ -3,6 +3,9 @@ import { ValidationError } from '../../common/errors/app-error';
 import type {
   CreateThreadRequest,
   HydrateThreadRequest,
+  ListThreadsRequest,
+  ThreadListItemEnvelope,
+  ThreadListPayload,
   SubmitMessagePayload,
   SubmitMessageRequest,
   ThreadEnvelope,
@@ -27,6 +30,21 @@ export class ChatRuntimeService {
     private readonly events: ChatRuntimeEventService,
     private readonly conversationLoop: ConversationLoopService,
   ) {}
+
+  async listThreads(input: {
+    request: ListThreadsRequest;
+    userId: string;
+  }): Promise<ThreadListPayload> {
+    assertChatRuntimeEnabled();
+    const threads = await this.repository.listThreads({
+      userId: input.userId,
+      limit: input.request.limit,
+    });
+
+    return {
+      threads: threads.map(mapThreadListItem),
+    };
+  }
 
   async createThread(input: {
     request: CreateThreadRequest;
@@ -162,6 +180,28 @@ function mapThread(row: {
     archivedAt: row.archived_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function mapThreadListItem(row: {
+  id: string;
+  user_id: string;
+  title: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+  sandbox_status: 'empty' | 'creating' | 'ready' | 'error' | null;
+  sandbox_updated_at: string | null;
+}): ThreadListItemEnvelope {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    title: row.title,
+    archivedAt: row.archived_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    sandboxStatus: row.sandbox_status,
+    sandboxUpdatedAt: row.sandbox_updated_at,
   };
 }
 

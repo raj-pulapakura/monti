@@ -82,7 +82,7 @@ export default function SignUpPage() {
     }
 
     if (data.session) {
-      router.replace('/app');
+      router.replace('/');
       return;
     }
 
@@ -109,7 +109,7 @@ export default function SignUpPage() {
     const { error } = await signInWithOAuthProvider(supabase.auth, {
       provider,
       origin,
-      nextPath: '/app',
+      nextPath: '/',
     });
 
     if (error) {

@@ -1,4 +1,4 @@
-const DEFAULT_NEXT_PATH = '/app';
+const DEFAULT_NEXT_PATH = '/';
 
 export function resolveSafeNextPath(
   nextPath: string | null | undefined,

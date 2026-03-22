@@ -15,6 +15,7 @@ import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import {
+  parseListThreadsRequest,
   parseCreateThreadRequest,
   parseHydrateThreadRequest,
   parseStreamEventsRequestWithHeader,
@@ -30,6 +31,20 @@ export class ChatRuntimeController {
     private readonly chatRuntimeService: ChatRuntimeService,
     private readonly chatRuntimeEvents: ChatRuntimeEventService,
   ) {}
+
+  @Get()
+  async listThreads(@CurrentUser() user: AuthenticatedUser, @Query() query: unknown) {
+    const request = parseListThreadsRequest(query);
+    const payload = await this.chatRuntimeService.listThreads({
+      request,
+      userId: user.id,
+    });
+
+    return {
+      ok: true,
+      data: payload,
+    };
+  }
 
   @Post()
   async createThread(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {

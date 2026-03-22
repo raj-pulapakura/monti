@@ -1,5 +1,8 @@
 import { ValidationError } from '../../common/errors/app-error';
-import { parseStreamEventsRequestWithHeader } from './chat-runtime.dto';
+import {
+  parseListThreadsRequest,
+  parseStreamEventsRequestWithHeader,
+} from './chat-runtime.dto';
 
 describe('parseStreamEventsRequestWithHeader', () => {
   const threadId = '3ec42f7d-bf2f-4144-92fe-1f467f655dca';
@@ -30,5 +33,23 @@ describe('parseStreamEventsRequestWithHeader', () => {
     expect(() =>
       parseStreamEventsRequestWithHeader('not-a-uuid', {}, '1'),
     ).toThrow(ValidationError);
+  });
+});
+
+describe('parseListThreadsRequest', () => {
+  it('uses default limit when omitted', () => {
+    const parsed = parseListThreadsRequest({});
+
+    expect(parsed.limit).toBe(1000);
+  });
+
+  it('accepts positive integer limit and caps to max', () => {
+    expect(parseListThreadsRequest({ limit: '200' }).limit).toBe(200);
+    expect(parseListThreadsRequest({ limit: '999999' }).limit).toBe(5000);
+  });
+
+  it('rejects invalid limit values', () => {
+    expect(() => parseListThreadsRequest({ limit: 'abc' })).toThrow(ValidationError);
+    expect(() => parseListThreadsRequest({ limit: 0 })).toThrow(ValidationError);
   });
 });

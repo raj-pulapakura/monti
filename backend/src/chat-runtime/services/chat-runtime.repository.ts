@@ -17,12 +17,71 @@ interface RpcSubmitRow {
   deduplicated: boolean;
 }
 
+interface ThreadListRow extends ChatThreadRow {
+  sandbox_status: 'empty' | 'creating' | 'ready' | 'error' | null;
+  sandbox_updated_at: string | null;
+}
+
 @Injectable()
 export class ChatRuntimeRepository {
   constructor(
     @Inject(SUPABASE_CLIENT)
     private readonly client: MontiSupabaseClient,
   ) {}
+
+  async listThreads(input: {
+    userId: string;
+    limit: number;
+  }): Promise<ThreadListRow[]> {
+    const { data: threads, error: threadsError } = await this.client
+      .from('chat_threads')
+      .select('*')
+      .eq('user_id', input.userId)
+      .order('updated_at', { ascending: false })
+      .limit(input.limit);
+
+    if (threadsError) {
+      this.throwQueryError('list chat threads', threadsError);
+    }
+
+    const threadRows = threads ?? [];
+    if (threadRows.length === 0) {
+      return [];
+    }
+
+    const threadIds = threadRows.map((thread) => thread.id);
+    const { data: sandboxStates, error: sandboxError } = await this.client
+      .from('sandbox_states')
+      .select('thread_id,status,updated_at')
+      .in('thread_id', threadIds);
+
+    if (sandboxError) {
+      this.throwQueryError('list sandbox states for threads', sandboxError);
+    }
+
+    const sandboxByThread = new Map<
+      string,
+      {
+        status: 'empty' | 'creating' | 'ready' | 'error';
+        updatedAt: string;
+      }
+    >();
+    (sandboxStates ?? []).forEach((row) => {
+      sandboxByThread.set(row.thread_id, {
+        status: row.status,
+        updatedAt: row.updated_at,
+      });
+    });
+
+    return threadRows.map((thread) => {
+      const sandbox = sandboxByThread.get(thread.id);
+      return {
+        ...thread,
+        sandbox_status: sandbox?.status ?? null,
+        sandbox_updated_at: sandbox?.updatedAt ?? null,
+      };
+    });
+  }
 
   async createThread(input: {
     userId: string;
@@ -199,6 +258,11 @@ export class ChatRuntimeRepository {
     if (!message) {
       throw new AppError('INTERNAL_ERROR', 'Submitted message was not found.', 500);
     }
+
+    await this.seedThreadTitleIfEmpty({
+      threadId: input.threadId,
+      content: message.content,
+    });
 
     return {
       message,
@@ -617,6 +681,28 @@ export class ChatRuntimeRepository {
     return data;
   }
 
+  private async seedThreadTitleIfEmpty(input: {
+    threadId: string;
+    content: string;
+  }): Promise<void> {
+    const normalizedTitle = buildThreadTitleSnippet(input.content);
+    if (!normalizedTitle) {
+      return;
+    }
+
+    const { error } = await this.client
+      .from('chat_threads')
+      .update({
+        title: normalizedTitle,
+      })
+      .eq('id', input.threadId)
+      .is('title', null);
+
+    if (error) {
+      this.throwQueryError('seed thread title from first message', error);
+    }
+  }
+
   private throwQueryError(action: string, error: {
     message: string;
     code?: string | null;
@@ -635,4 +721,18 @@ export class ChatRuntimeRepository {
       },
     );
   }
+}
+
+function buildThreadTitleSnippet(content: string): string | null {
+  const normalized = content.replace(/\s+/g, ' ').trim();
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  const maxLength = 96;
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength - 3)}...`;
 }

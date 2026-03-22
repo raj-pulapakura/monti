@@ -27,13 +27,13 @@ describe('auth flow e2e coverage', () => {
     await signInWithOAuthProvider(auth, {
       provider: 'google',
       origin: LOCAL_SITE_URL,
-      nextPath: '/app?tab=recent',
+      nextPath: '/chat/thread-1?tab=recent',
     });
 
     expect(auth.signInWithOAuth).toHaveBeenCalledWith({
       provider: 'google',
       options: {
-        redirectTo: `${LOCAL_SITE_URL}/auth/callback?next=%2Fapp%3Ftab%3Drecent`,
+        redirectTo: `${LOCAL_SITE_URL}/auth/callback?next=%2Fchat%2Fthread-1%3Ftab%3Drecent`,
       },
     });
   });
@@ -59,7 +59,7 @@ describe('auth flow e2e coverage', () => {
       email: 'new-user@example.test',
       password: 'password-456',
       options: {
-        emailRedirectTo: `${LOCAL_SITE_URL}/auth/callback?next=%2Fapp`,
+        emailRedirectTo: `${LOCAL_SITE_URL}/auth/callback?next=%2F`,
       },
     });
   });
@@ -80,26 +80,26 @@ describe('auth flow e2e coverage', () => {
     );
   });
 
-  it('keeps /app protected while allowing authenticated app access', () => {
+  it('keeps /chat protected while allowing authenticated chat access', () => {
     const unauthenticatedRedirect = resolveAuthRouteRedirect({
-      pathname: '/app',
+      pathname: '/chat/thread-1',
       search: '',
       hasUser: false,
     });
     const authenticatedRedirect = resolveAuthRouteRedirect({
-      pathname: '/app',
+      pathname: '/chat/thread-1',
       search: '',
       hasUser: true,
     });
 
-    expect(unauthenticatedRedirect).toBe('/auth/sign-in?next=%2Fapp');
+    expect(unauthenticatedRedirect).toBe('/auth/sign-in?next=%2Fchat%2Fthread-1');
     expect(authenticatedRedirect).toBeNull();
     expect(
       buildOAuthRedirectUrl({
         origin: LOCAL_SITE_URL,
-        nextPath: '/app',
+        nextPath: '/chat/thread-1',
       }),
-    ).toBe(`${LOCAL_SITE_URL}/auth/callback?next=%2Fapp`);
+    ).toBe(`${LOCAL_SITE_URL}/auth/callback?next=%2Fchat%2Fthread-1`);
   });
 
   it('validates local-only auth control-plane site and redirect URLs', () => {

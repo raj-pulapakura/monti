@@ -17,7 +17,7 @@ export function buildOAuthRedirectUrl(input: {
 }
 
 export function buildSignUpEmailRedirectUrl(origin: string): string {
-  return `${origin}${AUTH_CALLBACK_PATH}?next=${encodeURIComponent('/app')}`;
+  return `${origin}${AUTH_CALLBACK_PATH}?next=${encodeURIComponent('/')}`;
 }
 
 export function buildPasswordRecoveryRedirectUrl(origin: string): string {

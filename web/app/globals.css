@@ -337,6 +337,114 @@ button {
   text-decoration: none;
 }
 
+.home-shell {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 1.2rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.home-header {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: linear-gradient(180deg, #fffdf8, var(--panel-strong));
+  box-shadow: var(--shadow);
+  padding: 1rem 1.1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.home-header h1 {
+  font-size: clamp(1.3rem, 3.8vw, 2rem);
+  margin-bottom: 0.2rem;
+}
+
+.home-header p {
+  color: var(--ink-soft);
+}
+
+.home-create-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+}
+
+.home-create-row input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ecebea;
+  color: #474645;
+  padding: 0.78rem 1.1rem;
+}
+
+.home-create-row button {
+  border-radius: 999px;
+  background: #d2d2d2;
+  color: #2f2f2f;
+  font-weight: 700;
+  padding: 0.75rem 1.35rem;
+}
+
+.home-create-row button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.home-creations {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.home-creations h2 {
+  font-size: 0.98rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5e5752;
+}
+
+.creations-carousel {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(240px, 320px);
+  gap: 0.9rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+
+.creation-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ececec, #dfdfdf);
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-rows: 1fr auto;
+  min-height: 270px;
+  text-align: left;
+  overflow: hidden;
+}
+
+.creation-thumb {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(140deg, #d8d8d8, #cfcfcf);
+  color: #4a4a4a;
+  font-weight: 700;
+  min-height: 210px;
+}
+
+.creation-subtitle {
+  background: #cdcdcd;
+  color: #353535;
+  border-top: 1px solid #b9b9b9;
+  padding: 0.62rem 0.75rem;
+  font-size: 0.93rem;
+  line-height: 1.35;
+}
+
 .workspace-grid {
   display: grid;
   grid-template-columns: minmax(290px, 420px) 1fr;
@@ -512,6 +620,19 @@ button {
 
   .workspace-grid {
     grid-template-columns: 1fr;
+  }
+
+  .home-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .home-create-row {
+    grid-template-columns: 1fr;
+  }
+
+  .creations-carousel {
+    grid-auto-columns: minmax(220px, 85vw);
   }
 
   .chat-panel,

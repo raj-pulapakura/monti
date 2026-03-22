@@ -8,6 +8,7 @@ The UI is driven by chat runtime APIs and does not use legacy generate/refine en
 
 Required backend endpoints:
 
+- `GET /api/chat/threads`
 - `POST /api/chat/threads`
 - `GET /api/chat/threads/:threadId`
 - `POST /api/chat/threads/:threadId/messages`
@@ -26,14 +27,14 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 
 ## Auth Routes
 
-- Public landing page: `/`
-- Protected app: `/app`
+- Root entrypoint: `/` (marketing for anonymous users, home workspace for authenticated users)
+- Protected chat routes: `/chat/:threadId`
 - Auth entry: `/auth/sign-in`, `/auth/sign-up`, `/auth/forgot-password`
 - Auth callback/reset: `/auth/callback`, `/auth/reset-password`
 
 ## Future Hardening
 
-- Production phase should require verified email before granting full `/app` access.
+- Production phase should require verified email before granting full authenticated workspace access.
 
 ## Development
 
@@ -50,6 +51,7 @@ npm run build
 
 ## Notes
 
-- Thread identity is persisted in local storage key `monti_active_thread_id_v1`.
-- Message/history source of truth is backend hydration, not local recent-history storage.
+- Chat identity is route-derived from `/chat/:threadId`.
+- Home create flow uses one-time session storage prompt handoff (`monti_home_prompt_handoff_v1:<threadId>`).
+- Message/history source of truth is backend hydration.
 - Fast/quality selection is no longer exposed in UI; routing is internal to backend.

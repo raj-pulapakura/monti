@@ -1,8 +1,5 @@
-# web-public-protected-routing Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change add-end-to-end-authentication. Update Purpose after archive.
-## Requirements
 ### Requirement: Serve public marketing landing page at root route
 The web application SHALL use `/` as a session-aware entrypoint: unauthenticated visitors receive marketing content and authenticated users receive the home workspace.
 
@@ -35,4 +32,3 @@ The web application SHALL provide dedicated auth routes for sign-in, sign-up, an
 #### Scenario: Authenticated user opens sign-in route
 - **WHEN** a user with an active session requests the sign-in route
 - **THEN** the system redirects to `/` to avoid duplicate auth onboarding
-

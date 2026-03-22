@@ -28,7 +28,7 @@ export default function ResetPasswordPage() {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'Supabase authentication is not configured.',
+          : 'Password reset is not configured in this environment.',
       );
       return null;
     }
@@ -83,7 +83,7 @@ export default function ResetPasswordPage() {
     <main className="auth-shell">
       <section className="auth-card">
         <h1>Choose a new password</h1>
-        <p className="auth-copy">Set a new password for your account.</p>
+        <p className="auth-copy">Set a fresh password to continue in your studio.</p>
 
         <form onSubmit={handleResetPassword} className="auth-form">
           <label>
@@ -107,7 +107,7 @@ export default function ResetPasswordPage() {
             />
           </label>
           <button type="submit" disabled={submitting}>
-            {submitting ? 'Updating...' : 'Update password'}
+            {submitting ? 'Saving new password...' : 'Update password'}
           </button>
         </form>
 

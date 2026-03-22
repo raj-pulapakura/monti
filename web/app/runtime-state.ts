@@ -283,7 +283,7 @@ export function getStatusLabel(
     run?.status === 'running' ||
     activeToolInvocation?.status === 'running'
   ) {
-    return 'Creating experience';
+    return 'Drafting your studio';
   }
 
   if (
@@ -291,11 +291,11 @@ export function getStatusLabel(
     run?.status === 'failed' ||
     activeToolInvocation?.status === 'failed'
   ) {
-    return 'Experience failed';
+    return 'Needs your attention';
   }
 
   if (sandbox?.status === 'ready' || run?.status === 'succeeded') {
-    return 'Experience created';
+    return 'Draft ready';
   }
 
   return null;

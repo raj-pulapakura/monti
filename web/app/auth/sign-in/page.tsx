@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, Suspense, useEffect, useRef, useState } from 'react';
+import { FormEvent, Suspense, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { Provider } from '@supabase/supabase-js';
@@ -23,8 +23,8 @@ function SignInFallback() {
   return (
     <main className="auth-shell">
       <section className="auth-card">
-        <h1>Sign in to Monti</h1>
-        <p className="auth-copy">Loading sign-in options...</p>
+        <h1>Welcome back</h1>
+        <p className="auth-copy">Preparing your sign-in options...</p>
       </section>
     </main>
   );
@@ -40,6 +40,8 @@ function SignInForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const nextPath = resolveSafeNextPath(searchParams.get('next'));
+  const incomingError = searchParams.get('error');
+  const displayedError = errorMessage ?? incomingError;
 
   function getSupabaseClient() {
     if (supabaseRef.current) {
@@ -53,18 +55,11 @@ function SignInForm() {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'Supabase authentication is not configured.',
+          : 'Sign-in is not configured in this environment.',
       );
       return null;
     }
   }
-
-  useEffect(() => {
-    const incomingError = searchParams.get('error');
-    if (incomingError) {
-      setErrorMessage(incomingError);
-    }
-  }, [searchParams]);
 
   async function handlePasswordSignIn(event: FormEvent) {
     event.preventDefault();
@@ -125,10 +120,10 @@ function SignInForm() {
   return (
     <main className="auth-shell">
       <section className="auth-card">
-        <h1>Sign in to Monti</h1>
-        <p className="auth-copy">
-          Continue your learning-experience workspace.
-        </p>
+        <h1>
+          Welcome back, <span className="display-script">creator</span>
+        </h1>
+        <p className="auth-copy">Sign in to continue your studio.</p>
 
         <div className="auth-oauth-list">
           <button type="button" onClick={() => void handleOAuth('google')} disabled={submitting}>
@@ -162,11 +157,11 @@ function SignInForm() {
             />
           </label>
           <button type="submit" disabled={submitting}>
-            {submitting ? 'Signing in...' : 'Sign in with email'}
+            {submitting ? 'Signing you in...' : 'Sign in'}
           </button>
         </form>
 
-        {errorMessage ? <p className="auth-error">{errorMessage}</p> : null}
+        {displayedError ? <p className="auth-error">{displayedError}</p> : null}
 
         <div className="auth-links">
           <Link href="/auth/sign-up">Create account</Link>

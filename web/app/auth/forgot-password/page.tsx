@@ -26,7 +26,7 @@ export default function ForgotPasswordPage() {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'Supabase authentication is not configured.',
+          : 'Password recovery is not configured in this environment.',
       );
       return null;
     }
@@ -83,7 +83,7 @@ export default function ForgotPasswordPage() {
             />
           </label>
           <button type="submit" disabled={submitting}>
-            {submitting ? 'Sending...' : 'Send reset link'}
+            {submitting ? 'Sending reset link...' : 'Send reset link'}
           </button>
         </form>
 

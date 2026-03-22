@@ -34,7 +34,7 @@ export default function SignUpPage() {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'Supabase authentication is not configured.',
+          : 'Sign-up is not configured in this environment.',
       );
       return null;
     }
@@ -87,7 +87,7 @@ export default function SignUpPage() {
     }
 
     setSubmitting(false);
-    setSuccessMessage('Account created. Check your email if confirmation is enabled.');
+    setSuccessMessage('Account created. Check your email for a confirmation link if required.');
   }
 
   async function handleOAuth(provider: Provider) {
@@ -121,10 +121,10 @@ export default function SignUpPage() {
   return (
     <main className="auth-shell">
       <section className="auth-card">
-        <h1>Create your account</h1>
-        <p className="auth-copy">
-          Start building and refining experiences in your protected workspace.
-        </p>
+        <h1>
+          Create your <span className="display-script">studio</span> account
+        </h1>
+        <p className="auth-copy">Start drafting learning experiences in your private workspace.</p>
 
         <div className="auth-oauth-list">
           <button type="button" onClick={() => void handleOAuth('google')} disabled={submitting}>
@@ -169,7 +169,7 @@ export default function SignUpPage() {
             />
           </label>
           <button type="submit" disabled={submitting}>
-            {submitting ? 'Creating...' : 'Create account'}
+            {submitting ? 'Creating your account...' : 'Create account'}
           </button>
         </form>
 

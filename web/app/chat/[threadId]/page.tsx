@@ -2,8 +2,8 @@
 
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { ArrowUp, Pause } from 'lucide-react';
 import {
   API_BASE_URL,
   createAuthenticatedApiClient,
@@ -12,7 +12,6 @@ import { consumeHomePromptHandoff } from '@/lib/chat/prompt-handoff';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import {
   getRetryComposerValue,
-  getStatusLabel,
   INITIAL_RUNTIME_STATE,
   reconcileHydrationState,
   reduceRuntimeEvent,
@@ -23,9 +22,9 @@ import {
   type SandboxState,
   type ToolInvocation,
 } from '../../runtime-state';
+import { FloatingProfileControls } from '../../components/floating-profile-controls';
 
-type AudienceLevel = 'young-kids' | 'elementary' | 'middle-school';
-type ExperienceFormat = 'quiz' | 'game' | 'explainer';
+const ADDABLE_PROMPT_WORDS = ['quiz', 'game', 'explainer', 'elementary', 'middle school'];
 
 type ThreadEnvelope = {
   id: string;
@@ -90,13 +89,11 @@ export default function ChatThreadPage() {
   const [runtimeState, setRuntimeState] = useState<RuntimeState>(INITIAL_RUNTIME_STATE);
   const [activeExperience, setActiveExperience] = useState<ExperiencePayload | null>(null);
   const [composerText, setComposerText] = useState('');
-  const [format, setFormat] = useState<ExperienceFormat>('quiz');
-  const [audience, setAudience] = useState<AudienceLevel>('elementary');
   const [submitting, setSubmitting] = useState(false);
-  const [streamConnected, setStreamConnected] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const latestEventIdRef = useRef<string | null>(null);
   const handoffAttemptedThreadRef = useRef<string | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   function getSupabaseClient() {
     if (supabaseRef.current) {
@@ -191,6 +188,16 @@ export default function ChatThreadPage() {
   }, [accessToken, thread?.id]);
 
   useEffect(() => {
+    const container = chatScrollRef.current;
+    if (!container) {
+      return;
+    }
+
+    // Keep the newest message in view as the conversation updates.
+    container.scrollTop = container.scrollHeight;
+  }, [runtimeState.messages.length]);
+
+  useEffect(() => {
     if (!thread?.id || !accessToken) {
       return;
     }
@@ -237,7 +244,6 @@ export default function ChatThreadPage() {
           throw new Error(`Stream request failed with status ${response.status}`);
         }
 
-        setStreamConnected(true);
       },
       onmessage(message) {
         if (!message.event || !eventTypes.has(message.event as RuntimeEventData['type'])) {
@@ -274,10 +280,8 @@ export default function ChatThreadPage() {
         }
       },
       onclose() {
-        setStreamConnected(false);
       },
       onerror(error) {
-        setStreamConnected(false);
         if (error instanceof FatalStreamAuthError) {
           throw error;
         }
@@ -287,7 +291,6 @@ export default function ChatThreadPage() {
 
     return () => {
       abortController.abort();
-      setStreamConnected(false);
     };
   }, [thread?.id, accessToken]);
 
@@ -311,12 +314,6 @@ export default function ChatThreadPage() {
   </body>
 </html>`;
   }, [activeExperience]);
-
-  const statusLabel = getStatusLabel(
-    runtimeState.activeRun,
-    runtimeState.activeToolInvocation,
-    runtimeState.sandboxState,
-  );
 
   async function syncSession(
     supabaseClient: ReturnType<typeof createSupabaseBrowserClient>,
@@ -389,6 +386,21 @@ export default function ChatThreadPage() {
     });
   }
 
+  function addPromptWord(word: string) {
+    setComposerText((previous) => {
+      const trimmed = previous.trim();
+      if (trimmed.length === 0) {
+        return word;
+      }
+
+      if (new RegExp(`\\b${word}\\b`, 'i').test(trimmed)) {
+        return trimmed;
+      }
+
+      return `${trimmed} ${word}`;
+    });
+  }
+
   async function submitPrompt(input: {
     prompt: string;
     token: string;
@@ -433,7 +445,7 @@ export default function ChatThreadPage() {
       const response = await apiClientFor(input.token).postJson<SubmitMessageResponse>(
         `/api/chat/threads/${input.activeThread.id}/messages`,
         {
-          content: buildPromptWithContext(trimmed, format, audience),
+          content: trimmed,
           idempotencyKey: createIdempotencyKey(),
         },
       );
@@ -475,97 +487,61 @@ export default function ChatThreadPage() {
   }
 
   return (
-    <div className="page-shell">
-      <header className="hero-strip">
-        <div>
-          <p className="kicker">Monti Chat Runtime</p>
-          <h1>Build experiences through chat</h1>
-          <p className="hero-copy">
-            Message-driven creation with tool execution and synchronized sandbox preview.
-          </p>
-        </div>
-        <div className="status-badges">
-          <span className={`connection-badge ${streamConnected ? 'online' : 'offline'}`}>
-            {errorMessage && !thread?.id
-              ? 'Setup failed'
-              : !accessToken || !thread?.id
-              ? 'Initializing'
-              : streamConnected
-                ? 'Live updates'
-                : 'Reconnecting'}
-          </span>
-          {statusLabel ? <span className="status-pill">{statusLabel}</span> : null}
-          <Link href="/" className="signout-button">
-            Home
-          </Link>
-          <button type="button" className="signout-button" onClick={() => void handleSignOut()}>
-            Sign out
-          </button>
-        </div>
-      </header>
-
+    <div className="page-shell thread-page-shell">
+      <FloatingProfileControls onSignOut={() => void handleSignOut()} homeHref="/" />
       <main className="workspace-grid">
         <section className="chat-panel">
-          <div className="chat-scroll">
+          <div ref={chatScrollRef} className="chat-scroll">
             {!threadIdIsValid ? (
               <p className="empty-state">
-                Invalid thread URL. Return to home and open a creation from the list.
+                This studio link is invalid. Return home and open a studio from your list.
               </p>
             ) : !thread?.id && errorMessage ? (
-              <p className="empty-state">{errorMessage}</p>
+              <p className="error-banner">{errorMessage}</p>
             ) : !thread?.id ? (
-              <p className="empty-state">Loading thread...</p>
+              <>
+                <div className="chat-loading" aria-hidden="true">
+                  <div className="skeleton-line medium" />
+                  <div className="skeleton-line" />
+                  <div className="skeleton-line short" />
+                </div>
+                <p className="empty-state">Opening your studio...</p>
+              </>
             ) : runtimeState.messages.length === 0 ? (
-              <p className="empty-state">Send a message to start generating an experience.</p>
+              <p className="empty-state">
+                Share your goal and Monti will draft the first creation.
+              </p>
             ) : (
               runtimeState.messages.map((message) => (
                 <article
                   key={message.id}
                   className={`message-row ${message.role === 'user' ? 'message-user' : 'message-assistant'}`}
                 >
-                  <p className="message-role">{message.role === 'user' ? 'You' : 'Monti'}</p>
                   <p className="message-content">{message.content}</p>
                 </article>
               ))
             )}
           </div>
 
-          <div className="prompt-controls">
-            <select
-              value={format}
-              onChange={(event) => setFormat(event.target.value as ExperienceFormat)}
-            >
-              <option value="quiz">Quiz</option>
-              <option value="game">Game</option>
-              <option value="explainer">Explainer</option>
-            </select>
-            <select
-              value={audience}
-              onChange={(event) => setAudience(event.target.value as AudienceLevel)}
-            >
-              <option value="young-kids">Young kids</option>
-              <option value="elementary">Elementary</option>
-              <option value="middle-school">Middle school</option>
-            </select>
+          <div className="prompt-pill-row" aria-label="Add to prompt">
+            {ADDABLE_PROMPT_WORDS.map((word) => (
+              <button
+                key={word}
+                type="button"
+                className="prompt-pill"
+                disabled={submitting || !thread?.id || !threadIdIsValid}
+                onClick={() => addPromptWord(word)}
+              >
+                + {word}
+              </button>
+            ))}
           </div>
-
-          {activeExperience ? (
-            <button
-              type="button"
-              className="suggestion-chip"
-              onClick={() =>
-                setComposerText('Refine this with simpler language and add a score summary.')
-              }
-            >
-              Refine prompt suggestion
-            </button>
-          ) : null}
 
           <form onSubmit={handleSubmit} className="composer-row">
             <input
               value={composerText}
               onChange={(event) => setComposerText(event.target.value)}
-              placeholder="Create anything..."
+              placeholder="refine..."
               disabled={submitting || !thread?.id || !threadIdIsValid}
             />
             <button
@@ -577,8 +553,9 @@ export default function ChatThreadPage() {
                 !thread?.id ||
                 !threadIdIsValid
               }
+              aria-label={submitting ? 'Pause generation (coming soon)' : 'Send prompt'}
             >
-              {submitting ? 'Sending...' : 'Send'}
+              {submitting ? <Pause size={18} strokeWidth={2.6} /> : <ArrowUp size={18} strokeWidth={2.6} />}
             </button>
           </form>
 
@@ -592,7 +569,7 @@ export default function ChatThreadPage() {
                 )
               }
             >
-              Retry last request
+              Reuse last prompt
             </button>
           ) : null}
 
@@ -601,12 +578,7 @@ export default function ChatThreadPage() {
 
         <section className="sandbox-panel">
           <div className="sandbox-header">
-            <h2>{activeExperience ? activeExperience.title : 'Sandbox preview'}</h2>
-            <p>
-              {runtimeState.sandboxState
-                ? `Status: ${runtimeState.sandboxState.status}`
-                : 'Status: empty'}
-            </p>
+            <h2>{activeExperience ? activeExperience.title : 'Creation preview'}</h2>
           </div>
 
           {activeExperience ? (
@@ -618,21 +590,20 @@ export default function ChatThreadPage() {
             />
           ) : (
             <div className="sandbox-empty">
-              <p>Generated experience output will appear here.</p>
+              {runtimeState.sandboxState?.status === 'creating' ? (
+                <div className="sandbox-loading" role="status" aria-live="polite">
+                  <span className="loading-spinner" aria-hidden="true" />
+                  <p>Bringing your creation to life</p>
+                </div>
+              ) : (
+                <p>Your interactive creation preview appears here after the first draft.</p>
+              )}
             </div>
           )}
         </section>
       </main>
     </div>
   );
-}
-
-function buildPromptWithContext(
-  prompt: string,
-  _format: ExperienceFormat,
-  _audience: AudienceLevel,
-): string {
-  return prompt;
 }
 
 function createIdempotencyKey(): string {
@@ -709,5 +680,5 @@ function toErrorMessage(error: unknown): string {
     return error.message;
   }
 
-  return 'Something went wrong while processing the message.';
+  return 'We hit a snag while drafting. Please try again.';
 }

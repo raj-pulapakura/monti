@@ -119,6 +119,8 @@ button:disabled {
 }
 
 .thread-page-shell {
+  max-width: 1480px;
+  width: 100%;
   padding-top: 4.65rem;
   min-height: 100svh;
   height: 100dvh;
@@ -845,6 +847,11 @@ button:disabled {
   gap: 1rem;
 }
 
+.thread-page-shell .workspace-grid {
+  grid-template-columns: minmax(360px, 520px) minmax(0, 1fr);
+  gap: 1.08rem;
+}
+
 .chat-panel,
 .sandbox-panel {
   min-height: 640px;
@@ -1441,8 +1448,10 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .workspace-grid {
+  .workspace-grid,
+  .thread-page-shell .workspace-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
 
   .hero-strip {

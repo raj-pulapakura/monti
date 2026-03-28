@@ -72,7 +72,11 @@ export function GenerationModeDropdown(input: {
       </button>
 
       {open ? (
-        <div className="profile-menu generation-mode-menu" role="menu" aria-label="Generation mode">
+        <div
+          className="profile-menu generation-mode-menu generation-mode-menu-up"
+          role="menu"
+          aria-label="Generation mode"
+        >
           {GENERATION_MODE_OPTIONS.map((option) => {
             const isSelected = option.value === input.value;
             const OptionIcon = ICONS[option.value];
@@ -83,7 +87,7 @@ export function GenerationModeDropdown(input: {
                 type="button"
                 role="menuitemradio"
                 aria-checked={isSelected}
-                className={`profile-menu-item generation-mode-menu-item ${isSelected ? 'is-selected' : ''}`}
+                className={`generation-mode-menu-item ${isSelected ? 'is-selected' : ''}`}
                 disabled={input.disabled}
                 onClick={() => {
                   input.onChange(option.value);

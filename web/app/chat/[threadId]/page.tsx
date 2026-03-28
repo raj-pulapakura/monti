@@ -9,6 +9,7 @@ import {
   createAuthenticatedApiClient,
 } from '@/lib/api/authenticated-api-client';
 import { consumeHomePromptHandoff } from '@/lib/chat/prompt-handoff';
+import { GenerationModeDropdown } from '@/app/components/generation-mode-segmented-control';
 import type { GenerationMode } from '@/lib/chat/generation-mode';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import {
@@ -122,6 +123,7 @@ export default function ChatThreadPage() {
   const [streamConnectionState, setStreamConnectionState] =
     useState<StreamConnectionState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [generationMode, setGenerationMode] = useState<GenerationMode>('auto');
   const latestEventIdRef = useRef<string | null>(null);
   const handoffAttemptedThreadRef = useRef<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -218,6 +220,7 @@ export default function ChatThreadPage() {
       return;
     }
 
+    setGenerationMode(handoff.generationMode);
     void submitPrompt({
       prompt: handoff.prompt,
       generationMode: handoff.generationMode,
@@ -506,6 +509,7 @@ export default function ChatThreadPage() {
 
     await submitPrompt({
       prompt: trimmed,
+      generationMode,
       token: accessToken,
       activeThread: thread,
       resetComposerOnSuccess: true,
@@ -747,41 +751,50 @@ export default function ChatThreadPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="composer-row">
-            <input
-              value={composerText}
-              onChange={(event) => setComposerText(event.target.value)}
-              placeholder={
-                generationInFlight
-                  ? 'Wait for the current reply to finish...'
-                  : 'refine'
-              }
-              disabled={submitPending || !thread?.id || !threadIdIsValid}
-            />
-            <button
-              type="submit"
-              className={submitPending || generationInFlight ? 'is-busy' : undefined}
-              disabled={
-                !accessToken ||
-                submitPending ||
-                generationInFlight ||
-                composerText.trim().length === 0 ||
-                !thread?.id ||
-                !threadIdIsValid
-              }
-              aria-label={
-                submitPending
-                  ? 'Sending prompt'
-                  : generationInFlight
-                    ? 'Reply in progress'
-                    : 'Send prompt'
-              }
-            >
-              {submitPending || generationInFlight ? (
-                <LoaderCircle size={18} strokeWidth={2.3} className="composer-spinner" />
-              ) : (
-                <ArrowUp size={18} strokeWidth={2.6} />
-              )}
-            </button>
+            <div className="composer-input-shell">
+              <input
+                value={composerText}
+                onChange={(event) => setComposerText(event.target.value)}
+                placeholder={
+                  generationInFlight
+                    ? 'Wait for the current reply to finish...'
+                    : 'Send a message...'
+                }
+                disabled={submitPending || !thread?.id || !threadIdIsValid}
+              />
+              <div className="composer-actions">
+                <GenerationModeDropdown
+                  value={generationMode}
+                  onChange={setGenerationMode}
+                  disabled={submitPending || !thread?.id || !threadIdIsValid}
+                />
+                <button
+                  type="submit"
+                  className={`home-create-submit ${submitPending || generationInFlight ? 'is-busy' : ''}`}
+                  disabled={
+                    !accessToken ||
+                    submitPending ||
+                    generationInFlight ||
+                    composerText.trim().length === 0 ||
+                    !thread?.id ||
+                    !threadIdIsValid
+                  }
+                  aria-label={
+                    submitPending
+                      ? 'Sending prompt'
+                      : generationInFlight
+                        ? 'Reply in progress'
+                        : 'Send prompt'
+                  }
+                >
+                  {submitPending || generationInFlight ? (
+                    <LoaderCircle size={18} strokeWidth={2.3} className="composer-spinner" />
+                  ) : (
+                    <ArrowUp size={20} strokeWidth={2.4} />
+                  )}
+                </button>
+              </div>
+            </div>
           </form>
 
           {getRetryComposerValue(runtimeState.activeRun, runtimeState.messages) ? (

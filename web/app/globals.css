@@ -233,7 +233,7 @@ button:disabled {
 .landing-secondary,
 .auth-form button,
 .home-create-row > button,
-.composer-row button,
+.composer-row > button,
 .retry-button {
   border-radius: var(--radius-pill);
   padding: 0.62rem 1rem;
@@ -403,7 +403,7 @@ button:disabled {
 .landing-primary,
 .auth-form button,
 .home-create-row > button,
-.composer-row button {
+.composer-row > button {
   background: linear-gradient(145deg, var(--brand-500), var(--brand-600));
   color: #fffaf5;
   border: 1px solid rgba(167, 70, 33, 0.28);
@@ -413,7 +413,7 @@ button:disabled {
 .landing-primary:hover,
 .auth-form button:hover,
 .home-create-row > button:hover,
-.composer-row button:hover {
+.composer-row > button:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 20px rgba(167, 70, 33, 0.26);
 }
@@ -563,11 +563,13 @@ button:disabled {
 }
 
 .home-create-actions,
+.composer-actions,
 .generation-mode-dropdown {
   z-index: 2;
 }
 
-.home-create-actions {
+.home-create-actions,
+.composer-actions {
   position: absolute;
   top: 50%;
   right: 0.56rem;
@@ -589,6 +591,14 @@ button:disabled {
   box-shadow: none;
 }
 
+.home-create-actions .generation-mode-trigger,
+.composer-actions .generation-mode-trigger {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+}
+
 .generation-mode-trigger:hover:not(:disabled),
 .generation-mode-trigger:focus-visible,
 .generation-mode-trigger:active {
@@ -599,14 +609,43 @@ button:disabled {
 
 .generation-mode-menu {
   min-width: 172px;
+  padding: 0.38rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-2);
 }
 
-.generation-mode-menu-item {
+.generation-mode-menu-up {
+  top: auto;
+  bottom: calc(100% + 0.48rem);
+}
+
+.generation-mode-menu .generation-mode-menu-item {
   width: 100%;
   justify-content: flex-start;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  color: #6c3a23;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.56rem 0.62rem;
 }
 
-.generation-mode-menu-item.is-selected {
+.generation-mode-menu .generation-mode-menu-item:hover,
+.generation-mode-menu .generation-mode-menu-item:focus-visible {
+  border-color: rgba(167, 70, 33, 0.22);
+  background: #fff4e8;
+  outline: none;
+}
+
+.generation-mode-menu .generation-mode-menu-item.is-selected {
   color: #b65a33;
 }
 
@@ -623,8 +662,10 @@ button:disabled {
   background: linear-gradient(145deg, var(--brand-500), var(--brand-600));
   color: #fffaf5;
   box-shadow: 0 6px 14px rgba(167, 70, 33, 0.24);
-  display: inline-grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
   flex-shrink: 0;
 }
 
@@ -812,7 +853,8 @@ button:disabled {
 
 .chat-panel {
   display: grid;
-  grid-template-rows: 1fr auto auto auto auto;
+  grid-template-rows: minmax(0, 1fr);
+  grid-auto-rows: max-content;
   gap: 0.66rem;
   min-height: 0;
 }
@@ -966,13 +1008,16 @@ button:disabled {
   display: block;
 }
 
+.composer-input-shell {
+  position: relative;
+}
+
 .composer-row input {
   width: 100%;
-  min-height: 3.2rem;
+  min-height: 3.45rem;
   border-radius: var(--radius-pill);
-  padding-left: 0.92rem;
-  padding-right: 3.38rem;
-  padding-block: 0.78rem;
+  padding-block: 0.86rem;
+  padding-inline: 1rem 10.9rem;
   transition:
     border-color var(--motion-fast) var(--ease-standard),
     box-shadow var(--motion-fast) var(--ease-standard),
@@ -1000,26 +1045,6 @@ button:disabled {
 
 .composer-row input:disabled {
   opacity: 0.72;
-}
-
-.composer-row button {
-  position: absolute;
-  top: 50%;
-  right: 0.56rem;
-  width: 2.25rem;
-  height: 2.25rem;
-  padding: 0;
-  display: inline-grid;
-  place-items: center;
-  transform: translateY(-50%);
-}
-
-.composer-row button:hover {
-  transform: translateY(calc(-50% - 1px));
-}
-
-.composer-row button.is-busy {
-  background: linear-gradient(135deg, #cb6338, #a5421d);
 }
 
 .composer-spinner {

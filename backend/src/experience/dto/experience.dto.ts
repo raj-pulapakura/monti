@@ -4,7 +4,14 @@ import type { ProviderKind, QualityMode } from '../../llm/llm.types';
 export const EXPERIENCE_FORMATS = ['quiz', 'game', 'explainer'] as const;
 export type ExperienceFormat = (typeof EXPERIENCE_FORMATS)[number];
 
-export const AUDIENCE_LEVELS = ['young-kids', 'elementary', 'middle-school'] as const;
+export const AUDIENCE_LEVELS = [
+  'young-kids',
+  'elementary',
+  'middle-school',
+  'high-school',
+  'university',
+  'adult',
+] as const;
 export type AudienceLevel = (typeof AUDIENCE_LEVELS)[number];
 
 export interface GeneratedExperiencePayload {

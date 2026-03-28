@@ -30,7 +30,15 @@ import {
 } from '../../runtime-state';
 import { FloatingProfileControls } from '../../components/floating-profile-controls';
 
-const ADDABLE_PROMPT_WORDS = ['quiz', 'game', 'explainer', 'elementary', 'middle school'];
+const ADDABLE_PROMPT_WORDS = [
+  'quiz',
+  'game',
+  'explainer',
+  'elementary',
+  'middle school',
+  'high school',
+  'university',
+];
 
 type ThreadEnvelope = {
   id: string;

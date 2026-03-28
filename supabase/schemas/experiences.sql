@@ -25,7 +25,16 @@ create table if not exists public.experience_versions (
   operation text not null check (operation in ('generate', 'refine')),
   prompt_summary text null,
   format text null check (format in ('quiz', 'game', 'explainer')),
-  audience text null check (audience in ('young-kids', 'elementary', 'middle-school')),
+  audience text null check (
+    audience in (
+      'young-kids',
+      'elementary',
+      'middle-school',
+      'high-school',
+      'university',
+      'adult'
+    )
+  ),
   quality_mode text not null check (quality_mode in ('fast', 'quality')),
   provider text not null check (provider in ('openai', 'anthropic', 'gemini')),
   model text not null,

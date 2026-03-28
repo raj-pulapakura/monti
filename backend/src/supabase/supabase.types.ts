@@ -46,7 +46,14 @@ export interface Database {
           operation: 'generate' | 'refine';
           prompt_summary: string | null;
           format: 'quiz' | 'game' | 'explainer' | null;
-          audience: 'young-kids' | 'elementary' | 'middle-school' | null;
+          audience:
+            | 'young-kids'
+            | 'elementary'
+            | 'middle-school'
+            | 'high-school'
+            | 'university'
+            | 'adult'
+            | null;
           quality_mode: 'fast' | 'quality';
           provider: 'openai' | 'anthropic' | 'gemini';
           model: string;
@@ -73,7 +80,14 @@ export interface Database {
           operation: 'generate' | 'refine';
           prompt_summary?: string | null;
           format?: 'quiz' | 'game' | 'explainer' | null;
-          audience?: 'young-kids' | 'elementary' | 'middle-school' | null;
+          audience?:
+            | 'young-kids'
+            | 'elementary'
+            | 'middle-school'
+            | 'high-school'
+            | 'university'
+            | 'adult'
+            | null;
           quality_mode: 'fast' | 'quality';
           provider: 'openai' | 'anthropic' | 'gemini';
           model: string;

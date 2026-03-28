@@ -31,7 +31,14 @@ const GENERATE_EXPERIENCE_TOOL_DEFINITION: CanonicalToolDefinition = {
       },
       audience: {
         type: 'string',
-        enum: ['young-kids', 'elementary', 'middle-school'],
+        enum: [
+          'young-kids',
+          'elementary',
+          'middle-school',
+          'high-school',
+          'university',
+          'adult',
+        ],
       },
       refinementInstruction: {
         type: 'string',

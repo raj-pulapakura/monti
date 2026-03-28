@@ -56,7 +56,14 @@ export function parseGenerateExperienceToolArguments(
   );
   const audience = asOptionalEnum(
     input.audience,
-    ['young-kids', 'elementary', 'middle-school'] as const,
+    [
+      'young-kids',
+      'elementary',
+      'middle-school',
+      'high-school',
+      'university',
+      'adult',
+    ] as const,
     'audience',
   );
   if (operation === 'generate') {

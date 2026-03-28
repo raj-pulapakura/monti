@@ -25,7 +25,7 @@ const LLM_RUNTIME_CONFIG = {
       quality: 'gemini-3.1-pro-preview',
     },
   },
-  maxTokensDefault: 16_384,
+  maxTokensDefault: 32_768,
   maxTokensRetry: 32_768,
   timeoutMs: 300_000,
   maxPartChars: 60_000,

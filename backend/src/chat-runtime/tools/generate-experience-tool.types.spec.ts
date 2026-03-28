@@ -52,4 +52,19 @@ describe('parseGenerateExperienceToolArguments', () => {
     expect(parsed.priorGenerationId).toBe('gen_123');
     expect(parsed.priorExperience?.title).toBe('Solar System');
   });
+
+  it('accepts expanded learner audiences for generate operations', () => {
+    const parsed = parseGenerateExperienceToolArguments({
+      operation: 'generate',
+      prompt: 'Build a statistics simulator',
+      audience: 'university',
+    });
+
+    expect(parsed).toEqual({
+      operation: 'generate',
+      prompt: 'Build a statistics simulator',
+      format: undefined,
+      audience: 'university',
+    });
+  });
 });

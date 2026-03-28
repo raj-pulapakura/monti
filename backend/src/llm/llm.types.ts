@@ -1,4 +1,5 @@
 export type QualityMode = 'fast' | 'quality';
+export type GenerationMode = 'auto' | QualityMode;
 export type ProviderKind = 'openai' | 'anthropic' | 'gemini';
 
 export interface LlmGenerateRequest {

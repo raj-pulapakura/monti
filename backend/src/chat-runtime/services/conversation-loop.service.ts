@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AppError } from '../../common/errors/app-error';
 import { LlmConfigService } from '../../llm/llm-config.service';
+import type { QualityMode } from '../../llm/llm.types';
 import { ToolLlmRouterService } from '../../llm/tool-runtime/tool-llm-router.service';
 import type {
   CanonicalChatMessage,
@@ -54,6 +55,7 @@ export class ConversationLoopService {
     });
 
     try {
+      const requestedQualityMode = extractRequestedQualityMode(input.userMessage);
       const canonicalMessages = await this.buildConversationMessages({
         threadId: input.threadId,
         userId: input.userId,
@@ -286,6 +288,7 @@ export class ConversationLoopService {
             name: toolCall.name,
             arguments: toolCall.arguments,
             conversationContext: buildBoundedConversationContext(canonicalMessages),
+            requestedQualityMode,
           });
 
           if (execution.result.status === 'succeeded') {
@@ -589,6 +592,15 @@ function buildBoundedConversationContext(messages: CanonicalChatMessage[]): stri
     .map((message) => `${message.role.toUpperCase()}: ${message.content}`);
 
   return relevant.join('\n');
+}
+
+function extractRequestedQualityMode(message: ChatMessageRow): QualityMode | undefined {
+  const value = message.content_json?.generationMode;
+  if (value === 'fast' || value === 'quality') {
+    return value;
+  }
+
+  return undefined;
 }
 
 function toAssistantMessagePayload(message: ChatMessageRow): Record<string, unknown> {

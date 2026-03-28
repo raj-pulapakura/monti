@@ -9,6 +9,7 @@ import {
   createAuthenticatedApiClient,
 } from '@/lib/api/authenticated-api-client';
 import { consumeHomePromptHandoff } from '@/lib/chat/prompt-handoff';
+import type { GenerationMode } from '@/lib/chat/generation-mode';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import {
   isPreviewFullscreenSupported,
@@ -212,13 +213,14 @@ export default function ChatThreadPage() {
     }
     handoffAttemptedThreadRef.current = thread.id;
 
-    const handoffPrompt = consumeHomePromptHandoff(thread.id);
-    if (!handoffPrompt) {
+    const handoff = consumeHomePromptHandoff(thread.id);
+    if (!handoff) {
       return;
     }
 
     void submitPrompt({
-      prompt: handoffPrompt,
+      prompt: handoff.prompt,
+      generationMode: handoff.generationMode,
       token: accessToken,
       activeThread: thread,
       resetComposerOnSuccess: false,
@@ -527,6 +529,7 @@ export default function ChatThreadPage() {
 
   async function submitPrompt(input: {
     prompt: string;
+    generationMode?: GenerationMode;
     token: string;
     activeThread: ThreadEnvelope;
     resetComposerOnSuccess: boolean;
@@ -553,7 +556,12 @@ export default function ChatThreadPage() {
         userId: input.activeThread.userId,
         role: 'user',
         content: trimmed,
-        contentJson: null,
+        contentJson:
+          input.generationMode && input.generationMode !== 'auto'
+            ? {
+                generationMode: input.generationMode,
+              }
+            : null,
         idempotencyKey: null,
         createdAt: new Date().toISOString(),
       };
@@ -573,6 +581,10 @@ export default function ChatThreadPage() {
         {
           content: trimmed,
           idempotencyKey: createIdempotencyKey(),
+          generationMode:
+            input.generationMode && input.generationMode !== 'auto'
+              ? input.generationMode
+              : undefined,
         },
       );
 

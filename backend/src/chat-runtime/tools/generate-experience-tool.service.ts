@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { AppError } from '../../common/errors/app-error';
 import { ExperienceOrchestratorService } from '../../experience/services/experience-orchestrator.service';
 import { LlmDecisionRouterService } from '../../llm/llm-decision-router.service';
+import { LlmConfigService } from '../../llm/llm-config.service';
+import type { QualityMode } from '../../llm/llm.types';
 import { ChatRuntimeRepository } from '../services/chat-runtime.repository';
 import type {
   GenerateExperienceToolArguments,
@@ -13,6 +15,7 @@ import type {
 export class GenerateExperienceToolService {
   constructor(
     private readonly decisionRouter: LlmDecisionRouterService,
+    private readonly llmConfig: LlmConfigService,
     private readonly orchestrator: ExperienceOrchestratorService,
     private readonly repository: ChatRuntimeRepository,
   ) {}
@@ -22,15 +25,18 @@ export class GenerateExperienceToolService {
     threadId: string;
     userId: string;
     arguments: GenerateExperienceToolArguments;
+    requestedQualityMode?: QualityMode;
   }): Promise<GenerateExperienceToolResult> {
-    const routingPrompt = withConversationContext(
-      input.arguments.prompt,
-      input.arguments.conversationContext,
-    );
-
     const route = await this.selectRoute({
       runId: input.runId,
-      prompt: routingPrompt,
+      operation: input.arguments.operation,
+      prompt: input.arguments.prompt,
+      format: input.arguments.format,
+      audience: input.arguments.audience,
+      conversationContext: input.arguments.conversationContext,
+      refinementInstruction: input.arguments.refinementInstruction,
+      hasPriorExperience: input.arguments.priorExperience !== undefined,
+      requestedQualityMode: input.requestedQualityMode,
     });
 
     const generationPrompt = withConversationContext(
@@ -108,11 +114,50 @@ export class GenerateExperienceToolService {
 
   private async selectRoute(input: {
     runId: string;
+    operation: 'generate' | 'refine';
     prompt: string;
+    format?: GenerateExperienceToolArguments['format'];
+    audience?: GenerateExperienceToolArguments['audience'];
+    conversationContext?: string;
+    refinementInstruction?: string;
+    hasPriorExperience?: boolean;
+    requestedQualityMode?: QualityMode;
   }): Promise<GenerateExperienceToolRoute> {
+    if (input.requestedQualityMode) {
+      const resolved = this.llmConfig.resolveExecutionRoute({
+        tier: input.requestedQualityMode,
+      });
+      const forcedDecision: GenerateExperienceToolRoute = {
+        tier: input.requestedQualityMode,
+        confidence: 1,
+        reason: `User selected ${input.requestedQualityMode} mode.`,
+        fallbackReason: null,
+        selectedProvider: resolved.provider,
+        selectedModel: resolved.model,
+      };
+
+      await this.repository.recordRunRoutingDecision({
+        runId: input.runId,
+        tier: forcedDecision.tier,
+        confidence: forcedDecision.confidence,
+        reason: forcedDecision.reason,
+        fallbackReason: forcedDecision.fallbackReason,
+        selectedProvider: forcedDecision.selectedProvider,
+        selectedModel: forcedDecision.selectedModel,
+      });
+
+      return forcedDecision;
+    }
+
     const decision = await this.decisionRouter.decideRoute({
       requestId: input.runId,
+      operation: input.operation,
       prompt: input.prompt,
+      format: input.format,
+      audience: input.audience,
+      conversationContext: input.conversationContext,
+      refinementInstruction: input.refinementInstruction,
+      hasPriorExperience: input.hasPriorExperience,
     });
 
     await this.repository.recordRunRoutingDecision({

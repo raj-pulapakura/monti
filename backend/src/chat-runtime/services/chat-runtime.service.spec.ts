@@ -59,6 +59,12 @@ describe('ChatRuntimeService', () => {
         run: createRunRow(),
         deduplicated: false,
       })),
+      updateMessageContentJson: jest.fn(async (input: { messageId: string; contentJson: Record<string, unknown> | null }) =>
+        createMessageRow({
+          id: input.messageId,
+          content_json: input.contentJson,
+        }),
+      ),
       recordRunProviderTrace: jest.fn(async () => undefined),
     };
 
@@ -100,6 +106,12 @@ describe('ChatRuntimeService', () => {
         run: createRunRow(),
         deduplicated: false,
       })),
+      updateMessageContentJson: jest.fn(async (input: { messageId: string; contentJson: Record<string, unknown> | null }) =>
+        createMessageRow({
+          id: input.messageId,
+          content_json: input.contentJson,
+        }),
+      ),
       recordRunProviderTrace: jest.fn(async () => undefined),
     };
 
@@ -149,6 +161,12 @@ describe('ChatRuntimeService', () => {
         }),
         deduplicated: true,
       })),
+      updateMessageContentJson: jest.fn(async (input: { messageId: string; contentJson: Record<string, unknown> | null }) =>
+        createMessageRow({
+          id: input.messageId,
+          content_json: input.contentJson,
+        }),
+      ),
       recordRunProviderTrace: jest.fn(async () => undefined),
     };
 
@@ -176,5 +194,64 @@ describe('ChatRuntimeService', () => {
 
     expect(result.deduplicated).toBe(true);
     expect(conversationLoop.executeTurn).not.toHaveBeenCalled();
+  });
+
+  it('persists explicit generation mode and passes it into the queued conversation turn', async () => {
+    const repository = {
+      submitUserMessage: jest.fn(async () => ({
+        message: createMessageRow({ id: 'message-fast' }),
+        run: createRunRow({ id: 'run-fast' }),
+        deduplicated: false,
+      })),
+      updateMessageContentJson: jest.fn(
+        async (input: { messageId: string; contentJson: Record<string, unknown> | null }) =>
+          createMessageRow({
+            id: input.messageId,
+            content_json: input.contentJson,
+          }),
+      ),
+      recordRunProviderTrace: jest.fn(async () => undefined),
+    };
+    const events = {
+      latestEventId: jest.fn(() => null),
+    };
+    const conversationLoop = {
+      executeTurn: jest.fn(async () => createRunRow({ status: 'succeeded' })),
+    };
+
+    const service = new ChatRuntimeService(
+      repository as never,
+      events as never,
+      conversationLoop as never,
+    );
+
+    const result = await service.submitMessage({
+      threadId: 'thread-1',
+      userId: 'client-1',
+      request: {
+        content: 'Build a quiz',
+        generationMode: 'fast',
+      },
+    });
+
+    expect(repository.updateMessageContentJson).toHaveBeenCalledWith({
+      messageId: 'message-fast',
+      contentJson: {
+        generationMode: 'fast',
+      },
+    });
+    expect(conversationLoop.executeTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userMessage: expect.objectContaining({
+          id: 'message-fast',
+          content_json: {
+            generationMode: 'fast',
+          },
+        }),
+      }),
+    );
+    expect(result.message.contentJson).toEqual({
+      generationMode: 'fast',
+    });
   });
 });

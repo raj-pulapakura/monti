@@ -35,7 +35,7 @@ const LLM_RUNTIME_CONFIG = {
     maxTokens: 4_096,
     maxToolRounds: 4,
     systemPrompt:
-      'You are Monti, a helpful assistant for learning experiences. Use tools only when needed. For generate_experience: use operation=generate for new requests; use operation=refine only when priorGenerationId, refinementInstruction, and full priorExperience (title, description, html, css, js) are available. If a tool succeeds or fails, acknowledge the result clearly and continue helping the user.',
+      'You are Monti, a helpful assistant for learning experiences. Use tools only when needed. For generate_experience: use operation=generate for new requests; use operation=refine only when priorGenerationId, refinementInstruction, and full priorExperience (title, description, html, css, js) are available. Tool outputs may include internal metadata such as IDs, raw status fields, provider/model details, routing information, and persistence fields. Treat all of that as internal. Do not expose internal IDs or raw metadata unless the user explicitly asks. When generate_experience succeeds, tell the user the experience is ready in the preview, briefly summarize the outcome in user-facing language, and offer 1-3 context-aware next refinements or suggestions. Do not say things like "Status: succeeded" or display generation IDs. When generate_experience fails, explain the issue in plain language and suggest the most useful next step.',
   },
 } as const satisfies {
   router: {

@@ -17,6 +17,7 @@ import type {
   SandboxStateEnvelope,
   ToolInvocationEnvelope,
 } from '../runtime.types';
+import type { GenerationMode } from '../../llm/llm.types';
 import { ChatRuntimeRepository } from './chat-runtime.repository';
 import { ChatRuntimeEventService } from './chat-runtime-event.service';
 import { ConversationLoopService } from './conversation-loop.service';
@@ -129,6 +130,11 @@ export class ChatRuntimeService {
       content: input.request.content,
       idempotencyKey: input.request.idempotencyKey,
     });
+    const message = await this.applyGenerationModeMetadata({
+      message: result.message,
+      generationMode: input.request.generationMode,
+      deduplicated: result.deduplicated,
+    });
 
     let run = result.run;
     if (run && run.status === 'queued' && isConversationLoopEnabled()) {
@@ -136,14 +142,14 @@ export class ChatRuntimeService {
       void this.executeQueuedRun({
         threadId: input.threadId,
         userId: input.userId,
-        userMessage: result.message,
+        userMessage: message,
         run: queuedRun,
       });
     }
 
     return {
       threadId: input.threadId,
-      message: mapMessage(result.message),
+      message: mapMessage(message),
       run: run ? mapRun(run) : null,
       deduplicated: result.deduplicated,
     };
@@ -198,6 +204,46 @@ export class ChatRuntimeService {
         }),
       );
     }
+  }
+
+  private async applyGenerationModeMetadata(input: {
+    message: {
+      id: string;
+      thread_id: string;
+      user_id: string;
+      role: 'user' | 'assistant' | 'tool' | 'system';
+      content: string;
+      content_json: Record<string, unknown> | null;
+      idempotency_key: string | null;
+      created_at: string;
+    };
+    generationMode?: GenerationMode;
+    deduplicated: boolean;
+  }): Promise<{
+    id: string;
+    thread_id: string;
+    user_id: string;
+    role: 'user' | 'assistant' | 'tool' | 'system';
+    content: string;
+    content_json: Record<string, unknown> | null;
+    idempotency_key: string | null;
+    created_at: string;
+  }> {
+    if (
+      input.deduplicated ||
+      input.generationMode === undefined ||
+      input.generationMode === 'auto'
+    ) {
+      return input.message;
+    }
+
+    return this.repository.updateMessageContentJson({
+      messageId: input.message.id,
+      contentJson: {
+        ...(input.message.content_json ?? {}),
+        generationMode: input.generationMode,
+      },
+    });
   }
 }
 

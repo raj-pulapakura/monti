@@ -3,6 +3,10 @@ import {
   ProviderResponseError,
   ProviderUnavailableError,
 } from '../common/errors/app-error';
+import type {
+  AudienceLevel,
+  ExperienceFormat,
+} from '../experience/dto/experience.dto';
 import { LlmConfigService } from './llm-config.service';
 import type { ProviderKind } from './llm.types';
 
@@ -32,16 +36,24 @@ export interface LlmRoutingDecision {
   selectedModel: string;
 }
 
+export interface LlmRoutingRequest {
+  requestId?: string;
+  operation: 'generate' | 'refine';
+  prompt: string;
+  format?: ExperienceFormat;
+  audience?: AudienceLevel;
+  conversationContext?: string;
+  refinementInstruction?: string;
+  hasPriorExperience?: boolean;
+}
+
 @Injectable()
 export class LlmDecisionRouterService {
   private readonly logger = new Logger(LlmDecisionRouterService.name);
 
   constructor(private readonly config: LlmConfigService) {}
 
-  async decideRoute(input: {
-    requestId?: string;
-    prompt: string;
-  }): Promise<LlmRoutingDecision> {
+  async decideRoute(input: LlmRoutingRequest): Promise<LlmRoutingDecision> {
     if (!isRouterStageEnabled()) {
       const fallback = this.config.resolveExecutionRoute({
         tier: 'fast',
@@ -99,10 +111,7 @@ export class LlmDecisionRouterService {
     }
   }
 
-  private async invokeRouterModel(input: {
-    requestId?: string;
-    prompt: string;
-  }): Promise<RawRoutingDecision> {
+  private async invokeRouterModel(input: LlmRoutingRequest): Promise<RawRoutingDecision> {
     if (this.config.routerProvider !== 'openai') {
       throw new ProviderResponseError(
         `Router provider ${this.config.routerProvider} is not implemented yet.`,
@@ -126,8 +135,7 @@ export class LlmDecisionRouterService {
           content: [
             {
               type: 'input_text',
-              text:
-                'You route requests between fast and quality tiers. Return strict JSON with tier, confidence, reason.',
+              text: buildRouterSystemPrompt(),
             },
           ],
         },
@@ -136,7 +144,7 @@ export class LlmDecisionRouterService {
           content: [
             {
               type: 'input_text',
-              text: `Prompt: ${input.prompt}`,
+              text: buildRouterUserInput(input),
             },
           ],
         },
@@ -219,6 +227,49 @@ function parseRoutingDecision(value: RawRoutingDecision): {
     confidence,
     reason: value.reason.trim(),
   };
+}
+
+function buildRouterSystemPrompt(): string {
+  return [
+    'You are Monti\'s routing policy model.',
+    'Choose between two execution tiers and return strict JSON with tier, confidence, reason.',
+    'Tier definitions:',
+    '- fast: routes to a faster, cheaper model. Use for straightforward, compact, single-concept experiences or simple refinements that do not require deep reasoning, high rigor, complex coordination, or extensive polish.',
+    '- quality: routes to a slower, more capable model. Use only when the request clearly needs stronger reasoning, richer polish, complex coordination of constraints, substantial refinement work, or a higher-risk output where the fast tier is likely to underperform.',
+    'Policy:',
+    '- Default to fast when uncertain.',
+    '- Choose quality only when there is clear evidence it will materially improve the result.',
+    '- Topic complexity alone is not enough to justify quality.',
+    '- Older or more advanced audiences do not automatically imply quality.',
+    '- Refinement requests are not automatically quality; only upgrade when the requested changes are substantial or tightly constrained.',
+    '- Prefer fast for ordinary generate requests, lightly constrained prompts, and narrow interactive slices of advanced subjects.',
+    'Examples:',
+    '- Generate a draggable fractions model for an elementary learner -> fast',
+    '- Generate a university-level Bayes theorem simulator that teaches false positives, priors, and tradeoffs -> quality',
+    '- Refine an experience to shorten copy and improve button labels -> fast',
+    '- Refine an experience to redesign the interaction loop, pacing, and mobile usability while preserving the concept -> quality',
+    'The reason field should name the strongest routing signal in plain language.',
+  ].join('\n');
+}
+
+function buildRouterUserInput(input: LlmRoutingRequest): string {
+  const lines = [
+    'Request summary:',
+    `- operation: ${input.operation}`,
+    `- prompt: ${input.prompt}`,
+    `- format: ${input.format ?? 'unspecified'}`,
+    `- audience: ${input.audience ?? 'unspecified'}`,
+    `- has_conversation_context: ${input.conversationContext?.trim() ? 'yes' : 'no'}`,
+    `- refinement_instruction: ${input.refinementInstruction?.trim() ?? 'none'}`,
+    `- prior_experience_available: ${input.hasPriorExperience ? 'yes' : 'no'}`,
+  ];
+
+  if (input.conversationContext?.trim()) {
+    lines.push('- conversation_context:');
+    lines.push(input.conversationContext.trim());
+  }
+
+  return lines.join('\n');
 }
 
 function extractResponseText(payload: RouterResponsePayload): string {

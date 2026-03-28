@@ -271,6 +271,26 @@ export class ChatRuntimeRepository {
     };
   }
 
+  async updateMessageContentJson(input: {
+    messageId: string;
+    contentJson: Record<string, unknown> | null;
+  }): Promise<ChatMessageRow> {
+    const { data, error } = await this.client
+      .from('chat_messages')
+      .update({
+        content_json: input.contentJson,
+      })
+      .eq('id', input.messageId)
+      .select('*')
+      .single();
+
+    if (error) {
+      this.throwQueryError('update chat message content_json', error);
+    }
+
+    return data;
+  }
+
   async recordRunProviderTrace(input: {
     runId: string;
     providerRequestRaw: Record<string, unknown>;

@@ -5,9 +5,11 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createAuthenticatedApiClient } from '@/lib/api/authenticated-api-client';
 import { writeHomePromptHandoff } from '@/lib/chat/prompt-handoff';
+import type { GenerationMode } from '@/lib/chat/generation-mode';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { FloatingProfileControls } from './components/floating-profile-controls';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { GenerationModeDropdown } from './components/generation-mode-segmented-control';
+import { ArrowUp, ChevronLeft, ChevronRight, LoaderCircle } from 'lucide-react';
 
 type ThreadCard = {
   id: string;
@@ -130,6 +132,7 @@ function HomeWorkspace(input: {
   const [createError, setCreateError] = useState<string | null>(null);
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
+  const [generationMode, setGenerationMode] = useState<GenerationMode>('auto');
 
   useEffect(() => {
     let cancelled = false;
@@ -234,7 +237,7 @@ function HomeWorkspace(input: {
       );
 
       const threadId = response.data.thread.id;
-      writeHomePromptHandoff(threadId, trimmedPrompt);
+      writeHomePromptHandoff(threadId, trimmedPrompt, generationMode);
       router.push(`/chat/${threadId}`);
     } catch (error) {
       setCreateError(toErrorMessage(error));
@@ -251,16 +254,36 @@ function HomeWorkspace(input: {
         </div>
       </header>
 
-      <form className="home-create-row" onSubmit={handleCreate}>
-        <input
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-          placeholder="A fractions challenge with playful mini rounds..."
-          disabled={creating}
-        />
-        <button type="submit" disabled={creating || prompt.trim().length === 0}>
-          {creating ? 'Starting...' : 'Create'}
-        </button>
+      <form className="home-create-form" onSubmit={handleCreate}>
+        <div className="home-create-row">
+          <div className="home-create-input-shell">
+            <input
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              placeholder="A fractions challenge with playful mini rounds..."
+              disabled={creating}
+            />
+            <div className="home-create-actions">
+              <GenerationModeDropdown
+                value={generationMode}
+                onChange={setGenerationMode}
+                disabled={creating}
+              />
+              <button
+                type="submit"
+                className={`home-create-submit ${creating ? 'is-busy' : ''}`}
+                disabled={creating || prompt.trim().length === 0}
+                aria-label={creating ? 'Starting thread' : 'Create thread'}
+              >
+                {creating ? (
+                  <LoaderCircle size={18} strokeWidth={2.3} className="composer-spinner" />
+                ) : (
+                  <ArrowUp size={18} strokeWidth={2.4} />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       </form>
 
       <section className="home-creations">

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AppError, ValidationError } from '../../common/errors/app-error';
+import type { QualityMode } from '../../llm/llm.types';
 import type { CanonicalToolDefinition } from '../../llm/tool-runtime/tool-runtime.types';
 import { GenerateExperienceToolService } from './generate-experience-tool.service';
 import {
@@ -95,6 +96,7 @@ export class ChatToolRegistryService {
     name: string;
     arguments: Record<string, unknown>;
     conversationContext?: string;
+    requestedQualityMode?: QualityMode;
   }): Promise<ChatToolExecutionResult> {
     if (input.name !== 'generate_experience' || !isGenerateExperienceToolEnabled()) {
       throw new ValidationError(`Unknown or disabled tool: ${input.name}`);
@@ -111,6 +113,7 @@ export class ChatToolRegistryService {
           ...parsedArguments,
           conversationContext: input.conversationContext,
         },
+        requestedQualityMode: input.requestedQualityMode,
       });
     } catch (error) {
       result = {

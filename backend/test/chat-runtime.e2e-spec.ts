@@ -259,6 +259,23 @@ class InMemoryChatRuntimeRepository {
     };
   }
 
+  async updateMessageContentJson(input: {
+    messageId: string;
+    contentJson: Record<string, unknown> | null;
+  }): Promise<MessageRow> {
+    const messageIndex = this.messages.findIndex((message) => message.id === input.messageId);
+    if (messageIndex === -1) {
+      throw new ValidationError('Submitted message was not found.');
+    }
+
+    const updatedMessage: MessageRow = {
+      ...this.messages[messageIndex],
+      content_json: input.contentJson,
+    };
+    this.messages[messageIndex] = updatedMessage;
+    return updatedMessage;
+  }
+
   async assertThreadAccess(input: {
     threadId: string;
     userId: string;
@@ -399,6 +416,38 @@ describe('Chat Runtime (e2e)', () => {
       .expect(400);
 
     await request(app.getHttpServer()).get(`/api/chat/threads/${threadId}`).expect(401);
+  });
+
+  it('accepts explicit generation mode metadata on submitted messages', async () => {
+    const createThreadResponse = await request(app.getHttpServer())
+      .post('/api/chat/threads')
+      .set('Authorization', `Bearer ${USER_A_TOKEN}`)
+      .send({ title: 'Routing preference thread' })
+      .expect(201);
+
+    const threadId = createThreadResponse.body.data.thread.id as string;
+
+    const submitResponse = await request(app.getHttpServer())
+      .post(`/api/chat/threads/${threadId}/messages`)
+      .set('Authorization', `Bearer ${USER_A_TOKEN}`)
+      .send({
+        content: 'Build a chemistry simulator',
+        generationMode: 'quality',
+      })
+      .expect(201);
+
+    expect(submitResponse.body.data.message.contentJson).toEqual({
+      generationMode: 'quality',
+    });
+
+    const hydrationResponse = await request(app.getHttpServer())
+      .get(`/api/chat/threads/${threadId}`)
+      .set('Authorization', `Bearer ${USER_A_TOKEN}`)
+      .expect(200);
+
+    expect(hydrationResponse.body.data.messages[0].contentJson).toEqual({
+      generationMode: 'quality',
+    });
   });
 
   it('lists only owner threads in updated-at order and rejects unauthenticated access', async () => {

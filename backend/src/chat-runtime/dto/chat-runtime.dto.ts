@@ -5,6 +5,7 @@ import type {
   SandboxStateEnvelope,
   ToolInvocationEnvelope,
 } from '../runtime.types';
+import type { GenerationMode } from '../../llm/llm.types';
 
 export interface CreateThreadRequest {
   title?: string;
@@ -13,6 +14,7 @@ export interface CreateThreadRequest {
 export interface SubmitMessageRequest {
   content: string;
   idempotencyKey?: string;
+  generationMode?: GenerationMode;
 }
 
 export interface HydrateThreadRequest {
@@ -115,6 +117,7 @@ export function parseSubmitMessageRequest(threadId: string, body: unknown): {
     request: {
       content: asRequiredString(object.content, 'content'),
       idempotencyKey: asOptionalString(object.idempotencyKey, 'idempotencyKey'),
+      generationMode: asOptionalGenerationMode(object.generationMode, 'generationMode'),
     },
   };
 }
@@ -211,6 +214,21 @@ function asOptionalInteger(value: unknown, fieldName: string): number | undefine
   }
 
   return parsed as number;
+}
+
+function asOptionalGenerationMode(
+  value: unknown,
+  fieldName: string,
+): GenerationMode | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (value === 'auto' || value === 'fast' || value === 'quality') {
+    return value;
+  }
+
+  throw new ValidationError(`${fieldName} must be one of: auto, fast, quality.`);
 }
 
 function isUuidLike(value: string): boolean {

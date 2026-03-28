@@ -3,13 +3,18 @@
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowUp, LoaderCircle } from 'lucide-react';
+import { ArrowUp, Expand, LoaderCircle, X } from 'lucide-react';
 import {
   API_BASE_URL,
   createAuthenticatedApiClient,
 } from '@/lib/api/authenticated-api-client';
 import { consumeHomePromptHandoff } from '@/lib/chat/prompt-handoff';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import {
+  isPreviewFullscreenSupported,
+  isPreviewStageFullscreen,
+  toPreviewFullscreenErrorMessage,
+} from './fullscreen-preview';
 import {
   getRetryComposerValue,
   INITIAL_RUNTIME_STATE,
@@ -111,6 +116,9 @@ export default function ChatThreadPage() {
   const latestEventIdRef = useRef<string | null>(null);
   const handoffAttemptedThreadRef = useRef<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const previewStageRef = useRef<HTMLDivElement | null>(null);
+  const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
+  const [fullscreenErrorMessage, setFullscreenErrorMessage] = useState<string | null>(null);
 
   function getSupabaseClient() {
     if (supabaseRef.current) {
@@ -140,6 +148,8 @@ export default function ChatThreadPage() {
     setActiveExperience(null);
     setStreamConnectionState('idle');
     setErrorMessage(null);
+    setIsPreviewFullscreen(false);
+    setFullscreenErrorMessage(null);
     handoffAttemptedThreadRef.current = null;
   }, [routeThreadId]);
 
@@ -264,6 +274,34 @@ export default function ChatThreadPage() {
     assistantDraftPresent: runtimeState.assistantDraft !== null,
     streamConnectionState,
   });
+  const fullscreenSupported = isPreviewFullscreenSupported(
+    typeof document === 'undefined' ? null : document,
+  );
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    function syncPreviewFullscreenState() {
+      const isActive = isPreviewStageFullscreen(
+        previewStageRef.current,
+        document.fullscreenElement,
+      );
+      setIsPreviewFullscreen(isActive);
+
+      if (!isActive) {
+        setFullscreenErrorMessage(null);
+      }
+    }
+
+    syncPreviewFullscreenState();
+    document.addEventListener('fullscreenchange', syncPreviewFullscreenState);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', syncPreviewFullscreenState);
+    };
+  }, []);
 
   useEffect(() => {
     if (!thread?.id || !accessToken) {
@@ -570,6 +608,47 @@ export default function ChatThreadPage() {
     router.replace('/');
   }
 
+  async function handleEnterPreviewFullscreen() {
+    setFullscreenErrorMessage(null);
+
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    if (!fullscreenSupported || typeof previewStageRef.current?.requestFullscreen !== 'function') {
+      setFullscreenErrorMessage(
+        toPreviewFullscreenErrorMessage('enter', { name: 'NotAllowedError' }),
+      );
+      return;
+    }
+
+    try {
+      await previewStageRef.current.requestFullscreen();
+    } catch (error) {
+      setFullscreenErrorMessage(toPreviewFullscreenErrorMessage('enter', error));
+      setIsPreviewFullscreen(false);
+    }
+  }
+
+  async function handleExitPreviewFullscreen() {
+    setFullscreenErrorMessage(null);
+
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    if (!document.fullscreenElement) {
+      setIsPreviewFullscreen(false);
+      return;
+    }
+
+    try {
+      await document.exitFullscreen();
+    } catch (error) {
+      setFullscreenErrorMessage(toPreviewFullscreenErrorMessage('exit', error));
+    }
+  }
+
   return (
     <div className="page-shell thread-page-shell">
       <FloatingProfileControls onSignOut={() => void handleSignOut()} homeHref="/" />
@@ -704,13 +783,45 @@ export default function ChatThreadPage() {
 
         <section className="sandbox-panel">
           <div className="sandbox-header">
-            <div>
+            <div className="sandbox-header-copy">
               <h2>{activeExperience ? activeExperience.title : 'Experience'}</h2>
+              {fullscreenErrorMessage ? (
+                <p className="sandbox-header-note is-error" role="status" aria-live="polite">
+                  {fullscreenErrorMessage}
+                </p>
+              ) : null}
+            </div>
+            <div className="sandbox-header-actions">
+              {activeExperience ? (
+                <button
+                  type="button"
+                  className="sandbox-control-button"
+                  onClick={() => void handleEnterPreviewFullscreen()}
+                  aria-label="View experience fullscreen"
+                  title="View experience fullscreen"
+                >
+                  <Expand size={17} strokeWidth={2.2} />
+                </button>
+              ) : null}
             </div>
           </div>
 
           {activeExperience ? (
-            <div className="sandbox-stage">
+            <div
+              ref={previewStageRef}
+              className={`sandbox-stage${isPreviewFullscreen ? ' is-fullscreen' : ''}`}
+            >
+              <div className="sandbox-fullscreen-chrome" aria-hidden={!isPreviewFullscreen}>
+                <span className="sandbox-fullscreen-hint">Press Esc to exit</span>
+                <button
+                  type="button"
+                  className="sandbox-fullscreen-close"
+                  onClick={() => void handleExitPreviewFullscreen()}
+                  aria-label="Exit fullscreen preview"
+                >
+                  <X size={18} strokeWidth={2.35} />
+                </button>
+              </div>
               <iframe
                 title="Monti experience"
                 className="sandbox-iframe"

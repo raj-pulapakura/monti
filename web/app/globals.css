@@ -254,11 +254,19 @@ button:disabled {
   box-shadow: var(--elevation-1);
 }
 
+.floating-home-control,
 .floating-controls {
   position: fixed;
   top: 1rem;
-  right: 1.2rem;
   z-index: 80;
+}
+
+.floating-home-control {
+  left: 1.2rem;
+}
+
+.floating-controls {
+  right: 1.2rem;
   display: flex;
   align-items: flex-start;
   gap: 0.55rem;
@@ -963,7 +971,7 @@ button:disabled {
   padding: 0.82rem 1rem;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.28rem;
 }
 
@@ -972,9 +980,46 @@ button:disabled {
   font-size: 1.08rem;
 }
 
-.sandbox-header p {
-  font-family: 'SFMono-Regular', Consolas, monospace;
-  font-size: 0.79rem;
+.sandbox-header-copy {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.sandbox-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sandbox-header-note {
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: var(--content-muted);
+}
+
+.sandbox-header-note.is-error {
+  color: var(--state-danger-500);
+}
+
+.sandbox-control-button,
+.sandbox-fullscreen-close {
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-soft);
+  color: #7b4026;
+  box-shadow: var(--elevation-1);
+}
+
+.sandbox-control-button:hover,
+.sandbox-fullscreen-close:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--elevation-2);
 }
 
 .sandbox-status-pill {
@@ -1009,6 +1054,43 @@ button:disabled {
 .sandbox-stage {
   position: relative;
   min-height: 0;
+  overflow: hidden;
+}
+
+.sandbox-fullscreen-chrome {
+  display: none;
+}
+
+.sandbox-stage.is-fullscreen .sandbox-fullscreen-chrome {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  right: 1rem;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  pointer-events: none;
+}
+
+.sandbox-fullscreen-hint {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.4rem;
+  padding: 0.56rem 0.84rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 250, 242, 0.9);
+  border: 1px solid rgba(220, 200, 178, 0.84);
+  color: var(--content-default);
+  box-shadow: var(--elevation-1);
+  backdrop-filter: blur(8px);
+}
+
+.sandbox-fullscreen-close {
+  pointer-events: auto;
+  background: rgba(255, 250, 242, 0.92);
+  backdrop-filter: blur(8px);
 }
 
 .sandbox-iframe {
@@ -1054,6 +1136,38 @@ button:disabled {
 .sandbox-stage-overlay.is-error {
   border-color: rgba(154, 63, 50, 0.22);
   background: rgba(249, 233, 230, 0.95);
+}
+
+.sandbox-stage.is-fullscreen {
+  width: 100vw;
+  height: 100vh;
+  padding: 1rem;
+  background:
+    radial-gradient(circle at 18% 14%, rgba(217, 106, 57, 0.18), transparent 34%),
+    radial-gradient(circle at 82% 84%, rgba(47, 125, 97, 0.1), transparent 36%),
+    #f1e4d3;
+}
+
+.sandbox-stage.is-fullscreen .sandbox-iframe {
+  border-radius: 1.4rem;
+  box-shadow: 0 22px 48px rgba(64, 43, 26, 0.2);
+}
+
+.sandbox-stage.is-fullscreen .sandbox-stage-overlay {
+  z-index: 2;
+  bottom: 1.3rem;
+}
+
+.sandbox-stage:fullscreen {
+  width: 100vw;
+  height: 100vh;
+}
+
+.sandbox-stage:fullscreen::backdrop {
+  background:
+    radial-gradient(circle at 18% 14%, rgba(217, 106, 57, 0.22), transparent 34%),
+    radial-gradient(circle at 82% 84%, rgba(47, 125, 97, 0.12), transparent 36%),
+    #ead7c3;
 }
 
 .sandbox-stage-overlay strong,
@@ -1188,8 +1302,16 @@ button:disabled {
     padding-top: 4.4rem;
   }
 
+  .floating-home-control,
   .floating-controls {
     top: 0.78rem;
+  }
+
+  .floating-home-control {
+    left: 0.86rem;
+  }
+
+  .floating-controls {
     right: 0.86rem;
   }
 
@@ -1217,6 +1339,10 @@ button:disabled {
     align-items: stretch;
   }
 
+  .sandbox-header-actions {
+    justify-content: flex-end;
+  }
+
   .creation-skeleton {
     grid-template-columns: 1fr;
   }
@@ -1234,6 +1360,27 @@ button:disabled {
     left: 0.78rem;
     right: 0.78rem;
     bottom: 0.78rem;
+  }
+
+  .sandbox-stage.is-fullscreen {
+    padding: 0.78rem;
+  }
+
+  .sandbox-stage.is-fullscreen .sandbox-fullscreen-chrome {
+    top: 0.78rem;
+    left: 0.78rem;
+    right: 0.78rem;
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .sandbox-stage.is-fullscreen .sandbox-fullscreen-close {
+    align-self: flex-end;
+  }
+
+  .sandbox-fullscreen-hint {
+    justify-content: center;
+    text-align: center;
   }
 }
 

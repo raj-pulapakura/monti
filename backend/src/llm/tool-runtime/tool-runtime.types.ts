@@ -31,6 +31,7 @@ export interface CanonicalToolTurnRequest {
   messages: CanonicalChatMessage[];
   tools: CanonicalToolDefinition[];
   signal?: AbortSignal;
+  onAssistantTextSnapshot?: (text: string) => void | Promise<void>;
 }
 
 export interface CanonicalToolTurnResponse {

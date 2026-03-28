@@ -27,6 +27,20 @@ function createRun(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function createAssistantMessage(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'assistant-1',
+    thread_id: 'thread-1',
+    user_id: 'client-1',
+    role: 'assistant' as const,
+    content: 'Sure, I can help with that.',
+    content_json: null,
+    idempotency_key: null,
+    created_at: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
 describe('ConversationLoopService', () => {
   it('completes with a model-authored assistant message when no tools are configured', async () => {
     const repository = {
@@ -48,7 +62,12 @@ describe('ConversationLoopService', () => {
         activeToolInvocation: null,
       })),
       recordRunProviderTrace: jest.fn(async () => undefined),
-      createAssistantMessage: jest.fn(async () => ({ id: 'assistant-1' })),
+      createAssistantMessage: jest.fn(async (input?: { content?: string; contentJson?: Record<string, unknown> | null }) =>
+        createAssistantMessage({
+          content: input?.content ?? 'Sure, I can help with that.',
+          content_json: input?.contentJson ?? null,
+        }),
+      ),
       markRunSucceeded: jest.fn(async () => undefined),
       getRunById: jest.fn(async () =>
         createRun({
@@ -72,15 +91,20 @@ describe('ConversationLoopService', () => {
     };
 
     const toolLlmRouter = {
-      runTurn: jest.fn(async () => ({
-        provider: 'openai' as const,
-        model: 'gpt-5.4',
-        assistantText: 'Sure, I can help with that.',
-        toolCalls: [],
-        finishReason: 'stop' as const,
-        rawRequest: {},
-        rawResponse: {},
-      })),
+      runTurn: jest.fn(async (input: { onAssistantTextSnapshot?: (text: string) => void }) => {
+        await input.onAssistantTextSnapshot?.('Sure');
+        await input.onAssistantTextSnapshot?.('Sure, I can help with that.');
+
+        return {
+          provider: 'openai' as const,
+          model: 'gpt-5.4',
+          assistantText: 'Sure, I can help with that.',
+          toolCalls: [],
+          finishReason: 'stop' as const,
+          rawRequest: {},
+          rawResponse: {},
+        };
+      }),
     };
 
     const llmConfig = {
@@ -118,6 +142,34 @@ describe('ConversationLoopService', () => {
     expect(result.status).toBe('succeeded');
     expect(toolRegistry.executeToolCall).not.toHaveBeenCalled();
     expect(repository.markRunSucceeded).toHaveBeenCalledTimes(1);
+    expect(events.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'assistant_message_started',
+        payload: {
+          draftId: 'run-1',
+          content: 'Sure',
+        },
+      }),
+    );
+    expect(events.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'assistant_message_updated',
+        payload: {
+          draftId: 'run-1',
+          content: 'Sure, I can help with that.',
+        },
+      }),
+    );
+    expect(events.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'assistant_message_created',
+        payload: expect.objectContaining({
+          message: expect.objectContaining({
+            content: 'Sure, I can help with that.',
+          }),
+        }),
+      }),
+    );
   });
 
   it('supports multi-round tool calls before terminal assistant output', async () => {
@@ -151,7 +203,12 @@ describe('ConversationLoopService', () => {
         versionId: 'ver-1',
       })),
       updateSandboxState: jest.fn(async () => undefined),
-      createAssistantMessage: jest.fn(async () => ({ id: 'assistant-1' })),
+      createAssistantMessage: jest.fn(async (input?: { content?: string; contentJson?: Record<string, unknown> | null }) =>
+        createAssistantMessage({
+          content: input?.content ?? 'Building now.',
+          content_json: input?.contentJson ?? null,
+        }),
+      ),
       markRunSucceeded: jest.fn(async () => undefined),
       markRunFailed: jest.fn(async () => undefined),
       getRunById: jest.fn(async () =>
@@ -332,7 +389,12 @@ describe('ConversationLoopService', () => {
         versionId: 'ver-1',
       })),
       updateSandboxState: jest.fn(async () => undefined),
-      createAssistantMessage: jest.fn(async () => ({ id: 'assistant-1' })),
+      createAssistantMessage: jest.fn(async (input?: { content?: string; contentJson?: Record<string, unknown> | null }) =>
+        createAssistantMessage({
+          content: input?.content ?? 'Calling tool again.',
+          content_json: input?.contentJson ?? null,
+        }),
+      ),
       markRunSucceeded: jest.fn(async () => undefined),
       markRunFailed: jest.fn(async () => undefined),
       getRunById: jest.fn(async () =>

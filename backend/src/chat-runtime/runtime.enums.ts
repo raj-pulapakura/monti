@@ -21,6 +21,8 @@ export const RUNTIME_EVENT_TYPES = [
   'tool_started',
   'tool_succeeded',
   'tool_failed',
+  'assistant_message_started',
+  'assistant_message_updated',
   'assistant_message_created',
   'sandbox_updated',
   'run_failed',

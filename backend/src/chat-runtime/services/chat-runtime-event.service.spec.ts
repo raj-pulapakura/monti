@@ -49,4 +49,36 @@ describe('ChatRuntimeEventService', () => {
     expect(nextEvent.type).toBe('run_started');
     expect(nextEvent.id).toBe('1');
   });
+
+  it('excludes transient assistant draft events from hydration cursors', () => {
+    const service = new ChatRuntimeEventService();
+
+    service.publish({
+      threadId: 'thread-3',
+      runId: 'run-3',
+      type: 'run_started',
+      payload: {},
+    });
+    service.publish({
+      threadId: 'thread-3',
+      runId: 'run-3',
+      type: 'assistant_message_started',
+      payload: { draftId: 'run-3', content: 'Hi' },
+    });
+    const persistedEvent = service.publish({
+      threadId: 'thread-3',
+      runId: 'run-3',
+      type: 'assistant_message_created',
+      payload: { messageId: 'assistant-1' },
+    });
+    service.publish({
+      threadId: 'thread-3',
+      runId: 'run-3',
+      type: 'assistant_message_updated',
+      payload: { draftId: 'run-3', content: 'Hi again' },
+    });
+
+    expect(service.latestEventId('thread-3')).toBe('4');
+    expect(service.latestHydrationCursor('thread-3')).toBe(persistedEvent.id);
+  });
 });

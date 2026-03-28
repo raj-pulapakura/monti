@@ -17,7 +17,7 @@ function createAuthClientMock() {
     signInWithOAuth: vi.fn(async () => ({ error: null })),
     signUp: vi.fn(async () => ({ data: { session: null }, error: null })),
     resetPasswordForEmail: vi.fn(async () => ({ error: null })),
-  };
+  } as unknown as Parameters<typeof signInWithEmailPassword>[0];
 }
 
 describe('auth flow e2e coverage', () => {

@@ -22,6 +22,7 @@ export interface RoutedToolTurnRequest {
   messages: CanonicalToolTurnRequest['messages'];
   tools: CanonicalToolTurnRequest['tools'];
   signal?: AbortSignal;
+  onAssistantTextSnapshot?: CanonicalToolTurnRequest['onAssistantTextSnapshot'];
 }
 
 @Injectable()
@@ -57,6 +58,7 @@ export class ToolLlmRouterService {
       messages: request.messages,
       tools: request.tools,
       signal: request.signal,
+      onAssistantTextSnapshot: request.onAssistantTextSnapshot,
     });
   }
 }

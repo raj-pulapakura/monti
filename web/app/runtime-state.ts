@@ -65,11 +65,21 @@ export type SandboxState = {
   updatedAt: string;
 };
 
+export type AssistantDraft = {
+  draftId: string;
+  threadId: string;
+  runId: string | null;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type RuntimeState = {
   messages: ChatMessage[];
   activeRun: AssistantRun | null;
   activeToolInvocation: ToolInvocation | null;
   sandboxState: SandboxState | null;
+  assistantDraft: AssistantDraft | null;
   latestEventId: string | null;
 };
 
@@ -81,6 +91,8 @@ export type RuntimeEventData = {
     | 'tool_started'
     | 'tool_succeeded'
     | 'tool_failed'
+    | 'assistant_message_started'
+    | 'assistant_message_updated'
     | 'assistant_message_created'
     | 'sandbox_updated'
     | 'run_failed'
@@ -102,6 +114,7 @@ export const INITIAL_RUNTIME_STATE: RuntimeState = {
   activeRun: null,
   activeToolInvocation: null,
   sandboxState: null,
+  assistantDraft: null,
   latestEventId: null,
 };
 
@@ -120,6 +133,17 @@ export function reduceRuntimeEvent(
     next.activeRun = {
       ...next.activeRun,
       status: 'running',
+      startedAt: next.activeRun.startedAt ?? event.createdAt,
+      selectedProvider:
+        event.payload.provider === 'openai' ||
+        event.payload.provider === 'anthropic' ||
+        event.payload.provider === 'gemini'
+          ? event.payload.provider
+          : next.activeRun.selectedProvider,
+      selectedModel:
+        typeof event.payload.model === 'string'
+          ? event.payload.model
+          : next.activeRun.selectedModel,
     };
   }
 
@@ -146,9 +170,9 @@ export function reduceRuntimeEvent(
         code: null,
         message: null,
       },
-      startedAt: now(),
+      startedAt: event.createdAt ?? now(),
       completedAt: null,
-      createdAt: now(),
+      createdAt: event.createdAt ?? now(),
     };
   }
 
@@ -160,7 +184,7 @@ export function reduceRuntimeEvent(
         typeof event.payload.generationId === 'string'
           ? event.payload.generationId
           : next.activeToolInvocation.generationId,
-      completedAt: now(),
+      completedAt: event.createdAt ?? now(),
     };
   }
 
@@ -178,16 +202,36 @@ export function reduceRuntimeEvent(
             ? event.payload.errorMessage
             : next.activeToolInvocation.error.message,
       },
-      completedAt: now(),
+      completedAt: event.createdAt ?? now(),
     };
+  }
+
+  if (
+    event.type === 'assistant_message_started' ||
+    event.type === 'assistant_message_updated'
+  ) {
+    const draft = toAssistantDraft(event, next.assistantDraft);
+    if (draft) {
+      next.assistantDraft = draft;
+    }
+  }
+
+  if (event.type === 'assistant_message_created') {
+    const message = toAssistantMessage(event.payload);
+    if (message) {
+      next.messages = upsertMessage(next.messages, message);
+    }
+    next.assistantDraft = null;
   }
 
   if (event.type === 'run_completed' && next.activeRun) {
     next.activeRun = {
       ...next.activeRun,
       status: 'succeeded',
+      completedAt: event.createdAt,
     };
     next.activeToolInvocation = null;
+    next.assistantDraft = null;
   }
 
   if (event.type === 'run_failed' && next.activeRun) {
@@ -207,11 +251,12 @@ export function reduceRuntimeEvent(
         code: errorCode,
         message: errorMessage,
       },
+      completedAt: event.createdAt,
     };
     next.activeToolInvocation = null;
   }
 
-  if (event.type === 'sandbox_updated' && next.sandboxState) {
+  if (event.type === 'sandbox_updated') {
     const incomingStatus = event.payload.status;
     if (
       incomingStatus === 'empty' ||
@@ -219,17 +264,37 @@ export function reduceRuntimeEvent(
       incomingStatus === 'ready' ||
       incomingStatus === 'error'
     ) {
+      const previousSandbox =
+        next.sandboxState ??
+        ({
+          threadId: event.threadId,
+          status: incomingStatus,
+          experienceId: null,
+          experienceVersionId: null,
+          lastErrorCode: null,
+          lastErrorMessage: null,
+          updatedAt: event.createdAt,
+        } satisfies SandboxState);
       next.sandboxState = {
-        ...next.sandboxState,
+        ...previousSandbox,
         status: incomingStatus,
+        experienceId:
+          typeof event.payload.experienceId === 'string'
+            ? event.payload.experienceId
+            : previousSandbox.experienceId,
+        experienceVersionId:
+          typeof event.payload.experienceVersionId === 'string'
+            ? event.payload.experienceVersionId
+            : previousSandbox.experienceVersionId,
         lastErrorCode:
           typeof event.payload.errorCode === 'string'
             ? event.payload.errorCode
-            : next.sandboxState.lastErrorCode,
+            : previousSandbox.lastErrorCode,
         lastErrorMessage:
           typeof event.payload.errorMessage === 'string'
             ? event.payload.errorMessage
-            : next.sandboxState.lastErrorMessage,
+            : previousSandbox.lastErrorMessage,
+        updatedAt: event.createdAt,
       };
     }
   }
@@ -241,12 +306,28 @@ export function reconcileHydrationState(
   previous: RuntimeState,
   hydrated: RuntimeHydrationSnapshot,
 ): RuntimeState {
+  const activeRunStillVisible =
+    hydrated.activeRun?.status === 'queued' ||
+    hydrated.activeRun?.status === 'running' ||
+    hydrated.activeRun?.status === 'failed';
+  const hasPersistedAssistantCopy =
+    previous.assistantDraft !== null &&
+    hydrated.messages.some(
+      (message) =>
+        message.role === 'assistant' &&
+        message.content.trim() === previous.assistantDraft?.content.trim(),
+    );
+
   return {
     ...previous,
     messages: hydrated.messages,
     activeRun: hydrated.activeRun,
     activeToolInvocation: hydrated.activeToolInvocation,
     sandboxState: hydrated.sandboxState,
+    assistantDraft:
+      previous.assistantDraft && activeRunStillVisible && !hasPersistedAssistantCopy
+        ? previous.assistantDraft
+        : null,
     latestEventId: hydrated.latestEventId ?? previous.latestEventId,
   };
 }
@@ -272,18 +353,20 @@ export function getStatusLabel(
   run: AssistantRun | null,
   activeToolInvocation: ToolInvocation | null,
   sandbox: SandboxState | null,
+  assistantDraft: AssistantDraft | null = null,
 ): string | null {
-  if (!run && !activeToolInvocation && !sandbox) {
+  if (!run && !activeToolInvocation && !sandbox && !assistantDraft) {
     return null;
   }
 
   if (
+    assistantDraft ||
     sandbox?.status === 'creating' ||
     run?.status === 'queued' ||
     run?.status === 'running' ||
     activeToolInvocation?.status === 'running'
   ) {
-    return 'Drafting your studio';
+    return 'Working on your request';
   }
 
   if (
@@ -299,4 +382,83 @@ export function getStatusLabel(
   }
 
   return null;
+}
+
+export function isRunActive(run: AssistantRun | null): boolean {
+  return run?.status === 'queued' || run?.status === 'running';
+}
+
+function toAssistantDraft(
+  event: RuntimeEventData,
+  previousDraft: AssistantDraft | null,
+): AssistantDraft | null {
+  const content =
+    typeof event.payload.content === 'string' ? event.payload.content.trim() : '';
+  if (content.length === 0) {
+    return null;
+  }
+
+  const draftId =
+    typeof event.payload.draftId === 'string' && event.payload.draftId.trim().length > 0
+      ? event.payload.draftId
+      : event.runId ?? `draft-${event.threadId}`;
+
+  return {
+    draftId,
+    threadId: event.threadId,
+    runId: event.runId,
+    content,
+    createdAt:
+      previousDraft && previousDraft.draftId === draftId
+        ? previousDraft.createdAt
+        : event.createdAt,
+    updatedAt: event.createdAt,
+  };
+}
+
+function toAssistantMessage(payload: Record<string, unknown>): ChatMessage | null {
+  const candidate =
+    typeof payload.message === 'object' &&
+    payload.message !== null &&
+    !Array.isArray(payload.message)
+      ? (payload.message as Record<string, unknown>)
+      : null;
+  if (!candidate) {
+    return null;
+  }
+
+  if (
+    typeof candidate.id !== 'string' ||
+    typeof candidate.threadId !== 'string' ||
+    typeof candidate.userId !== 'string' ||
+    typeof candidate.role !== 'string' ||
+    typeof candidate.content !== 'string' ||
+    typeof candidate.createdAt !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    id: candidate.id,
+    threadId: candidate.threadId,
+    userId: candidate.userId,
+    role: candidate.role as ChatMessageRole,
+    content: candidate.content,
+    contentJson:
+      typeof candidate.contentJson === 'object' &&
+      candidate.contentJson !== null &&
+      !Array.isArray(candidate.contentJson)
+        ? (candidate.contentJson as Record<string, unknown>)
+        : null,
+    idempotencyKey:
+      typeof candidate.idempotencyKey === 'string' ? candidate.idempotencyKey : null,
+    createdAt: candidate.createdAt,
+  };
+}
+
+function upsertMessage(messages: ChatMessage[], message: ChatMessage): ChatMessage[] {
+  const nextMessages = messages.filter((existing) => existing.id !== message.id);
+  nextMessages.push(message);
+  nextMessages.sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  return nextMessages;
 }

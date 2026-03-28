@@ -83,7 +83,7 @@ export class ChatRuntimeService {
       activeToolInvocation: result.activeToolInvocation
         ? mapToolInvocation(result.activeToolInvocation)
         : null,
-      latestEventId: this.events.latestEventId(input.request.threadId),
+      latestEventId: this.events.latestHydrationCursor(input.request.threadId),
     };
   }
 
@@ -132,20 +132,13 @@ export class ChatRuntimeService {
 
     let run = result.run;
     if (run && run.status === 'queued' && isConversationLoopEnabled()) {
-      const executedRun = await this.conversationLoop.executeTurn({
+      const queuedRun = run;
+      void this.executeQueuedRun({
         threadId: input.threadId,
         userId: input.userId,
         userMessage: result.message,
-        run,
+        run: queuedRun,
       });
-      run = executedRun;
-      this.logger.log(
-        JSON.stringify({
-          event: 'chat_runtime_conversation_turn_completed',
-          runId: executedRun.id,
-          terminalStatus: executedRun.status,
-        }),
-      );
     }
 
     return {
@@ -162,6 +155,49 @@ export class ChatRuntimeService {
     providerResponseRaw: Record<string, unknown>;
   }): Promise<void> {
     await this.repository.recordRunProviderTrace(input);
+  }
+
+  private async executeQueuedRun(input: {
+    threadId: string;
+    userId: string;
+    userMessage: {
+      id: string;
+      thread_id: string;
+      user_id: string;
+      role: 'user' | 'assistant' | 'tool' | 'system';
+      content: string;
+      content_json: Record<string, unknown> | null;
+      idempotency_key: string | null;
+      created_at: string;
+    };
+    run: {
+      id: string;
+    } & Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const executedRun = await this.conversationLoop.executeTurn({
+        threadId: input.threadId,
+        userId: input.userId,
+        userMessage: input.userMessage,
+        run: input.run as never,
+      });
+      this.logger.log(
+        JSON.stringify({
+          event: 'chat_runtime_conversation_turn_completed',
+          runId: executedRun.id,
+          terminalStatus: executedRun.status,
+        }),
+      );
+    } catch (error) {
+      this.logger.error(
+        JSON.stringify({
+          event: 'chat_runtime_conversation_turn_unhandled_failure',
+          runId: input.run.id,
+          errorMessage:
+            error instanceof Error ? error.message : 'Conversation loop failed.',
+        }),
+      );
+    }
   }
 }
 

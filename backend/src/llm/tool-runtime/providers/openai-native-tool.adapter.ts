@@ -3,7 +3,9 @@ import {
   ProviderResponseError,
   ProviderUnavailableError,
 } from '../../../common/errors/app-error';
+import { createAssistantTextSnapshotEmitter } from '../assistant-text-stream';
 import type { NativeToolAdapter } from '../native-tool-adapter.interface';
+import { parseServerSentEvents } from '../sse-event-parser';
 import type {
   CanonicalToolCall,
   CanonicalToolTurnRequest,
@@ -29,6 +31,16 @@ interface OpenAiNativeResponse {
   }>;
 }
 
+interface OpenAiStreamEnvelope {
+  type?: string;
+  delta?: string;
+  text?: string;
+  response?: OpenAiNativeResponse;
+  error?: {
+    message?: string;
+  };
+}
+
 @Injectable()
 export class OpenAiNativeToolAdapter implements NativeToolAdapter {
   readonly provider = 'openai' as const;
@@ -39,12 +51,19 @@ export class OpenAiNativeToolAdapter implements NativeToolAdapter {
       throw new ProviderUnavailableError('OPENAI_API_KEY is not configured.');
     }
 
-    const body = buildOpenAiToolRequest(request);
+    const body = {
+      ...buildOpenAiToolRequest(request),
+      stream: true,
+      stream_options: {
+        include_obfuscation: false,
+      },
+    };
     const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
       },
       body: JSON.stringify(body),
       signal: request.signal,
@@ -55,8 +74,52 @@ export class OpenAiNativeToolAdapter implements NativeToolAdapter {
       throw new ProviderResponseError(`OpenAI native tool call failed: ${detail}`);
     }
 
-    const payload = (await response.json()) as OpenAiNativeResponse;
+    const textEmitter = createAssistantTextSnapshotEmitter(
+      request.onAssistantTextSnapshot,
+    );
+    let payload: OpenAiNativeResponse | null = null;
+
+    for await (const event of parseServerSentEvents(response)) {
+      if (event.data === '[DONE]') {
+        break;
+      }
+
+      const parsedEvent = parseJsonObjectEnvelope(event.data);
+      if (!parsedEvent) {
+        continue;
+      }
+
+      if (parsedEvent.type === 'response.output_text.delta') {
+        await textEmitter.append(parsedEvent.delta);
+        continue;
+      }
+
+      if (parsedEvent.type === 'response.output_text.done') {
+        await textEmitter.replace(parsedEvent.text, true);
+        continue;
+      }
+
+      if (parsedEvent.type === 'response.completed' && parsedEvent.response) {
+        payload = parsedEvent.response;
+        continue;
+      }
+
+      if (parsedEvent.type === 'error') {
+        throw new ProviderResponseError(
+          `OpenAI native tool call failed: ${parsedEvent.error?.message ?? 'Unknown provider error'}`,
+        );
+      }
+    }
+
+    if (!payload) {
+      throw new ProviderResponseError(
+        'OpenAI native tool call failed: streaming response ended without completion payload.',
+      );
+    }
+
     const parsed = parseOpenAiToolResponse(payload);
+    await textEmitter.replace(parsed.assistantText, true);
+    await textEmitter.flush();
 
     return {
       provider: this.provider,
@@ -171,6 +234,19 @@ function parseJsonObject(value: string | undefined): Record<string, unknown> {
   }
 
   return {};
+}
+
+function parseJsonObjectEnvelope(value: string): OpenAiStreamEnvelope | null {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as OpenAiStreamEnvelope;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 function randomId(): string {

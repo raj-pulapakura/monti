@@ -3,7 +3,7 @@
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowUp, Pause } from 'lucide-react';
+import { ArrowUp, LoaderCircle } from 'lucide-react';
 import {
   API_BASE_URL,
   createAuthenticatedApiClient,
@@ -13,6 +13,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import {
   getRetryComposerValue,
   INITIAL_RUNTIME_STATE,
+  isRunActive,
   reconcileHydrationState,
   reduceRuntimeEvent,
   type AssistantRun,
@@ -74,6 +75,20 @@ type SandboxPreviewResponse = {
   };
 };
 
+type StreamConnectionState = 'idle' | 'connecting' | 'open' | 'reconnecting';
+
+type ConversationTimelineItem =
+  | {
+      kind: 'message';
+      key: string;
+      message: ChatMessage;
+    }
+  | {
+      kind: 'draft';
+      key: string;
+      content: string;
+    };
+
 class FatalStreamAuthError extends Error {}
 
 export default function ChatThreadPage() {
@@ -89,7 +104,9 @@ export default function ChatThreadPage() {
   const [runtimeState, setRuntimeState] = useState<RuntimeState>(INITIAL_RUNTIME_STATE);
   const [activeExperience, setActiveExperience] = useState<ExperiencePayload | null>(null);
   const [composerText, setComposerText] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [submitPending, setSubmitPending] = useState(false);
+  const [streamConnectionState, setStreamConnectionState] =
+    useState<StreamConnectionState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const latestEventIdRef = useRef<string | null>(null);
   const handoffAttemptedThreadRef = useRef<string | null>(null);
@@ -121,6 +138,7 @@ export default function ChatThreadPage() {
     setThread(null);
     setRuntimeState(INITIAL_RUNTIME_STATE);
     setActiveExperience(null);
+    setStreamConnectionState('idle');
     setErrorMessage(null);
     handoffAttemptedThreadRef.current = null;
   }, [routeThreadId]);
@@ -146,6 +164,7 @@ export default function ChatThreadPage() {
     return () => {
       data.subscription.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- auth bootstrap is keyed to router/session changes.
   }, [router]);
 
   useEffect(() => {
@@ -162,6 +181,7 @@ export default function ChatThreadPage() {
       setThread(null);
       setErrorMessage(toErrorMessage(error));
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydration is keyed to the resolved token/thread tuple.
   }, [accessToken, routeThreadId, threadIdIsValid]);
 
   useEffect(() => {
@@ -185,7 +205,18 @@ export default function ChatThreadPage() {
       activeThread: thread,
       resetComposerOnSuccess: false,
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- prompt handoff should run once per resolved thread.
   }, [accessToken, thread?.id]);
+
+  const liveRunActive = isRunActive(runtimeState.activeRun);
+  const generationInFlight =
+    liveRunActive ||
+    runtimeState.assistantDraft !== null ||
+    runtimeState.activeToolInvocation?.status === 'running';
+  const showChatBuildIndicator =
+    Boolean(thread?.id) &&
+    (runtimeState.sandboxState?.status === 'creating' ||
+      runtimeState.activeToolInvocation?.status === 'running');
 
   useEffect(() => {
     const container = chatScrollRef.current;
@@ -195,7 +226,44 @@ export default function ChatThreadPage() {
 
     // Keep the newest message in view as the conversation updates.
     container.scrollTop = container.scrollHeight;
-  }, [runtimeState.messages.length]);
+  }, [
+    runtimeState.messages.length,
+    runtimeState.assistantDraft?.content,
+    showChatBuildIndicator,
+  ]);
+
+  const conversationTimeline = useMemo<ConversationTimelineItem[]>(() => {
+    const items: ConversationTimelineItem[] = runtimeState.messages.map((message) => ({
+      kind: 'message',
+      key: message.id,
+      message,
+    }));
+
+    if (runtimeState.assistantDraft) {
+      items.push({
+        kind: 'draft',
+        key: `draft-${runtimeState.assistantDraft.draftId}`,
+        content: runtimeState.assistantDraft.content,
+      });
+    }
+
+    return items;
+  }, [runtimeState.messages, runtimeState.assistantDraft]);
+
+  const threadNotice = getThreadNotice({
+    streamConnectionState,
+    generationInFlight,
+    activeRun: runtimeState.activeRun,
+  });
+
+  const previewStatus = getPreviewStatus({
+    hasExperience: activeExperience !== null,
+    activeRun: runtimeState.activeRun,
+    activeToolInvocation: runtimeState.activeToolInvocation,
+    sandboxState: runtimeState.sandboxState,
+    assistantDraftPresent: runtimeState.assistantDraft !== null,
+    streamConnectionState,
+  });
 
   useEffect(() => {
     if (!thread?.id || !accessToken) {
@@ -210,12 +278,17 @@ export default function ChatThreadPage() {
 
     const streamUrl = `${API_BASE_URL}/api/chat/threads/${thread.id}/events${params.size > 0 ? `?${params.toString()}` : ''}`;
     const abortController = new AbortController();
+    let closedByCleanup = false;
+
+    setStreamConnectionState('connecting');
 
     const eventTypes = new Set<RuntimeEventData['type']>([
       'run_started',
       'tool_started',
       'tool_succeeded',
       'tool_failed',
+      'assistant_message_started',
+      'assistant_message_updated',
       'assistant_message_created',
       'sandbox_updated',
       'run_failed',
@@ -244,6 +317,7 @@ export default function ChatThreadPage() {
           throw new Error(`Stream request failed with status ${response.status}`);
         }
 
+        setStreamConnectionState('open');
       },
       onmessage(message) {
         if (!message.event || !eventTypes.has(message.event as RuntimeEventData['type'])) {
@@ -263,11 +337,7 @@ export default function ChatThreadPage() {
 
         setRuntimeState((previous) => reduceRuntimeEvent(previous, parsed, latestEventId ?? null));
 
-        if (
-          parsed.type === 'assistant_message_created' ||
-          parsed.type === 'run_completed' ||
-          parsed.type === 'run_failed'
-        ) {
+        if (parsed.type === 'run_completed' || parsed.type === 'run_failed') {
           void refreshThreadSnapshot(thread.id, accessToken);
         }
 
@@ -280,16 +350,23 @@ export default function ChatThreadPage() {
         }
       },
       onclose() {
+        if (!closedByCleanup) {
+          setStreamConnectionState('reconnecting');
+        }
       },
       onerror(error) {
         if (error instanceof FatalStreamAuthError) {
           throw error;
+        }
+        if (!closedByCleanup) {
+          setStreamConnectionState('reconnecting');
         }
         console.error('Runtime event stream error:', error);
       },
     });
 
     return () => {
+      closedByCleanup = true;
       abortController.abort();
     };
   }, [thread?.id, accessToken]);
@@ -341,6 +418,7 @@ export default function ChatThreadPage() {
       activeRun: hydrated.activeRun,
       activeToolInvocation: hydrated.activeToolInvocation,
       sandboxState: hydrated.sandboxState,
+      assistantDraft: null,
       latestEventId: hydrated.latestEventId,
     });
 
@@ -369,7 +447,7 @@ export default function ChatThreadPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
 
-    if (!accessToken || submitting || !thread?.id) {
+    if (!accessToken || submitPending || generationInFlight || !thread?.id) {
       return;
     }
 
@@ -407,7 +485,7 @@ export default function ChatThreadPage() {
     activeThread: ThreadEnvelope;
     resetComposerOnSuccess: boolean;
   }) {
-    if (submitting) {
+    if (submitPending) {
       return;
     }
 
@@ -417,7 +495,7 @@ export default function ChatThreadPage() {
     }
 
     setErrorMessage(null);
-    setSubmitting(true);
+    setSubmitPending(true);
     let optimisticId: string | null = null;
 
     try {
@@ -440,6 +518,8 @@ export default function ChatThreadPage() {
       setRuntimeState((previous) => ({
         ...previous,
         messages: [...previous.messages, optimisticMessage],
+        assistantDraft: null,
+        activeToolInvocation: null,
       }));
 
       const response = await apiClientFor(input.token).postJson<SubmitMessageResponse>(
@@ -452,8 +532,12 @@ export default function ChatThreadPage() {
 
       setRuntimeState((previous) => ({
         ...previous,
+        messages: previous.messages.map((message) =>
+          message.id === optimisticId ? response.data.message : message,
+        ),
         activeRun: response.data.run,
         activeToolInvocation: null,
+        assistantDraft: null,
       }));
 
       await Promise.all([
@@ -472,7 +556,7 @@ export default function ChatThreadPage() {
       }
       setErrorMessage(toErrorMessage(error));
     } finally {
-      setSubmitting(false);
+      setSubmitPending(false);
     }
   }
 
@@ -494,7 +578,7 @@ export default function ChatThreadPage() {
           <div ref={chatScrollRef} className="chat-scroll">
             {!threadIdIsValid ? (
               <p className="empty-state">
-                This studio link is invalid. Return home and open a studio from your list.
+                This link is invalid. Return home and open another conversation.
               </p>
             ) : !thread?.id && errorMessage ? (
               <p className="error-banner">{errorMessage}</p>
@@ -505,23 +589,49 @@ export default function ChatThreadPage() {
                   <div className="skeleton-line" />
                   <div className="skeleton-line short" />
                 </div>
-                <p className="empty-state">Opening your studio...</p>
+                <p className="empty-state">Opening conversation...</p>
               </>
-            ) : runtimeState.messages.length === 0 ? (
+            ) : conversationTimeline.length === 0 ? (
               <p className="empty-state">
                 Share your goal and Monti will draft the first creation.
               </p>
             ) : (
-              runtimeState.messages.map((message) => (
-                <article
-                  key={message.id}
-                  className={`message-row ${message.role === 'user' ? 'message-user' : 'message-assistant'}`}
-                >
-                  <p className="message-content">{message.content}</p>
-                </article>
-              ))
+              <>
+                {conversationTimeline.map((item) =>
+                  item.kind === 'message' ? (
+                    <article
+                      key={item.key}
+                      className={`message-row ${item.message.role === 'user' ? 'message-user' : 'message-assistant'}`}
+                    >
+                      <p className="message-content">{item.message.content}</p>
+                    </article>
+                  ) : (
+                    <article key={item.key} className="message-row message-assistant">
+                      <p className="message-content">
+                        {item.content}
+                        {runtimeState.activeRun?.status === 'failed' ? null : (
+                          <span className="draft-cursor" aria-hidden="true" />
+                        )}
+                      </p>
+                    </article>
+                  ),
+                )}
+                {showChatBuildIndicator ? (
+                  <article className="message-row message-assistant message-status">
+                    <p className="chat-build-indicator" role="status" aria-live="polite">
+                      <span className="chat-build-indicator-text">Building experience...</span>
+                    </p>
+                  </article>
+                ) : null}
+              </>
             )}
           </div>
+
+          {threadNotice ? (
+            <p className="stream-notice" role="status" aria-live="polite">
+              {threadNotice}
+            </p>
+          ) : null}
 
           <div className="prompt-pill-row" aria-label="Add to prompt">
             {ADDABLE_PROMPT_WORDS.map((word) => (
@@ -529,7 +639,7 @@ export default function ChatThreadPage() {
                 key={word}
                 type="button"
                 className="prompt-pill"
-                disabled={submitting || !thread?.id || !threadIdIsValid}
+                disabled={submitPending || !thread?.id || !threadIdIsValid}
                 onClick={() => addPromptWord(word)}
               >
                 + {word}
@@ -541,21 +651,37 @@ export default function ChatThreadPage() {
             <input
               value={composerText}
               onChange={(event) => setComposerText(event.target.value)}
-              placeholder="refine..."
-              disabled={submitting || !thread?.id || !threadIdIsValid}
+              placeholder={
+                generationInFlight
+                  ? 'Wait for the current reply to finish...'
+                  : 'refine'
+              }
+              disabled={submitPending || !thread?.id || !threadIdIsValid}
             />
             <button
               type="submit"
+              className={submitPending || generationInFlight ? 'is-busy' : undefined}
               disabled={
                 !accessToken ||
-                submitting ||
+                submitPending ||
+                generationInFlight ||
                 composerText.trim().length === 0 ||
                 !thread?.id ||
                 !threadIdIsValid
               }
-              aria-label={submitting ? 'Pause generation (coming soon)' : 'Send prompt'}
+              aria-label={
+                submitPending
+                  ? 'Sending prompt'
+                  : generationInFlight
+                    ? 'Reply in progress'
+                    : 'Send prompt'
+              }
             >
-              {submitting ? <Pause size={18} strokeWidth={2.6} /> : <ArrowUp size={18} strokeWidth={2.6} />}
+              {submitPending || generationInFlight ? (
+                <LoaderCircle size={18} strokeWidth={2.3} className="composer-spinner" />
+              ) : (
+                <ArrowUp size={18} strokeWidth={2.6} />
+              )}
             </button>
           </form>
 
@@ -578,25 +704,45 @@ export default function ChatThreadPage() {
 
         <section className="sandbox-panel">
           <div className="sandbox-header">
-            <h2>{activeExperience ? activeExperience.title : 'Creation preview'}</h2>
+            <div>
+              <h2>{activeExperience ? activeExperience.title : 'Experience'}</h2>
+            </div>
           </div>
 
           {activeExperience ? (
-            <iframe
-              title="Monti sandbox preview"
-              className="sandbox-iframe"
-              sandbox="allow-scripts"
-              srcDoc={previewDocument}
-            />
+            <div className="sandbox-stage">
+              <iframe
+                title="Monti experience"
+                className="sandbox-iframe"
+                sandbox="allow-scripts"
+                srcDoc={previewDocument}
+              />
+              {previewStatus?.overlay ? (
+                <div className={`sandbox-stage-overlay is-${previewStatus.tone}`}>
+                  <span className="loading-spinner" aria-hidden="true" />
+                  <div>
+                    <strong>{previewStatus.title}</strong>
+                    {previewStatus.tone === 'live' ? null : <p>{previewStatus.detail}</p>}
+                  </div>
+                </div>
+              ) : null}
+            </div>
           ) : (
             <div className="sandbox-empty">
-              {runtimeState.sandboxState?.status === 'creating' ? (
-                <div className="sandbox-loading" role="status" aria-live="polite">
+              {previewStatus ? (
+                <div
+                  className={`sandbox-loading sandbox-feedback is-${previewStatus.tone}`}
+                  role="status"
+                  aria-live="polite"
+                >
                   <span className="loading-spinner" aria-hidden="true" />
-                  <p>Bringing your creation to life</p>
+                  <div>
+                    <strong>{previewStatus.title}</strong>
+                    {previewStatus.tone === 'live' ? null : <p>{previewStatus.detail}</p>}
+                  </div>
                 </div>
               ) : (
-                <p>Your interactive creation preview appears here after the first draft.</p>
+                <p>Your interactive experience appears here after the first draft.</p>
               )}
             </div>
           )}
@@ -604,6 +750,83 @@ export default function ChatThreadPage() {
       </main>
     </div>
   );
+}
+
+function getThreadNotice(input: {
+  generationInFlight: boolean;
+  streamConnectionState: StreamConnectionState;
+  activeRun: AssistantRun | null;
+}): string | null {
+  if (input.streamConnectionState === 'reconnecting' && input.generationInFlight) {
+    return 'Reconnecting to the live reply...';
+  }
+
+  if (input.activeRun?.status === 'failed') {
+    return 'The last reply stalled. Edit the prompt and try again.';
+  }
+
+  return null;
+}
+
+function getPreviewStatus(input: {
+  hasExperience: boolean;
+  activeRun: AssistantRun | null;
+  activeToolInvocation: ToolInvocation | null;
+  sandboxState: SandboxState | null;
+  assistantDraftPresent: boolean;
+  streamConnectionState: StreamConnectionState;
+}): {
+  title: string;
+  detail: string;
+  tone: 'live' | 'warning' | 'error';
+  overlay: boolean;
+} | null {
+  if (input.streamConnectionState === 'reconnecting' && isRunActive(input.activeRun)) {
+    return {
+      title: 'Holding the live feed',
+      detail: 'Preview updates resume automatically once the event stream reconnects.',
+      tone: 'warning',
+      overlay: input.hasExperience,
+    };
+  }
+
+  if (
+    input.sandboxState?.status === 'creating' ||
+    input.activeToolInvocation?.status === 'running'
+  ) {
+    return {
+      title: input.hasExperience ? 'Refreshing experience' : 'Building experience',
+      detail: input.hasExperience
+        ? 'Keeping the current experience visible while the next version is prepared.'
+        : 'Putting together the first experience.',
+      tone: 'live',
+      overlay: input.hasExperience,
+    };
+  }
+
+  if (input.assistantDraftPresent || isRunActive(input.activeRun)) {
+    return {
+      title: 'Preparing experience',
+      detail: input.hasExperience
+        ? 'The experience will update after the streaming reply finishes and any tools complete.'
+        : 'Working through the request before the experience appears.',
+      tone: 'live',
+      overlay: false,
+    };
+  }
+
+  if (input.sandboxState?.status === 'error' || input.activeRun?.status === 'failed') {
+    return {
+      title: input.hasExperience ? 'Experience needs another pass' : 'Experience paused',
+      detail: input.hasExperience
+        ? 'The last stable experience is still shown. Retry the prompt when you are ready.'
+        : 'The experience did not finish rendering. Retry the prompt to resume.',
+      tone: 'error',
+      overlay: input.hasExperience,
+    };
+  }
+
+  return null;
 }
 
 function createIdempotencyKey(): string {

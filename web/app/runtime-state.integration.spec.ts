@@ -55,6 +55,7 @@ function createBaseRuntimeState(): RuntimeState {
       lastErrorMessage: null,
       updatedAt: '2026-03-15T10:00:00.000Z',
     },
+    assistantDraft: null,
     latestEventId: '1',
   };
 }
@@ -210,6 +211,97 @@ describe('runtime-state integration', () => {
     expect(reconciled.messages).toHaveLength(2);
     expect(reconciled.activeRun?.status).toBe('running');
     expect(reconciled.activeToolInvocation?.status).toBe('running');
+    expect(reconciled.assistantDraft).toBeNull();
+    expect(reconciled.latestEventId).toBe('1');
+  });
+
+  it('tracks streamed assistant drafts and clears them when the persisted message arrives', () => {
+    const base = createBaseRuntimeState();
+
+    const afterStarted = reduceRuntimeEvent(
+      base,
+      {
+        threadId: 'thread-1',
+        runId: 'run-1',
+        type: 'assistant_message_started',
+        payload: {
+          draftId: 'run-1',
+          content: 'Building',
+        },
+        createdAt: '2026-03-15T10:00:01.000Z',
+      },
+      '2',
+    );
+    const afterUpdated = reduceRuntimeEvent(
+      afterStarted,
+      {
+        threadId: 'thread-1',
+        runId: 'run-1',
+        type: 'assistant_message_updated',
+        payload: {
+          draftId: 'run-1',
+          content: 'Building the quiz now.',
+        },
+        createdAt: '2026-03-15T10:00:02.000Z',
+      },
+      '3',
+    );
+    const afterCreated = reduceRuntimeEvent(
+      afterUpdated,
+      {
+        threadId: 'thread-1',
+        runId: 'run-1',
+        type: 'assistant_message_created',
+        payload: {
+          messageId: 'assistant-1',
+          message: {
+            id: 'assistant-1',
+            threadId: 'thread-1',
+            userId: 'client-1',
+            role: 'assistant',
+            content: 'Building the quiz now.',
+            contentJson: null,
+            idempotencyKey: null,
+            createdAt: '2026-03-15T10:00:03.000Z',
+          },
+        },
+        createdAt: '2026-03-15T10:00:03.000Z',
+      },
+      '4',
+    );
+
+    expect(afterStarted.assistantDraft?.content).toBe('Building');
+    expect(afterUpdated.assistantDraft?.content).toBe('Building the quiz now.');
+    expect(afterCreated.assistantDraft).toBeNull();
+    expect(afterCreated.messages.at(-1)?.content).toBe('Building the quiz now.');
+  });
+
+  it('preserves a failed draft across hydration when no persisted assistant message exists yet', () => {
+    const previous = {
+      ...createBaseRuntimeState(),
+      activeRun: {
+        ...createBaseRuntimeState().activeRun!,
+        status: 'failed' as const,
+      },
+      assistantDraft: {
+        draftId: 'run-1',
+        threadId: 'thread-1',
+        runId: 'run-1',
+        content: 'Partial reply',
+        createdAt: '2026-03-15T10:00:01.000Z',
+        updatedAt: '2026-03-15T10:00:02.000Z',
+      },
+    };
+
+    const reconciled = reconcileHydrationState(previous, {
+      messages: previous.messages,
+      activeRun: previous.activeRun,
+      activeToolInvocation: null,
+      sandboxState: previous.sandboxState!,
+      latestEventId: null,
+    });
+
+    expect(reconciled.assistantDraft?.content).toBe('Partial reply');
     expect(reconciled.latestEventId).toBe('1');
   });
 

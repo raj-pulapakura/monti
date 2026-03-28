@@ -52,7 +52,7 @@ describe('ChatRuntimeService', () => {
     delete process.env.CONVERSATION_LOOP_ENABLED;
   });
 
-  it('delegates queued runs to the conversation loop', async () => {
+  it('returns the accepted queued run while delegating execution to the conversation loop', async () => {
     const repository = {
       submitUserMessage: jest.fn(async () => ({
         message: createMessageRow(),
@@ -83,17 +83,17 @@ describe('ChatRuntimeService', () => {
 
     const result = await service.submitMessage({
       threadId: 'thread-1',
+      userId: 'client-1',
       request: {
-        userId: 'client-1',
         content: 'Build a quiz',
       },
     });
 
     expect(conversationLoop.executeTurn).toHaveBeenCalledTimes(1);
-    expect(result.run?.status).toBe('succeeded');
+    expect(result.run?.status).toBe('queued');
   });
 
-  it('returns failed status when conversation loop fails the run', async () => {
+  it('does not block the submit response on later conversation loop failure', async () => {
     const repository = {
       submitUserMessage: jest.fn(async () => ({
         message: createMessageRow(),
@@ -125,14 +125,15 @@ describe('ChatRuntimeService', () => {
 
     const result = await service.submitMessage({
       threadId: 'thread-1',
+      userId: 'client-1',
       request: {
-        userId: 'client-1',
         content: 'Build a quiz',
       },
     });
 
-    expect(result.run?.status).toBe('failed');
-    expect(result.run?.error.code).toBe('PROVIDER_TIMEOUT');
+    expect(conversationLoop.executeTurn).toHaveBeenCalledTimes(1);
+    expect(result.run?.status).toBe('queued');
+    expect(result.run?.error.code).toBeNull();
   });
 
   it('skips conversation loop when run is already terminal', async () => {
@@ -167,8 +168,8 @@ describe('ChatRuntimeService', () => {
 
     const result = await service.submitMessage({
       threadId: 'thread-1',
+      userId: 'client-1',
       request: {
-        userId: 'client-1',
         content: 'Build a quiz',
       },
     });

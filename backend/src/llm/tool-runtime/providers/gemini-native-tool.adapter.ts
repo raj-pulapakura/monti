@@ -3,7 +3,9 @@ import {
   ProviderResponseError,
   ProviderUnavailableError,
 } from '../../../common/errors/app-error';
+import { createAssistantTextSnapshotEmitter } from '../assistant-text-stream';
 import type { NativeToolAdapter } from '../native-tool-adapter.interface';
+import { parseServerSentEvents } from '../sse-event-parser';
 import type {
   CanonicalToolCall,
   CanonicalToolTurnRequest,
@@ -13,8 +15,18 @@ import type {
 interface GeminiPart {
   text?: string;
   functionCall?: {
+    id?: string;
     name?: string;
     args?: Record<string, unknown>;
+    partialArgs?: Array<{
+      jsonPath?: string;
+      stringValue?: string;
+      numberValue?: number;
+      boolValue?: boolean;
+      nullValue?: null;
+      willContinue?: boolean;
+    }>;
+    willContinue?: boolean;
   };
   functionResponse?: {
     name?: string;
@@ -44,11 +56,12 @@ export class GeminiNativeToolAdapter implements NativeToolAdapter {
     }
 
     const body = buildGeminiToolRequest(request);
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${request.model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${request.model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`;
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
       },
       body: JSON.stringify(body),
       signal: request.signal,
@@ -59,8 +72,99 @@ export class GeminiNativeToolAdapter implements NativeToolAdapter {
       throw new ProviderResponseError(`Gemini native tool call failed: ${detail}`);
     }
 
-    const payload = (await response.json()) as GeminiNativeResponse;
+    const textEmitter = createAssistantTextSnapshotEmitter(
+      request.onAssistantTextSnapshot,
+    );
+    const assistantTextParts: string[] = [];
+    const toolCalls = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        arguments: Record<string, unknown>;
+      }
+    >();
+    let finishReason: string | undefined;
+
+    for await (const event of parseServerSentEvents(response)) {
+      if (event.data === '[DONE]') {
+        break;
+      }
+
+      const chunk = parseGeminiStreamPayload(event.data);
+      if (!chunk) {
+        continue;
+      }
+
+      const candidate = chunk.candidates?.[0];
+      if (!candidate) {
+        continue;
+      }
+
+      finishReason = candidate.finishReason ?? finishReason;
+      const parts = Array.isArray(candidate.content?.parts)
+        ? candidate.content.parts
+        : [];
+
+      for (const part of parts) {
+        if (typeof part.text === 'string' && part.text.length > 0) {
+          assistantTextParts.push(part.text);
+          await textEmitter.replace(assistantTextParts.join(''));
+        }
+
+        if (!part.functionCall) {
+          continue;
+        }
+
+        const functionCallId =
+          part.functionCall.id ??
+          `${part.functionCall.name ?? 'gemini_tool'}_${toolCalls.size}`;
+        const existing = toolCalls.get(functionCallId) ?? {
+          id: functionCallId,
+          name: part.functionCall.name ?? 'unknown_tool',
+          arguments: {},
+        };
+        existing.name = part.functionCall.name ?? existing.name;
+        if (
+          typeof part.functionCall.args === 'object' &&
+          part.functionCall.args !== null &&
+          !Array.isArray(part.functionCall.args)
+        ) {
+          existing.arguments = part.functionCall.args;
+        } else if (Array.isArray(part.functionCall.partialArgs)) {
+          existing.arguments = applyGeminiPartialArgs(
+            existing.arguments,
+            part.functionCall.partialArgs,
+          );
+        }
+        toolCalls.set(functionCallId, existing);
+      }
+    }
+
+    const payload: GeminiNativeResponse = {
+      candidates: [
+        {
+          finishReason,
+          content: {
+            parts: [
+              ...(assistantTextParts.length > 0
+                ? [{ text: assistantTextParts.join('') }]
+                : []),
+              ...[...toolCalls.values()].map((toolCall) => ({
+                functionCall: {
+                  id: toolCall.id,
+                  name: toolCall.name,
+                  args: toolCall.arguments,
+                },
+              })),
+            ],
+          },
+        },
+      ],
+    };
     const parsed = parseGeminiToolResponse(payload);
+    await textEmitter.replace(parsed.assistantText, true);
+    await textEmitter.flush();
 
     return {
       provider: this.provider,
@@ -219,4 +323,77 @@ function extractTrailingToolMessages(messages: CanonicalToolTurnRequest['message
   }
 
   return trailing.reverse();
+}
+
+function parseGeminiStreamPayload(value: string): GeminiNativeResponse | null {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as GeminiNativeResponse;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function applyGeminiPartialArgs(
+  previous: Record<string, unknown>,
+  partialArgs: Array<{
+    jsonPath?: string;
+    stringValue?: string;
+    numberValue?: number;
+    boolValue?: boolean;
+    nullValue?: null;
+    willContinue?: boolean;
+  }>,
+): Record<string, unknown> {
+  const next = { ...previous };
+
+  for (const partial of partialArgs) {
+    const path = partial.jsonPath?.replace(/^\$\./, '').split('.');
+    if (!path || path.length === 0 || path.some((segment) => segment.length === 0)) {
+      continue;
+    }
+
+    let current: Record<string, unknown> = next;
+    for (let index = 0; index < path.length - 1; index += 1) {
+      const segment = path[index];
+      const existing =
+        typeof current[segment] === 'object' &&
+        current[segment] !== null &&
+        !Array.isArray(current[segment])
+          ? (current[segment] as Record<string, unknown>)
+          : {};
+      current[segment] = existing;
+      current = existing;
+    }
+
+    const finalSegment = path[path.length - 1];
+    const existingValue = current[finalSegment];
+    if (typeof partial.stringValue === 'string') {
+      current[finalSegment] =
+        typeof existingValue === 'string'
+          ? `${existingValue}${partial.stringValue}`
+          : partial.stringValue;
+      continue;
+    }
+
+    if (typeof partial.numberValue === 'number') {
+      current[finalSegment] = partial.numberValue;
+      continue;
+    }
+
+    if (typeof partial.boolValue === 'boolean') {
+      current[finalSegment] = partial.boolValue;
+      continue;
+    }
+
+    if (partial.nullValue === null) {
+      current[finalSegment] = null;
+    }
+  }
+
+  return next;
 }

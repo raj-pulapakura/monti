@@ -64,6 +64,8 @@ export class ConversationLoopService {
 
       for (let round = 0; round <= this.llmConfig.conversationMaxToolRounds; round += 1) {
         const tools = this.toolRegistry.getToolDefinitions();
+        let streamedAssistantText = '';
+        let hasPublishedAssistantDraft = false;
         this.logger.log(
           JSON.stringify({
             event: 'conversation_loop_round_started',
@@ -81,12 +83,36 @@ export class ConversationLoopService {
           providerContinuation,
           messages: roundMessages,
           tools,
+          onAssistantTextSnapshot: async (text) => {
+            const normalized = text.trim();
+            if (normalized.length === 0) {
+              return;
+            }
+
+            streamedAssistantText = normalized;
+            this.events.publish({
+              threadId: input.threadId,
+              runId: input.run.id,
+              type: hasPublishedAssistantDraft
+                ? 'assistant_message_updated'
+                : 'assistant_message_started',
+              payload: {
+                draftId: input.run.id,
+                content: normalized,
+              },
+            });
+            hasPublishedAssistantDraft = true;
+          },
         });
         providerContinuation = response.providerContinuation;
         const roundToolOperation = extractGenerateExperienceOperation(response.toolCalls);
         if (roundToolOperation) {
           latestToolOperation = roundToolOperation;
         }
+        const resolvedAssistantText = resolveAssistantText(
+          response.assistantText,
+          streamedAssistantText,
+        );
 
         await this.repository.recordRunProviderTrace({
           runId: input.run.id,
@@ -110,18 +136,18 @@ export class ConversationLoopService {
           }),
         );
 
-        if (response.assistantText.trim().length > 0) {
+        if (resolvedAssistantText.length > 0) {
           canonicalMessages.push({
             role: 'assistant',
-            content: response.assistantText.trim(),
+            content: resolvedAssistantText,
           });
         }
 
-        if (response.assistantText.trim().length > 0 && response.toolCalls.length > 0) {
+        if (resolvedAssistantText.length > 0 && response.toolCalls.length > 0) {
           const interimAssistantMessage = await this.repository.createAssistantMessage({
             threadId: input.threadId,
             userId: input.userId,
-            content: response.assistantText.trim(),
+            content: resolvedAssistantText,
             contentJson: {
               phase: 'pre_tool',
               round,
@@ -133,9 +159,7 @@ export class ConversationLoopService {
             threadId: input.threadId,
             runId: input.run.id,
             type: 'assistant_message_created',
-            payload: {
-              messageId: interimAssistantMessage.id,
-            },
+            payload: toAssistantMessagePayload(interimAssistantMessage),
           });
         }
 
@@ -145,8 +169,8 @@ export class ConversationLoopService {
             threadId: input.threadId,
             userId: input.userId,
             content:
-              response.assistantText.trim().length > 0
-                ? response.assistantText.trim()
+              resolvedAssistantText.length > 0
+                ? resolvedAssistantText
                 : 'I finished that step. Tell me what you want to do next.',
             contentJson: {
               provider: response.provider,
@@ -478,9 +502,7 @@ export class ConversationLoopService {
       threadId: input.threadId,
       runId: input.runId,
       type: 'assistant_message_created',
-      payload: {
-        messageId: assistantMessage.id,
-      },
+      payload: toAssistantMessagePayload(assistantMessage),
     });
 
     await this.repository.markRunSucceeded({
@@ -548,6 +570,18 @@ function toErrorMessage(error: unknown): string {
   return 'Conversation loop failed.';
 }
 
+function resolveAssistantText(
+  assistantText: string,
+  streamedAssistantText: string,
+): string {
+  const direct = assistantText.trim();
+  if (direct.length > 0) {
+    return direct;
+  }
+
+  return streamedAssistantText.trim();
+}
+
 function buildBoundedConversationContext(messages: CanonicalChatMessage[]): string {
   const relevant = messages
     .filter((message) => message.role === 'user' || message.role === 'assistant')
@@ -555,6 +589,22 @@ function buildBoundedConversationContext(messages: CanonicalChatMessage[]): stri
     .map((message) => `${message.role.toUpperCase()}: ${message.content}`);
 
   return relevant.join('\n');
+}
+
+function toAssistantMessagePayload(message: ChatMessageRow): Record<string, unknown> {
+  return {
+    messageId: message.id,
+    message: {
+      id: message.id,
+      threadId: message.thread_id,
+      userId: message.user_id,
+      role: message.role,
+      content: message.content,
+      contentJson: message.content_json,
+      idempotencyKey: message.idempotency_key,
+      createdAt: message.created_at,
+    },
+  };
 }
 
 function extractGenerateExperienceOperation(

@@ -13,7 +13,11 @@ interface RuntimeEventRecord {
 
 @Injectable()
 export class ChatRuntimeEventService {
-  private readonly maxEventsPerThread = 1000;
+  private readonly maxEventsPerThread = 5000;
+  private readonly transientHydrationEventTypes = new Set<RuntimeEventType>([
+    'assistant_message_started',
+    'assistant_message_updated',
+  ]);
   private readonly eventsByThread = new Map<string, RuntimeEventRecord[]>();
   private readonly streamByThread = new Map<string, Subject<RuntimeEventRecord>>();
   private nextId = 1;
@@ -62,6 +66,18 @@ export class ChatRuntimeEventService {
     }
 
     return list[list.length - 1].id;
+  }
+
+  latestHydrationCursor(threadId: string): string | null {
+    const list = this.eventsByThread.get(threadId) ?? [];
+    for (let index = list.length - 1; index >= 0; index -= 1) {
+      const event = list[index];
+      if (!this.transientHydrationEventTypes.has(event.type)) {
+        return event.id;
+      }
+    }
+
+    return null;
   }
 
   private eventsSince(threadId: string, cursor?: string): RuntimeEventRecord[] {

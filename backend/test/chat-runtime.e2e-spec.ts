@@ -518,6 +518,11 @@ describe('Chat Runtime (e2e)', () => {
       type: 'run_started',
       payload: { phase: 'started' },
     });
+    chatRuntimeEvents.publish({
+      threadId,
+      type: 'assistant_message_started',
+      payload: { draftId: 'run-1', content: 'Drafting...' },
+    });
     const secondEvent = chatRuntimeEvents.publish({
       threadId,
       type: 'sandbox_updated',
@@ -543,6 +548,13 @@ describe('Chat Runtime (e2e)', () => {
       threadId,
       payload: { status: 'ready' },
     });
+
+    const hydratedThread = await request(app.getHttpServer())
+      .get(`/api/chat/threads/${threadId}`)
+      .set('Authorization', `Bearer ${USER_A_TOKEN}`)
+      .expect(200);
+
+    expect(hydratedThread.body.data.latestEventId).toBe(secondEvent.id);
   });
 });
 

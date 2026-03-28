@@ -16,7 +16,13 @@ describe('ExperiencePersistenceService', () => {
       markRunSucceeded: jest.fn(async () => undefined),
       markRunFailed: jest.fn(async () => undefined),
       createExperience: jest.fn(async () => 'experience-1'),
-      findVersionByGenerationId: jest.fn(async () => null),
+      findVersionByGenerationId: jest.fn(
+        async (): Promise<{
+          id: string;
+          experienceId: string;
+          versionNumber: number;
+        } | null> => null,
+      ),
       createVersion: jest.fn(async () => 'version-1'),
     };
   }

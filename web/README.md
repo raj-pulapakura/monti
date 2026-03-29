@@ -23,9 +23,12 @@ Set backend base URL and Supabase public auth config:
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SITE_URL=
 ```
 
 `NEXT_PUBLIC_*` values are used in both browser code and server-side route handlers. Because Next.js inlines public vars during `next build`, set them before building the production image.
+
+`SITE_URL` is optional and is used only on the server to override callback/proxy redirect origins when the app is deployed behind a reverse proxy.
 
 ## Auth Routes
 

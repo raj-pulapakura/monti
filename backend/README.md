@@ -67,6 +67,7 @@ cp .env.example .env
 Core variables:
 
 - `PORT` (default `3001`)
+- `CORS_ALLOWED_ORIGINS` (optional comma-separated allowlist for browser origins; leave unset for permissive local dev)
 - `OPENAI_API_KEY`
 - `ANTHROPIC_API_KEY`
 - `GOOGLE_API_KEY`
@@ -79,6 +80,8 @@ Core variables:
 ## Supabase Schema
 
 Apply all migrations in `../supabase/migrations/`.
+
+For fresh environments, the migration history can be applied directly. For an environment that already contains anonymous client-scoped data, review `20260316000100_add_authenticated_user_scoping.sql` before applying it: that migration performs a destructive hard cutover with `truncate ... cascade`.
 
 Key files:
 

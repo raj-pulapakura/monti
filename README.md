@@ -47,6 +47,8 @@ Build and run production images:
 docker compose -f docker-compose.prod.yml up --build -d
 ```
 
+Railway deployment instructions live in [docs/railway-deployment.md](./docs/railway-deployment.md).
+
 Access:
 
 - Web: `http://localhost:3000`

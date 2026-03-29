@@ -25,6 +25,8 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ```
 
+`NEXT_PUBLIC_*` values are used in both browser code and server-side route handlers. Because Next.js inlines public vars during `next build`, set them before building the production image.
+
 ## Auth Routes
 
 - Root entrypoint: `/` (marketing for anonymous users, home workspace for authenticated users)

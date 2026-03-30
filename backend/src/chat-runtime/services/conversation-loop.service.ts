@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AppError } from '../../common/errors/app-error';
 import { LlmConfigService } from '../../llm/llm-config.service';
+import {
+  aggregateObservedUsage,
+  toUsageCounts,
+  type LlmUsageTelemetry,
+} from '../../llm/llm-usage';
 import type { QualityMode } from '../../llm/llm.types';
 import { ToolLlmRouterService } from '../../llm/tool-runtime/tool-llm-router.service';
 import type {
@@ -53,6 +58,7 @@ export class ConversationLoopService {
         model: this.llmConfig.conversationModel,
       },
     });
+    const completedRoundUsages: LlmUsageTelemetry[] = [];
 
     try {
       const requestedQualityMode = extractRequestedQualityMode(input.userMessage);
@@ -107,6 +113,7 @@ export class ConversationLoopService {
           },
         });
         providerContinuation = response.providerContinuation;
+        completedRoundUsages.push(response.usage);
         const roundToolOperation = extractGenerateExperienceOperation(response.toolCalls);
         if (roundToolOperation) {
           latestToolOperation = roundToolOperation;
@@ -170,6 +177,7 @@ export class ConversationLoopService {
             runId: input.run.id,
             threadId: input.threadId,
             userId: input.userId,
+            conversationUsage: aggregateObservedUsage(completedRoundUsages),
             content:
               resolvedAssistantText.length > 0
                 ? resolvedAssistantText
@@ -281,6 +289,7 @@ export class ConversationLoopService {
           }
 
           const execution = await this.toolRegistry.executeToolCall({
+            invocationId: invocation.id,
             threadId: input.threadId,
             runId: input.run.id,
             userId: input.userId,
@@ -431,11 +440,14 @@ export class ConversationLoopService {
     } catch (error) {
       const code = toErrorCode(error);
       const message = toErrorMessage(error);
+      const conversationUsage = toUsageCounts(aggregateObservedUsage(completedRoundUsages));
 
       await this.repository.markRunFailed({
         runId: input.run.id,
         errorCode: code,
         errorMessage: message,
+        conversationTokensIn: conversationUsage.tokensIn,
+        conversationTokensOut: conversationUsage.tokensOut,
       });
       this.events.publish({
         threadId: input.threadId,
@@ -491,6 +503,7 @@ export class ConversationLoopService {
     runId: string;
     threadId: string;
     userId: string;
+    conversationUsage: ReturnType<typeof aggregateObservedUsage>;
     content: string;
     contentJson?: Record<string, unknown>;
   }): Promise<ConversationRunRow> {
@@ -508,9 +521,12 @@ export class ConversationLoopService {
       payload: toAssistantMessagePayload(assistantMessage),
     });
 
+    const conversationUsage = toUsageCounts(input.conversationUsage);
     await this.repository.markRunSucceeded({
       runId: input.runId,
       assistantMessageId: assistantMessage.id,
+      conversationTokensIn: conversationUsage.tokensIn,
+      conversationTokensOut: conversationUsage.tokensOut,
     });
 
     this.events.publish({

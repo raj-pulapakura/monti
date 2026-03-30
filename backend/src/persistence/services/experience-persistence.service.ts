@@ -5,6 +5,8 @@ import type {
   ExperienceFormat,
   GeneratedExperiencePayload,
 } from '../../experience/dto/experience.dto';
+import type { LlmUsageTelemetry } from '../../llm/llm-usage';
+import { toUsageCounts } from '../../llm/llm-usage';
 import type { ProviderKind, QualityMode } from '../../llm/llm.types';
 import { ExperiencePersistenceRepository } from './experience-persistence.repository';
 
@@ -21,6 +23,9 @@ interface PersistSuccessInput {
   provider: ProviderKind;
   model: string;
   maxTokens: number;
+  requestUsage: LlmUsageTelemetry;
+  successfulAttemptUsage: LlmUsageTelemetry;
+  attemptCount: number;
   experience: GeneratedExperiencePayload;
   latencyMs: number;
 }
@@ -49,9 +54,20 @@ export class ExperiencePersistenceService {
     requestId: string;
     provider?: ProviderKind;
     model?: string;
+    attemptCount: number;
+    requestUsage: LlmUsageTelemetry;
     errorMessage: string;
   }): Promise<void> {
-    await this.repository.markRunFailed(input);
+    const requestUsage = toUsageCounts(input.requestUsage);
+    await this.repository.markRunFailed({
+      requestId: input.requestId,
+      provider: input.provider,
+      model: input.model,
+      attemptCount: input.attemptCount,
+      requestTokensIn: requestUsage.tokensIn,
+      requestTokensOut: requestUsage.tokensOut,
+      errorMessage: input.errorMessage,
+    });
   }
 
   async persistSuccess(input: PersistSuccessInput): Promise<void> {
@@ -60,6 +76,7 @@ export class ExperiencePersistenceService {
         ? await this.persistGeneration(input)
         : await this.persistRefinement(input);
 
+    const requestUsage = toUsageCounts(input.requestUsage);
     await this.repository.markRunSucceeded({
       requestId: input.requestId,
       experienceId: persistenceTarget.experienceId,
@@ -67,6 +84,9 @@ export class ExperiencePersistenceService {
       provider: input.provider,
       model: input.model,
       qualityMode: input.qualityMode,
+      attemptCount: input.attemptCount,
+      requestTokensIn: requestUsage.tokensIn,
+      requestTokensOut: requestUsage.tokensOut,
       outputRaw: {
         title: input.experience.title,
         description: input.experience.description,
@@ -99,6 +119,8 @@ export class ExperiencePersistenceService {
       provider: input.provider,
       model: input.model,
       maxTokens: input.maxTokens,
+      tokensIn: toUsageCounts(input.successfulAttemptUsage).tokensIn,
+      tokensOut: toUsageCounts(input.successfulAttemptUsage).tokensOut,
       experience: input.experience,
       latencyMs: input.latencyMs,
     });
@@ -146,6 +168,8 @@ export class ExperiencePersistenceService {
       provider: input.provider,
       model: input.model,
       maxTokens: input.maxTokens,
+      tokensIn: toUsageCounts(input.successfulAttemptUsage).tokensIn,
+      tokensOut: toUsageCounts(input.successfulAttemptUsage).tokensOut,
       experience: input.experience,
       latencyMs: input.latencyMs,
     });

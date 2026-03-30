@@ -6,6 +6,7 @@ import {
   ProviderUnavailableError,
 } from '../../common/errors/app-error';
 import { logEvent } from '../../common/logging/log-event';
+import { normalizeAnthropicUsage } from '../provider-usage';
 import type { LlmGenerateRequest, LlmProvider, LlmProviderResult } from '../llm.types';
 
 const WEBPAGE_OUTPUT_SCHEMA = {
@@ -23,6 +24,10 @@ const WEBPAGE_OUTPUT_SCHEMA = {
 
 interface AnthropicResponse {
   stop_reason?: string;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+  };
   content?: Array<{
     type?: string;
     text?: string;
@@ -76,6 +81,7 @@ export class AnthropicLlmProvider implements LlmProvider {
     }
 
     const payload = (await response.json()) as AnthropicResponse;
+    const usage = normalizeAnthropicUsage(payload.usage);
 
     if (payload.stop_reason === 'max_tokens') {
       this.logger.warn(
@@ -87,6 +93,9 @@ export class AnthropicLlmProvider implements LlmProvider {
       );
       throw new ProviderMaxTokensError(
         `Anthropic hit max_tokens (${request.maxTokens}) before completion.`,
+        {
+          usage,
+        },
       );
     }
 
@@ -97,7 +106,9 @@ export class AnthropicLlmProvider implements LlmProvider {
           model: request.model,
         }),
       );
-      throw new ProviderRefusalError('Anthropic refused this generation request.');
+      throw new ProviderRefusalError('Anthropic refused this generation request.', {
+        usage,
+      });
     }
 
     const rawText = Array.isArray(payload.content)
@@ -109,13 +120,16 @@ export class AnthropicLlmProvider implements LlmProvider {
       : '';
 
     if (!rawText) {
-      throw new ProviderResponseError('Anthropic returned empty structured output.');
+      throw new ProviderResponseError('Anthropic returned empty structured output.', {
+        usage,
+      });
     }
 
     return {
       provider: this.name,
       model: request.model,
       rawText,
+      usage,
     };
   }
 }

@@ -89,8 +89,12 @@ Existing relevant tables:
 Important existing traits:
 
 - `assistant_runs`, `tool_invocations`, `generation_runs`, and `experience_versions` already give Monti a solid billing boundary for successful artifact generation.
-- `experience_versions` already has `tokens_in` and `tokens_out` columns, but the current persistence path does not populate them.
-- `assistant_runs.provider_response_raw` already stores conversation-model raw traces, and the observed sample includes token usage in that JSON.
+- usage telemetry is now persisted at the main runtime boundaries:
+  - `experience_versions.tokens_in` / `tokens_out` for the successful artifact-producing attempt when observed;
+  - `generation_runs.attempt_count` plus request-level token totals when every attempt in the request exposed observed usage;
+  - `assistant_runs.conversation_tokens_in` / `conversation_tokens_out` across completed rounds when every round exposed observed usage; and
+  - `tool_invocations.router_*` for auto-routed `generate_experience` executions.
+- `assistant_runs.provider_response_raw` still stores only the latest completed conversation-model raw trace, so per-round trace history remains limited even though normalized totals are now queryable.
 - There are no billing tables for customers, subscriptions, credits, grants, entitlements, or webhook events.
 
 ### Auth and identity today
@@ -539,6 +543,10 @@ Exit criteria:
 
 Suggested change name: `persist-usage-telemetry`
 
+Status:
+
+- archived on 2026-03-30
+
 Goal:
 
 - make internal cost measurement real before customer billing launches.
@@ -548,7 +556,7 @@ Primary deliverables:
 - extend provider result contracts to include normalized usage;
 - persist generation token usage into `generation_runs` and `experience_versions`;
 - normalize conversation and router usage where feasible;
-- optionally add attempt count / retry metadata on generation runs.
+- persist `attempt_count` plus retry-aware request totals on `generation_runs`.
 
 Likely backend touchpoints:
 

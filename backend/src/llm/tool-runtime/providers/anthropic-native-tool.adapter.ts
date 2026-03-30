@@ -3,6 +3,7 @@ import {
   ProviderResponseError,
   ProviderUnavailableError,
 } from '../../../common/errors/app-error';
+import { normalizeAnthropicUsage } from '../../provider-usage';
 import { createAssistantTextSnapshotEmitter } from '../assistant-text-stream';
 import type { NativeToolAdapter } from '../native-tool-adapter.interface';
 import { parseServerSentEvents } from '../sse-event-parser';
@@ -22,6 +23,10 @@ interface AnthropicContentBlock {
 
 interface AnthropicNativeResponse {
   stop_reason?: string;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+  };
   content?: AnthropicContentBlock[];
 }
 
@@ -36,6 +41,14 @@ interface AnthropicStreamPayload {
   };
   message?: {
     stop_reason?: string | null;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+    };
+  };
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
   };
   content_block?: AnthropicContentBlock;
   error?: {
@@ -80,6 +93,8 @@ export class AnthropicNativeToolAdapter implements NativeToolAdapter {
     const contentBlocks: AnthropicContentBlock[] = [];
     const toolInputJsonByIndex = new Map<number, string>();
     let stopReason: string | undefined;
+    let inputTokens: number | undefined;
+    let outputTokens: number | undefined;
 
     for await (const event of parseServerSentEvents(response)) {
       if (event.data === '[DONE]') {
@@ -98,6 +113,19 @@ export class AnthropicNativeToolAdapter implements NativeToolAdapter {
       }
 
       const index = typeof payload.index === 'number' ? payload.index : null;
+
+      if (typeof payload.message?.usage?.input_tokens === 'number') {
+        inputTokens = payload.message.usage.input_tokens;
+      }
+      if (typeof payload.message?.usage?.output_tokens === 'number') {
+        outputTokens = payload.message.usage.output_tokens;
+      }
+      if (typeof payload.usage?.input_tokens === 'number') {
+        inputTokens = payload.usage.input_tokens;
+      }
+      if (typeof payload.usage?.output_tokens === 'number') {
+        outputTokens = payload.usage.output_tokens;
+      }
 
       if (payload.type === 'content_block_start' && index !== null) {
         contentBlocks[index] = payload.content_block ?? {};
@@ -149,6 +177,13 @@ export class AnthropicNativeToolAdapter implements NativeToolAdapter {
 
     const assembledPayload: AnthropicNativeResponse = {
       stop_reason: stopReason,
+      usage:
+        inputTokens !== undefined || outputTokens !== undefined
+          ? {
+              ...(inputTokens !== undefined ? { input_tokens: inputTokens } : {}),
+              ...(outputTokens !== undefined ? { output_tokens: outputTokens } : {}),
+            }
+          : undefined,
       content: contentBlocks.filter(Boolean),
     };
     const parsed = parseAnthropicToolResponse(assembledPayload);
@@ -161,6 +196,7 @@ export class AnthropicNativeToolAdapter implements NativeToolAdapter {
       assistantText: parsed.assistantText,
       toolCalls: parsed.toolCalls,
       finishReason: parsed.finishReason,
+      usage: normalizeAnthropicUsage(assembledPayload.usage),
       providerContinuation:
         parsed.toolCalls.length > 0
           ? {

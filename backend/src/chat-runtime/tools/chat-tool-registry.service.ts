@@ -89,6 +89,7 @@ export class ChatToolRegistryService {
   }
 
   async executeToolCall(input: {
+    invocationId: string;
     threadId: string;
     runId: string;
     userId: string;
@@ -106,6 +107,7 @@ export class ChatToolRegistryService {
     try {
       const parsedArguments = parseGenerateExperienceToolArguments(input.arguments);
       result = await this.generateExperienceTool.execute({
+        invocationId: input.invocationId,
         runId: input.runId,
         threadId: input.threadId,
         userId: input.userId,

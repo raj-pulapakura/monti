@@ -336,6 +336,44 @@ export class ChatRuntimeRepository {
     }
   }
 
+  async recordToolInvocationRouterTelemetry(input: {
+    invocationId: string;
+    routerProvider: 'openai' | 'anthropic' | 'gemini';
+    routerModel: string;
+    routerRequestRaw: Record<string, unknown>;
+    routerResponseRaw: Record<string, unknown>;
+    routerTokensIn?: number | null;
+    routerTokensOut?: number | null;
+    routerTier?: 'fast' | 'quality' | null;
+    routerConfidence?: number | null;
+    routerReason?: string | null;
+    routerFallbackReason?: string | null;
+    selectedProvider?: 'openai' | 'anthropic' | 'gemini' | null;
+    selectedModel?: string | null;
+  }): Promise<void> {
+    const { error } = await this.client
+      .from('tool_invocations')
+      .update({
+        router_provider: input.routerProvider,
+        router_model: input.routerModel,
+        router_request_raw: input.routerRequestRaw,
+        router_response_raw: input.routerResponseRaw,
+        router_tokens_in: input.routerTokensIn ?? null,
+        router_tokens_out: input.routerTokensOut ?? null,
+        router_tier: input.routerTier ?? null,
+        router_confidence: input.routerConfidence ?? null,
+        router_reason: input.routerReason ?? null,
+        router_fallback_reason: input.routerFallbackReason ?? null,
+        selected_provider: input.selectedProvider ?? null,
+        selected_model: input.selectedModel ?? null,
+      })
+      .eq('id', input.invocationId);
+
+    if (error) {
+      this.throwQueryError('record tool invocation router telemetry', error);
+    }
+  }
+
   async getRunById(runId: string): Promise<AssistantRunRow | null> {
     return this.findRunById(runId);
   }
@@ -442,12 +480,16 @@ export class ChatRuntimeRepository {
   async markRunSucceeded(input: {
     runId: string;
     assistantMessageId: string;
+    conversationTokensIn?: number | null;
+    conversationTokensOut?: number | null;
   }): Promise<void> {
     const { error } = await this.client
       .from('assistant_runs')
       .update({
         status: 'succeeded',
         assistant_message_id: input.assistantMessageId,
+        conversation_tokens_in: input.conversationTokensIn ?? null,
+        conversation_tokens_out: input.conversationTokensOut ?? null,
         completed_at: new Date().toISOString(),
         error_code: null,
         error_message: null,
@@ -464,6 +506,8 @@ export class ChatRuntimeRepository {
     errorCode: string;
     errorMessage: string;
     assistantMessageId?: string | null;
+    conversationTokensIn?: number | null;
+    conversationTokensOut?: number | null;
   }): Promise<void> {
     const { error } = await this.client
       .from('assistant_runs')
@@ -471,6 +515,8 @@ export class ChatRuntimeRepository {
         status: 'failed',
         completed_at: new Date().toISOString(),
         assistant_message_id: input.assistantMessageId ?? null,
+        conversation_tokens_in: input.conversationTokensIn ?? null,
+        conversation_tokens_out: input.conversationTokensOut ?? null,
         error_code: input.errorCode,
         error_message: input.errorMessage,
       })

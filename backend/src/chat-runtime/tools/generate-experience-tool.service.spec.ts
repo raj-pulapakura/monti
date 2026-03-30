@@ -5,12 +5,34 @@ describe('GenerateExperienceToolService', () => {
   it('passes structured routing inputs and normalizes provider refusals', async () => {
     const decisionRouter = {
       decideRoute: jest.fn(async () => ({
-        tier: 'quality' as const,
-        confidence: 0.9,
-        reason: 'Needs high quality',
-        fallbackReason: null,
-        selectedProvider: 'openai' as const,
-        selectedModel: 'gpt-5.4',
+        decision: {
+          tier: 'quality' as const,
+          confidence: 0.9,
+          reason: 'Needs high quality',
+          fallbackReason: null,
+          selectedProvider: 'openai' as const,
+          selectedModel: 'gpt-5.4',
+        },
+        telemetry: {
+          provider: 'openai' as const,
+          model: 'gpt-5-mini',
+          requestRaw: { model: 'gpt-5-mini' },
+          responseRaw: {
+            output_text:
+              '{"tier":"quality","confidence":0.9,"reason":"Needs high quality"}',
+          },
+          usage: {
+            availability: 'observed' as const,
+            inputTokens: 21,
+            outputTokens: 8,
+            totalTokens: 29,
+            rawUsage: {
+              input_tokens: 21,
+              output_tokens: 8,
+              total_tokens: 29,
+            },
+          },
+        },
       })),
     };
     const llmConfig = {
@@ -32,6 +54,7 @@ describe('GenerateExperienceToolService', () => {
 
     const repository = {
       recordRunRoutingDecision: jest.fn(async () => undefined),
+      recordToolInvocationRouterTelemetry: jest.fn(async () => undefined),
       findExperienceVersionByGenerationId: jest.fn(async () => null),
       updateSandboxState: jest.fn(async () => undefined),
     };
@@ -44,6 +67,7 @@ describe('GenerateExperienceToolService', () => {
     );
 
     const result = await service.execute({
+      invocationId: 'tool-1',
       runId: 'run-1',
       threadId: 'thread-1',
       userId: 'client-1',
@@ -70,6 +94,15 @@ describe('GenerateExperienceToolService', () => {
     expect(result.errorCode).toBe('PROVIDER_REFUSAL');
     expect(result.sandboxStatus).toBe('error');
     expect(llmConfig.resolveExecutionRoute).not.toHaveBeenCalled();
+    expect(repository.recordToolInvocationRouterTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        invocationId: 'tool-1',
+        routerProvider: 'openai',
+        routerModel: 'gpt-5-mini',
+        routerTokensIn: 21,
+        routerTokensOut: 8,
+      }),
+    );
     expect(repository.updateSandboxState).toHaveBeenCalledWith(
       expect.objectContaining({
         threadId: 'thread-1',
@@ -106,6 +139,7 @@ describe('GenerateExperienceToolService', () => {
     };
     const repository = {
       recordRunRoutingDecision: jest.fn(async () => undefined),
+      recordToolInvocationRouterTelemetry: jest.fn(async () => undefined),
       findExperienceVersionByGenerationId: jest.fn(async () => null),
       updateSandboxState: jest.fn(async () => undefined),
     };
@@ -118,6 +152,7 @@ describe('GenerateExperienceToolService', () => {
     );
 
     const result = await service.execute({
+      invocationId: 'tool-2',
       runId: 'run-2',
       threadId: 'thread-2',
       userId: 'client-2',
@@ -142,6 +177,7 @@ describe('GenerateExperienceToolService', () => {
         selectedModel: 'gemini-3.1-pro-preview',
       }),
     );
+    expect(repository.recordToolInvocationRouterTelemetry).not.toHaveBeenCalled();
     expect(orchestrator.generate).toHaveBeenCalledWith(
       expect.objectContaining({
         qualityMode: 'quality',

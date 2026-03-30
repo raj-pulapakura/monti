@@ -1,3 +1,5 @@
+import type { LlmUsageTelemetry } from './llm-usage';
+
 export type QualityMode = 'fast' | 'quality';
 export type GenerationMode = 'auto' | QualityMode;
 export type ProviderKind = 'openai' | 'anthropic' | 'gemini';
@@ -17,6 +19,7 @@ export interface LlmProviderResult {
   provider: ProviderKind;
   model: string;
   rawText: string;
+  usage: LlmUsageTelemetry;
 }
 
 export interface LlmProvider {

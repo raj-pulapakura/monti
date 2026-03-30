@@ -1,4 +1,5 @@
 import { ValidationError } from '../../common/errors/app-error';
+import { observedUsage, unavailableUsage } from '../../llm/llm-usage';
 import { ExperiencePersistenceService } from './experience-persistence.service';
 
 describe('ExperiencePersistenceService', () => {
@@ -42,6 +43,15 @@ describe('ExperiencePersistenceService', () => {
       provider: 'gemini',
       model: 'gemini-3.1-flash-lite-preview',
       maxTokens: 8192,
+      requestUsage: observedUsage({
+        inputTokens: 910,
+        outputTokens: 3010,
+      }),
+      successfulAttemptUsage: observedUsage({
+        inputTokens: 900,
+        outputTokens: 3000,
+      }),
+      attemptCount: 1,
       experience: basePayload,
       latencyMs: 1200,
     });
@@ -57,6 +67,8 @@ describe('ExperiencePersistenceService', () => {
         parentGenerationId: null,
         versionNumber: 1,
         operation: 'generate',
+        tokensIn: 900,
+        tokensOut: 3000,
       }),
     );
     expect(repository.markRunSucceeded).toHaveBeenCalledWith(
@@ -64,6 +76,46 @@ describe('ExperiencePersistenceService', () => {
         requestId: '6f8f7e0f-3fda-4f26-aec2-624ec5ebf0d6',
         experienceId: 'experience-1',
         versionId: 'version-1',
+        attemptCount: 1,
+        requestTokensIn: 910,
+        requestTokensOut: 3010,
+      }),
+    );
+  });
+
+  it('leaves request and artifact token totals unavailable when usage is unavailable', async () => {
+    const repository = createRepositoryMock();
+    const service = new ExperiencePersistenceService(repository as never);
+
+    await service.persistSuccess({
+      requestId: '0d1e8e85-8dd6-4a7a-b795-a4469dd5674f',
+      operation: 'generate',
+      userId: 'client-1',
+      prompt: 'Teach my kid the solar system.',
+      format: 'quiz',
+      audience: 'elementary',
+      qualityMode: 'fast',
+      provider: 'gemini',
+      model: 'gemini-3.1-flash-lite-preview',
+      maxTokens: 8192,
+      requestUsage: unavailableUsage(),
+      successfulAttemptUsage: unavailableUsage(),
+      attemptCount: 1,
+      experience: basePayload,
+      latencyMs: 1200,
+    });
+
+    expect(repository.createVersion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tokensIn: null,
+        tokensOut: null,
+      }),
+    );
+    expect(repository.markRunSucceeded).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attemptCount: 1,
+        requestTokensIn: null,
+        requestTokensOut: null,
       }),
     );
   });
@@ -83,6 +135,15 @@ describe('ExperiencePersistenceService', () => {
         provider: 'openai',
         model: 'gpt-5.4',
         maxTokens: 8192,
+        requestUsage: observedUsage({
+          inputTokens: 200,
+          outputTokens: 75,
+        }),
+        successfulAttemptUsage: observedUsage({
+          inputTokens: 200,
+          outputTokens: 75,
+        }),
+        attemptCount: 1,
         experience: basePayload,
         latencyMs: 800,
       }),
@@ -111,6 +172,15 @@ describe('ExperiencePersistenceService', () => {
       provider: 'anthropic',
       model: 'claude-3-5-sonnet-latest',
       maxTokens: 8192,
+      requestUsage: observedUsage({
+        inputTokens: 400,
+        outputTokens: 180,
+      }),
+      successfulAttemptUsage: observedUsage({
+        inputTokens: 250,
+        outputTokens: 120,
+      }),
+      attemptCount: 2,
       experience: basePayload,
       latencyMs: 700,
     });
@@ -124,6 +194,8 @@ describe('ExperiencePersistenceService', () => {
         parentGenerationId: 'a7ce8286-3d1d-42d7-b27a-56adf57edfd6',
         versionNumber: 3,
         operation: 'refine',
+        tokensIn: 250,
+        tokensOut: 120,
       }),
     );
   });
@@ -145,6 +217,15 @@ describe('ExperiencePersistenceService', () => {
         provider: 'anthropic',
         model: 'claude-3-5-sonnet-latest',
         maxTokens: 8192,
+        requestUsage: observedUsage({
+          inputTokens: 200,
+          outputTokens: 75,
+        }),
+        successfulAttemptUsage: observedUsage({
+          inputTokens: 200,
+          outputTokens: 75,
+        }),
+        attemptCount: 1,
         experience: basePayload,
         latencyMs: 700,
       }),

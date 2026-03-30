@@ -1,13 +1,13 @@
 -- Declarative schema for experiences app.
--- This snapshot mirrors supabase/migrations/20260315000100_create_experience_persistence.sql.
+-- This snapshot mirrors the active experience/chat runtime migrations through
+-- supabase/migrations/20260330000100_persist_usage_telemetry.sql.
 
 create schema if not exists extensions;
 create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists public.experiences (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid null,
-  client_id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
   title text not null,
   slug text null,
   latest_version_id uuid null,
@@ -61,13 +61,16 @@ create table if not exists public.generation_runs (
   request_id uuid not null unique,
   experience_id uuid null references public.experiences(id) on delete set null,
   version_id uuid null references public.experience_versions(id) on delete set null,
-  client_id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
   operation text not null check (operation in ('generate', 'refine')),
   provider text null,
   model text null,
   quality_mode text null check (quality_mode in ('fast', 'quality')),
   input_prompt text null,
   output_raw jsonb null,
+  attempt_count int not null default 0 check (attempt_count >= 0),
+  request_tokens_in int null,
+  request_tokens_out int null,
   status text not null default 'created' check (status in ('created', 'running', 'succeeded', 'failed')),
   error_message text null,
   started_at timestamptz null,
@@ -105,9 +108,10 @@ create index if not exists idx_experience_versions_expid_status_createdat_desc
 create index if not exists idx_generation_runs_request_id on public.generation_runs (request_id);
 create index if not exists idx_generation_runs_experience_id on public.generation_runs (experience_id);
 create index if not exists idx_generation_runs_version_id on public.generation_runs (version_id);
-create index if not exists idx_generation_runs_client_id on public.generation_runs (client_id);
 create index if not exists idx_generation_runs_status on public.generation_runs (status);
 create index if not exists idx_generation_runs_created_at on public.generation_runs (created_at);
+create index if not exists idx_generation_runs_user_id_created_at_desc
+  on public.generation_runs (user_id, created_at desc);
 
 create or replace function public._set_updated_at()
 returns trigger
@@ -157,8 +161,7 @@ for each row execute function public._experiences_set_latest_version();
 
 create table if not exists public.chat_threads (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid null,
-  client_id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
   title text null,
   archived_at timestamptz null,
   created_at timestamptz not null default now(),
@@ -168,7 +171,7 @@ create table if not exists public.chat_threads (
 create table if not exists public.chat_messages (
   id uuid primary key default gen_random_uuid(),
   thread_id uuid not null references public.chat_threads(id) on delete cascade,
-  client_id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
   role text not null check (role in ('user', 'assistant', 'tool', 'system')),
   content text not null,
   content_json jsonb null,
@@ -189,10 +192,14 @@ create table if not exists public.assistant_runs (
   router_confidence numeric(5,4) null check (router_confidence >= 0 and router_confidence <= 1),
   router_reason text null,
   router_fallback_reason text null,
+  conversation_provider text null check (conversation_provider in ('openai', 'anthropic', 'gemini')),
+  conversation_model text null,
   provider text null check (provider in ('openai', 'anthropic', 'gemini')),
   model text null,
   provider_request_raw jsonb null,
   provider_response_raw jsonb null,
+  conversation_tokens_in int null,
+  conversation_tokens_out int null,
   error_code text null,
   error_message text null,
   started_at timestamptz null,
@@ -209,6 +216,21 @@ create table if not exists public.tool_invocations (
   tool_name text not null,
   tool_arguments jsonb not null default '{}'::jsonb,
   tool_result jsonb null,
+  generation_id text null,
+  experience_id uuid null references public.experiences(id) on delete set null,
+  experience_version_id uuid null references public.experience_versions(id) on delete set null,
+  router_tier text null check (router_tier in ('fast', 'quality')),
+  router_confidence numeric(5,4) null check (router_confidence >= 0 and router_confidence <= 1),
+  router_reason text null,
+  router_fallback_reason text null,
+  router_provider text null check (router_provider in ('openai', 'anthropic', 'gemini')),
+  router_model text null,
+  router_request_raw jsonb null,
+  router_response_raw jsonb null,
+  router_tokens_in int null,
+  router_tokens_out int null,
+  selected_provider text null check (selected_provider in ('openai', 'anthropic', 'gemini')),
+  selected_model text null,
   status text not null default 'pending' check (
     status in ('pending', 'running', 'succeeded', 'failed')
   ),
@@ -229,12 +251,14 @@ create table if not exists public.sandbox_states (
   updated_at timestamptz not null default now()
 );
 
-create index if not exists idx_chat_threads_client_id on public.chat_threads (client_id);
-create index if not exists idx_chat_threads_updated_at on public.chat_threads (updated_at desc);
+create index if not exists idx_chat_threads_user_id_updated_at_desc
+  on public.chat_threads (user_id, updated_at desc);
 
 create index if not exists idx_chat_messages_thread_id_created_at
   on public.chat_messages (thread_id, created_at);
 create index if not exists idx_chat_messages_role on public.chat_messages (role);
+create index if not exists idx_chat_messages_user_id_thread_created_at
+  on public.chat_messages (user_id, thread_id, created_at);
 create unique index if not exists idx_chat_messages_thread_idempotency
   on public.chat_messages (thread_id, idempotency_key)
   where idempotency_key is not null and role = 'user';
@@ -243,6 +267,8 @@ create index if not exists idx_assistant_runs_thread_id_created_at
   on public.assistant_runs (thread_id, created_at);
 create index if not exists idx_assistant_runs_status on public.assistant_runs (status);
 create index if not exists idx_assistant_runs_provider on public.assistant_runs (provider);
+create index if not exists idx_assistant_runs_conversation_provider
+  on public.assistant_runs (conversation_provider);
 create unique index if not exists idx_assistant_runs_single_active_per_thread
   on public.assistant_runs (thread_id)
   where status in ('queued', 'running');
@@ -253,6 +279,10 @@ create index if not exists idx_tool_invocations_thread_id on public.tool_invocat
 create index if not exists idx_tool_invocations_status on public.tool_invocations (status);
 create index if not exists idx_tool_invocations_provider_call_id
   on public.tool_invocations (provider_tool_call_id);
+create index if not exists idx_tool_invocations_generation_id
+  on public.tool_invocations (generation_id);
+create index if not exists idx_tool_invocations_experience_version_id
+  on public.tool_invocations (experience_version_id);
 
 create index if not exists idx_sandbox_states_status on public.sandbox_states (status);
 
@@ -268,7 +298,7 @@ for each row execute function public._set_updated_at();
 
 create or replace function public.chat_submit_user_message(
   p_thread_id uuid,
-  p_client_id text,
+  p_user_id uuid,
   p_content text,
   p_idempotency_key text default null
 )
@@ -293,6 +323,10 @@ declare
   v_run_status text;
   v_idempotency_key text;
 begin
+  if p_user_id is null then
+    raise exception 'Authenticated user id is required.' using errcode = 'P0001';
+  end if;
+
   if p_content is null or length(trim(p_content)) = 0 then
     raise exception 'Message content must be non-empty.' using errcode = 'P0001';
   end if;
@@ -301,9 +335,9 @@ begin
     select 1
     from public.chat_threads
     where id = p_thread_id
-      and client_id = p_client_id
+      and user_id = p_user_id
   ) then
-    raise exception 'Thread not found for client scope.' using errcode = 'P0001';
+    raise exception 'Thread not found for authenticated user scope.' using errcode = 'P0001';
   end if;
 
   v_idempotency_key := nullif(trim(coalesce(p_idempotency_key, '')), '');
@@ -313,7 +347,7 @@ begin
     into v_existing_message_id, v_existing_message_created_at
     from public.chat_messages m
     where m.thread_id = p_thread_id
-      and m.client_id = p_client_id
+      and m.user_id = p_user_id
       and m.role = 'user'
       and m.idempotency_key = v_idempotency_key
     order by m.created_at desc
@@ -339,7 +373,7 @@ begin
 
   insert into public.chat_messages (
     thread_id,
-    client_id,
+    user_id,
     role,
     content,
     content_json,
@@ -347,7 +381,7 @@ begin
   )
   values (
     p_thread_id,
-    p_client_id,
+    p_user_id,
     'user',
     trim(p_content),
     null,

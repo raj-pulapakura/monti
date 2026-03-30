@@ -6,6 +6,7 @@ import {
   ProviderUnavailableError,
 } from '../../common/errors/app-error';
 import { logEvent } from '../../common/logging/log-event';
+import { normalizeGeminiUsage } from '../provider-usage';
 import type { LlmGenerateRequest, LlmProvider, LlmProviderResult } from '../llm.types';
 
 const WEBPAGE_OUTPUT_SCHEMA = {
@@ -21,6 +22,11 @@ const WEBPAGE_OUTPUT_SCHEMA = {
 } as const;
 
 interface GeminiResponse {
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+  };
   promptFeedback?: {
     blockReason?: string;
   };
@@ -92,6 +98,7 @@ export class GeminiLlmProvider implements LlmProvider {
     }
 
     const payload = (await response.json()) as GeminiResponse;
+    const usage = normalizeGeminiUsage(payload.usageMetadata);
 
     const blockReason = payload.promptFeedback?.blockReason;
     if (typeof blockReason === 'string' && blockReason.length > 0) {
@@ -102,7 +109,12 @@ export class GeminiLlmProvider implements LlmProvider {
           blockReason,
         }),
       );
-      throw new ProviderRefusalError(`Gemini blocked this generation request: ${blockReason}.`);
+      throw new ProviderRefusalError(
+        `Gemini blocked this generation request: ${blockReason}.`,
+        {
+          usage,
+        },
+      );
     }
 
     const finishReason = payload.candidates?.[0]?.finishReason;
@@ -116,12 +128,18 @@ export class GeminiLlmProvider implements LlmProvider {
       );
       throw new ProviderMaxTokensError(
         `Gemini hit maxOutputTokens (${request.maxTokens}) before completion.`,
+        {
+          usage,
+        },
       );
     }
 
     if (typeof finishReason === 'string' && finishReason.length > 0 && finishReason !== 'STOP') {
       throw new ProviderResponseError(
         `Gemini did not complete generation (finishReason: ${finishReason}).`,
+        {
+          usage,
+        },
       );
     }
 
@@ -132,13 +150,16 @@ export class GeminiLlmProvider implements LlmProvider {
         .trim() ?? '';
 
     if (!rawText) {
-      throw new ProviderResponseError('Gemini returned empty structured output.');
+      throw new ProviderResponseError('Gemini returned empty structured output.', {
+        usage,
+      });
     }
 
     return {
       provider: this.name,
       model: request.model,
       rawText,
+      usage,
     };
   }
 }

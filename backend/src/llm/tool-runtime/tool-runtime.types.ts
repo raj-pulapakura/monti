@@ -1,4 +1,5 @@
 import type { ProviderKind } from '../llm.types';
+import type { LlmUsageTelemetry } from '../llm-usage';
 
 export type CanonicalChatRole = 'system' | 'user' | 'assistant' | 'tool';
 
@@ -40,6 +41,7 @@ export interface CanonicalToolTurnResponse {
   assistantText: string;
   toolCalls: CanonicalToolCall[];
   finishReason: 'stop' | 'tool_calls' | 'max_tokens' | 'unknown';
+  usage: LlmUsageTelemetry;
   providerContinuation?: ProviderContinuationState;
   rawRequest: Record<string, unknown>;
   rawResponse: Record<string, unknown>;

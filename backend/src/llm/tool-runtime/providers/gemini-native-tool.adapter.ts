@@ -3,6 +3,7 @@ import {
   ProviderResponseError,
   ProviderUnavailableError,
 } from '../../../common/errors/app-error';
+import { normalizeGeminiUsage } from '../../provider-usage';
 import { createAssistantTextSnapshotEmitter } from '../assistant-text-stream';
 import type { NativeToolAdapter } from '../native-tool-adapter.interface';
 import { parseServerSentEvents } from '../sse-event-parser';
@@ -35,6 +36,11 @@ interface GeminiPart {
 }
 
 interface GeminiNativeResponse {
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+  };
   candidates?: Array<{
     finishReason?: string;
     content?: {
@@ -85,6 +91,7 @@ export class GeminiNativeToolAdapter implements NativeToolAdapter {
       }
     >();
     let finishReason: string | undefined;
+    let usageMetadata: GeminiNativeResponse['usageMetadata'];
 
     for await (const event of parseServerSentEvents(response)) {
       if (event.data === '[DONE]') {
@@ -101,6 +108,9 @@ export class GeminiNativeToolAdapter implements NativeToolAdapter {
         continue;
       }
 
+      if (chunk.usageMetadata) {
+        usageMetadata = chunk.usageMetadata;
+      }
       finishReason = candidate.finishReason ?? finishReason;
       const parts = Array.isArray(candidate.content?.parts)
         ? candidate.content.parts
@@ -142,6 +152,7 @@ export class GeminiNativeToolAdapter implements NativeToolAdapter {
     }
 
     const payload: GeminiNativeResponse = {
+      usageMetadata,
       candidates: [
         {
           finishReason,
@@ -172,6 +183,7 @@ export class GeminiNativeToolAdapter implements NativeToolAdapter {
       assistantText: parsed.assistantText,
       toolCalls: parsed.toolCalls,
       finishReason: parsed.finishReason,
+      usage: normalizeGeminiUsage(payload.usageMetadata),
       providerContinuation:
         parsed.toolCalls.length > 0
           ? {

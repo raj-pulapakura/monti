@@ -13,7 +13,7 @@ This change is planning-only, so the recommendation below is a launch-planning a
 | --------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | Free allowance        | `15 credits / month`  | Enough for three quality runs or fifteen fast runs, while keeping free-tier variable cost low during learning.                     |
 | Paid allowance        | `150 credits / month` | Supports roughly one quality run per day, or heavier fast-mode exploration, without forcing immediate top-ups.                     |
-| Planning price anchor | `$10 / month`         | Leaves room for preview volatility, missing telemetry, and future non-billable leakage without making the included allowance tiny. |
+| Planning price anchor | `$10 / month`         | Leaves room for preview volatility, limited post-rollout telemetry history, and future non-billable leakage without making the included allowance tiny. |
 | `fast` weight         | `1 credit`            | Maps closely to the current full monetized-success planning cost for the active fast route.                                        |
 | `quality` weight      | `5 credits`           | Matches the full-cost ratio more closely than the raw `8x` generation spread because conversation overhead is fixed.               |
 | Top-up pack           | `50 credits for $4`   | Clean multiple of the quality weight, higher effective per-credit price than the subscription, and easy to explain.                |
@@ -23,7 +23,7 @@ This change is planning-only, so the recommendation below is a launch-planning a
 
 - Use a hybrid margin approach:
   - absorb stable fast-versus-quality route differences in the credit weights;
-  - absorb preview volatility, missing telemetry, and non-billable leakage in the plan margin.
+  - absorb preview volatility, limited telemetry history, and non-billable leakage in the plan margin.
 - Do not use automatic overage billing at launch.
 - Make top-ups available only to paid users.
 - Consume monthly included credits before top-up credits.
@@ -120,7 +120,7 @@ The current planning model allocates a `15%` leakage factor because the live sam
 This recommendation should not be treated as a final billing launch decision because:
 
 - the only observed successful run is a single `quality` generation;
-- conversation usage is observed, but generation usage is estimated;
+- the runtime now persists generation, router, and conversation usage for new rows, but the current recommendation is still anchored to a historical sample captured before that rollout;
 - the active Gemini generation routes are preview models;
 - fast and refine usage are not yet observed in the live sample.
 
@@ -135,9 +135,8 @@ The recommendation is therefore conservative on allowance and generous on margin
 
 ## Follow-On Changes Required Before Billing Launch
 
-- Persist generation token usage in the provider contract and write it into `generation_runs` and `experience_versions`.
-- Persist router-model usage so auto-mode full-cost estimates stop omitting that component.
-- Add attempt-level retry logging so successful-request cost can observe retry chains instead of estimating them.
+- Gather enough fresh post-rollout telemetry to replace the current proxy-based generation assumptions with observed generation and router usage.
+- Decide whether later ops/reconciliation work needs a true per-attempt retry table beyond `generation_runs.attempt_count` and request-level totals.
 - Migrate the Anthropic config off `claude-3-5-sonnet-latest`.
 - Replace or freeze Gemini preview model assumptions before customer billing begins.
 - Add billing primitives: credit ledger, entitlement checks, top-up purchase flow, and audit-friendly usage events.
@@ -153,4 +152,3 @@ Recalculate this recommendation before launch if any of the following happen:
 - observed fast/refine volume becomes material;
 - generation token telemetry becomes available;
 - real failure leakage exceeds the provisional 15% allocation.
-

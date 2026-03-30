@@ -3,6 +3,7 @@ import {
   ProviderResponseError,
   ProviderUnavailableError,
 } from '../../../common/errors/app-error';
+import { normalizeOpenAiUsage } from '../../provider-usage';
 import { createAssistantTextSnapshotEmitter } from '../assistant-text-stream';
 import type { NativeToolAdapter } from '../native-tool-adapter.interface';
 import { parseServerSentEvents } from '../sse-event-parser';
@@ -15,6 +16,11 @@ import type {
 interface OpenAiNativeResponse {
   id?: string;
   status?: string;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
+  };
   output_text?: string;
   incomplete_details?: {
     reason?: string;
@@ -127,6 +133,7 @@ export class OpenAiNativeToolAdapter implements NativeToolAdapter {
       assistantText: parsed.assistantText,
       toolCalls: parsed.toolCalls,
       finishReason: parsed.finishReason,
+      usage: normalizeOpenAiUsage(payload.usage),
       providerContinuation:
         typeof payload.id === 'string' && payload.id.trim().length > 0
           ? {

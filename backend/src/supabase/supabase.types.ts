@@ -128,6 +128,9 @@ export interface Database {
           quality_mode: 'fast' | 'quality' | null;
           input_prompt: string | null;
           output_raw: Record<string, unknown> | null;
+          attempt_count: number;
+          request_tokens_in: number | null;
+          request_tokens_out: number | null;
           status: 'created' | 'running' | 'succeeded' | 'failed';
           error_message: string | null;
           started_at: string | null;
@@ -146,6 +149,9 @@ export interface Database {
           quality_mode?: 'fast' | 'quality' | null;
           input_prompt?: string | null;
           output_raw?: Record<string, unknown> | null;
+          attempt_count?: number;
+          request_tokens_in?: number | null;
+          request_tokens_out?: number | null;
           status?: 'created' | 'running' | 'succeeded' | 'failed';
           error_message?: string | null;
           started_at?: string | null;
@@ -159,6 +165,9 @@ export interface Database {
           model?: string | null;
           quality_mode?: 'fast' | 'quality' | null;
           output_raw?: Record<string, unknown> | null;
+          attempt_count?: number;
+          request_tokens_in?: number | null;
+          request_tokens_out?: number | null;
           status?: 'created' | 'running' | 'succeeded' | 'failed';
           error_message?: string | null;
           started_at?: string | null;
@@ -235,6 +244,8 @@ export interface Database {
           model: string | null;
           provider_request_raw: Record<string, unknown> | null;
           provider_response_raw: Record<string, unknown> | null;
+          conversation_tokens_in: number | null;
+          conversation_tokens_out: number | null;
           error_code: string | null;
           error_message: string | null;
           started_at: string | null;
@@ -258,6 +269,8 @@ export interface Database {
           model?: string | null;
           provider_request_raw?: Record<string, unknown> | null;
           provider_response_raw?: Record<string, unknown> | null;
+          conversation_tokens_in?: number | null;
+          conversation_tokens_out?: number | null;
           error_code?: string | null;
           error_message?: string | null;
           started_at?: string | null;
@@ -278,6 +291,8 @@ export interface Database {
           model?: string | null;
           provider_request_raw?: Record<string, unknown> | null;
           provider_response_raw?: Record<string, unknown> | null;
+          conversation_tokens_in?: number | null;
+          conversation_tokens_out?: number | null;
           error_code?: string | null;
           error_message?: string | null;
           started_at?: string | null;
@@ -301,6 +316,12 @@ export interface Database {
           router_confidence: number | null;
           router_reason: string | null;
           router_fallback_reason: string | null;
+          router_provider: 'openai' | 'anthropic' | 'gemini' | null;
+          router_model: string | null;
+          router_request_raw: Record<string, unknown> | null;
+          router_response_raw: Record<string, unknown> | null;
+          router_tokens_in: number | null;
+          router_tokens_out: number | null;
           selected_provider: 'openai' | 'anthropic' | 'gemini' | null;
           selected_model: string | null;
           status: 'pending' | 'running' | 'succeeded' | 'failed';
@@ -325,6 +346,12 @@ export interface Database {
           router_confidence?: number | null;
           router_reason?: string | null;
           router_fallback_reason?: string | null;
+          router_provider?: 'openai' | 'anthropic' | 'gemini' | null;
+          router_model?: string | null;
+          router_request_raw?: Record<string, unknown> | null;
+          router_response_raw?: Record<string, unknown> | null;
+          router_tokens_in?: number | null;
+          router_tokens_out?: number | null;
           selected_provider?: 'openai' | 'anthropic' | 'gemini' | null;
           selected_model?: string | null;
           status?: 'pending' | 'running' | 'succeeded' | 'failed';
@@ -344,6 +371,12 @@ export interface Database {
           router_confidence?: number | null;
           router_reason?: string | null;
           router_fallback_reason?: string | null;
+          router_provider?: 'openai' | 'anthropic' | 'gemini' | null;
+          router_model?: string | null;
+          router_request_raw?: Record<string, unknown> | null;
+          router_response_raw?: Record<string, unknown> | null;
+          router_tokens_in?: number | null;
+          router_tokens_out?: number | null;
           selected_provider?: 'openai' | 'anthropic' | 'gemini' | null;
           selected_model?: string | null;
           status?: 'pending' | 'running' | 'succeeded' | 'failed';

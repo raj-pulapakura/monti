@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+  AppError,
   ProviderResponseError,
   ProviderUnavailableError,
 } from '../common/errors/app-error';
@@ -8,9 +9,16 @@ import type {
   ExperienceFormat,
 } from '../experience/dto/experience.dto';
 import { LlmConfigService } from './llm-config.service';
+import { unavailableUsage, type LlmUsageTelemetry } from './llm-usage';
 import type { ProviderKind } from './llm.types';
+import { normalizeOpenAiUsage } from './provider-usage';
 
 interface RouterResponsePayload {
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
+  };
   output_text?: string;
   output?: Array<{
     type?: string;
@@ -27,6 +35,11 @@ interface RawRoutingDecision {
   reason?: unknown;
 }
 
+interface RouterInvocationResult {
+  rawDecision: RawRoutingDecision;
+  telemetry: LlmRoutingTelemetry;
+}
+
 export interface LlmRoutingDecision {
   tier: 'fast' | 'quality';
   confidence: number;
@@ -34,6 +47,19 @@ export interface LlmRoutingDecision {
   fallbackReason: string | null;
   selectedProvider: ProviderKind;
   selectedModel: string;
+}
+
+export interface LlmRoutingTelemetry {
+  provider: ProviderKind;
+  model: string;
+  requestRaw: Record<string, unknown>;
+  responseRaw: Record<string, unknown>;
+  usage: LlmUsageTelemetry;
+}
+
+export interface LlmRoutingResult {
+  decision: LlmRoutingDecision;
+  telemetry: LlmRoutingTelemetry | null;
 }
 
 export interface LlmRoutingRequest {
@@ -53,36 +79,48 @@ export class LlmDecisionRouterService {
 
   constructor(private readonly config: LlmConfigService) {}
 
-  async decideRoute(input: LlmRoutingRequest): Promise<LlmRoutingDecision> {
+  async decideRoute(input: LlmRoutingRequest): Promise<LlmRoutingResult> {
     if (!isRouterStageEnabled()) {
       const fallback = this.config.resolveExecutionRoute({
         tier: 'fast',
       });
 
       return {
-        tier: 'fast',
-        confidence: 0,
-        reason: 'Router stage disabled by feature flag.',
-        fallbackReason: 'ROUTER_STAGE_DISABLED',
-        selectedProvider: fallback.provider,
-        selectedModel: fallback.model,
+        decision: {
+          tier: 'fast',
+          confidence: 0,
+          reason: 'Router stage disabled by feature flag.',
+          fallbackReason: 'ROUTER_STAGE_DISABLED',
+          selectedProvider: fallback.provider,
+          selectedModel: fallback.model,
+        },
+        telemetry: null,
       };
     }
 
     try {
-      const raw = await this.invokeRouterModel(input);
-      const parsed = parseRoutingDecision(raw);
+      const { rawDecision, telemetry } = await this.invokeRouterModel(input);
+      const parsed = (() => {
+        try {
+          return parseRoutingDecision(rawDecision);
+        } catch (error) {
+          throw createRouterParseError(error, telemetry);
+        }
+      })();
       const resolved = this.config.resolveExecutionRoute({
         tier: parsed.tier,
       });
 
       return {
-        tier: parsed.tier,
-        confidence: parsed.confidence,
-        reason: parsed.reason,
-        fallbackReason: null,
-        selectedProvider: resolved.provider,
-        selectedModel: resolved.model,
+        decision: {
+          tier: parsed.tier,
+          confidence: parsed.confidence,
+          reason: parsed.reason,
+          fallbackReason: null,
+          selectedProvider: resolved.provider,
+          selectedModel: resolved.model,
+        },
+        telemetry,
       };
     } catch (error) {
       const fallback = this.config.resolveExecutionRoute({
@@ -101,17 +139,20 @@ export class LlmDecisionRouterService {
       );
 
       return {
-        tier: 'fast',
-        confidence: 0,
-        reason: 'Fallback routing policy applied.',
-        fallbackReason,
-        selectedProvider: fallback.provider,
-        selectedModel: fallback.model,
+        decision: {
+          tier: 'fast',
+          confidence: 0,
+          reason: 'Fallback routing policy applied.',
+          fallbackReason,
+          selectedProvider: fallback.provider,
+          selectedModel: fallback.model,
+        },
+        telemetry: extractRouterTelemetry(error),
       };
     }
   }
 
-  private async invokeRouterModel(input: LlmRoutingRequest): Promise<RawRoutingDecision> {
+  private async invokeRouterModel(input: LlmRoutingRequest): Promise<RouterInvocationResult> {
     if (this.config.routerProvider !== 'openai') {
       throw new ProviderResponseError(
         `Router provider ${this.config.routerProvider} is not implemented yet.`,
@@ -178,28 +219,92 @@ export class LlmDecisionRouterService {
         },
       },
     };
+    const requestRaw = body as Record<string, unknown>;
 
-    const response = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
+    let response: Response;
+    try {
+      response = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (error) {
+      throw new ProviderResponseError(
+        `Router model request failed: ${error instanceof Error ? error.message : 'Unknown provider error'}`,
+        {
+          telemetry: createRouterTelemetry({
+            provider: this.config.routerProvider,
+            model: this.config.routerModel,
+            requestRaw,
+            responseRaw: {
+              transportError:
+                error instanceof Error ? error.message : 'Unknown provider error',
+            },
+            usage: unavailableUsage(),
+          }),
+        },
+      );
+    }
 
     if (!response.ok) {
       const detail = await response.text().catch(() => 'Unknown provider error');
-      throw new ProviderResponseError(`Router model request failed: ${detail}`);
+      throw new ProviderResponseError(`Router model request failed: ${detail}`, {
+        telemetry: createRouterTelemetry({
+          provider: this.config.routerProvider,
+          model: this.config.routerModel,
+          requestRaw,
+          responseRaw: {
+            status: response.status,
+            body: detail,
+          },
+          usage: unavailableUsage(),
+        }),
+      });
     }
 
-    const payload = (await response.json()) as RouterResponsePayload;
+    const rawPayload = await response.text().catch(() => '');
+    let payload: RouterResponsePayload;
+    try {
+      payload = parseRouterResponsePayload(rawPayload);
+    } catch {
+      throw new ProviderResponseError('Router model returned an invalid JSON payload.', {
+        telemetry: createRouterTelemetry({
+          provider: this.config.routerProvider,
+          model: this.config.routerModel,
+          requestRaw,
+          responseRaw: {
+            body: rawPayload,
+          },
+          usage: unavailableUsage(),
+        }),
+      });
+    }
+
+    const telemetry = createRouterTelemetry({
+      provider: this.config.routerProvider,
+      model: this.config.routerModel,
+      requestRaw,
+      responseRaw: payload as Record<string, unknown>,
+      usage: normalizeOpenAiUsage(payload.usage),
+    });
     const text = extractResponseText(payload);
     if (!text) {
-      throw new ProviderResponseError('Router model returned empty output.');
+      throw new ProviderResponseError('Router model returned empty output.', {
+        telemetry,
+      });
     }
 
-    return parseRouterDecisionText(text);
+    try {
+      return {
+        rawDecision: parseRouterDecisionText(text),
+        telemetry,
+      };
+    } catch (error) {
+      throw createRouterParseError(error, telemetry);
+    }
   }
 }
 
@@ -272,6 +377,22 @@ function buildRouterUserInput(input: LlmRoutingRequest): string {
   return lines.join('\n');
 }
 
+function createRouterTelemetry(input: {
+  provider: ProviderKind;
+  model: string;
+  requestRaw: Record<string, unknown>;
+  responseRaw: Record<string, unknown>;
+  usage: LlmUsageTelemetry;
+}): LlmRoutingTelemetry {
+  return {
+    provider: input.provider,
+    model: input.model,
+    requestRaw: input.requestRaw,
+    responseRaw: input.responseRaw,
+    usage: input.usage,
+  };
+}
+
 function extractResponseText(payload: RouterResponsePayload): string {
   if (typeof payload.output_text === 'string' && payload.output_text.trim().length > 0) {
     return payload.output_text.trim();
@@ -288,6 +409,15 @@ function extractResponseText(payload: RouterResponsePayload): string {
     .map((part) => part.text as string)
     .join('')
     .trim();
+}
+
+function parseRouterResponsePayload(rawPayload: string): RouterResponsePayload {
+  const parsed = JSON.parse(rawPayload) as unknown;
+  if (!isRecord(parsed)) {
+    throw new Error('Router payload was not a JSON object.');
+  }
+
+  return parsed as RouterResponsePayload;
 }
 
 function parseRouterDecisionText(text: string): RawRoutingDecision {
@@ -328,7 +458,41 @@ function extractJsonObject(text: string): string | null {
   return withoutFence.slice(start, end + 1);
 }
 
+function createRouterParseError(
+  error: unknown,
+  telemetry: LlmRoutingTelemetry,
+): ProviderResponseError {
+  if (error instanceof AppError) {
+    return new ProviderResponseError(error.message, {
+      telemetry,
+    });
+  }
+
+  if (error instanceof Error) {
+    return new ProviderResponseError(error.message, {
+      telemetry,
+    });
+  }
+
+  return new ProviderResponseError('Router model output was not valid JSON.', {
+    telemetry,
+  });
+}
+
+function extractRouterTelemetry(error: unknown): LlmRoutingTelemetry | null {
+  if (!(error instanceof AppError) || !isRecord(error.details) || !('telemetry' in error.details)) {
+    return null;
+  }
+
+  const telemetry = error.details.telemetry;
+  return isRecord(telemetry) ? (telemetry as unknown as LlmRoutingTelemetry) : null;
+}
+
 function isRouterStageEnabled(): boolean {
   const flag = process.env.ROUTER_STAGE_ENABLED?.trim().toLowerCase();
   return !(flag === 'false' || flag === '0' || flag === 'off');
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

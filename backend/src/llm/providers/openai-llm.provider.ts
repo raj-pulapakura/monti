@@ -6,6 +6,7 @@ import {
   ProviderUnavailableError,
 } from '../../common/errors/app-error';
 import { logEvent } from '../../common/logging/log-event';
+import { normalizeOpenAiUsage } from '../provider-usage';
 import type { LlmGenerateRequest, LlmProvider, LlmProviderResult } from '../llm.types';
 
 const WEBPAGE_OUTPUT_SCHEMA = {
@@ -23,6 +24,11 @@ const WEBPAGE_OUTPUT_SCHEMA = {
 
 interface OpenAiResponse {
   status?: string;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
+  };
   output_text?: string;
   incomplete_details?: {
     reason?: string;
@@ -87,6 +93,7 @@ export class OpenAiLlmProvider implements LlmProvider {
     }
 
     const payload = (await response.json()) as OpenAiResponse;
+    const usage = normalizeOpenAiUsage(payload.usage);
     if (
       payload.status === 'incomplete' &&
       payload.incomplete_details?.reason === 'max_output_tokens'
@@ -100,6 +107,9 @@ export class OpenAiLlmProvider implements LlmProvider {
       );
       throw new ProviderMaxTokensError(
         `OpenAI hit max_output_tokens (${request.maxTokens}) before completion.`,
+        {
+          usage,
+        },
       );
     }
 
@@ -111,18 +121,23 @@ export class OpenAiLlmProvider implements LlmProvider {
           model: request.model,
         }),
       );
-      throw new ProviderRefusalError(`OpenAI refused request: ${refusal}`);
+      throw new ProviderRefusalError(`OpenAI refused request: ${refusal}`, {
+        usage,
+      });
     }
 
     const rawText = extractText(payload);
     if (!rawText) {
-      throw new ProviderResponseError('OpenAI returned empty structured output.');
+      throw new ProviderResponseError('OpenAI returned empty structured output.', {
+        usage,
+      });
     }
 
     return {
       provider: this.name,
       model: request.model,
       rawText,
+      usage,
     };
   }
 }

@@ -5,6 +5,12 @@ import {
   logEvent,
 } from '../../common/logging/log-event';
 import { LlmConfigService } from '../../llm/llm-config.service';
+import {
+  aggregateObservedUsage,
+  unavailableUsage,
+  usageFromErrorDetails,
+  type LlmUsageTelemetry,
+} from '../../llm/llm-usage';
 import { LlmRouterService } from '../../llm/llm-router.service';
 import type { ProviderKind } from '../../llm/llm.types';
 import { ExperiencePersistenceService } from '../../persistence/services/experience-persistence.service';
@@ -92,6 +98,8 @@ export class ExperienceOrchestratorService {
     const routedProvider = input.provider ?? this.llmConfig.providerFor(input.qualityMode);
     let resolvedProvider: ProviderKind | undefined;
     let resolvedModel: string | undefined;
+    const attemptUsages: LlmUsageTelemetry[] = [];
+    let attemptCount = 0;
 
     this.logger.log(
       logEvent('ui_generation_started', {
@@ -117,8 +125,10 @@ export class ExperienceOrchestratorService {
     });
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      const attemptNumber = attempt + 1;
+      attemptCount = attemptNumber;
+
       try {
-        const attemptNumber = attempt + 1;
         this.logger.log(
           logEvent('ui_generation_attempt_started', {
             requestId: input.requestId,
@@ -140,6 +150,7 @@ export class ExperienceOrchestratorService {
 
         resolvedProvider = llmResult.provider;
         resolvedModel = llmResult.model;
+        attemptUsages.push(llmResult.usage);
 
         this.logger.log(
           logEvent('ui_generation_llm_output_received', {
@@ -155,6 +166,7 @@ export class ExperienceOrchestratorService {
         const experience = this.payloadValidation.parseAndValidate(llmResult.rawText);
         this.safetyGuard.assertSafe(experience);
 
+        const requestUsage = aggregateObservedUsage(attemptUsages);
         await this.persistence.persistSuccess({
           requestId: input.requestId,
           operation: input.operation,
@@ -168,6 +180,9 @@ export class ExperienceOrchestratorService {
           provider: llmResult.provider,
           model: llmResult.model,
           maxTokens,
+          requestUsage,
+          successfulAttemptUsage: llmResult.usage,
+          attemptCount,
           experience,
           latencyMs: Date.now() - startedAt,
         });
@@ -209,6 +224,14 @@ export class ExperienceOrchestratorService {
           },
         };
       } catch (error) {
+        if (attemptUsages.length < attemptCount) {
+          attemptUsages.push(
+            error instanceof AppError
+              ? usageFromErrorDetails(error.details) ?? unavailableUsage()
+              : unavailableUsage(),
+          );
+        }
+
         if (
           error instanceof ProviderMaxTokensError &&
           !userDefinedMaxTokens &&
@@ -239,6 +262,8 @@ export class ExperienceOrchestratorService {
           requestId: input.requestId,
           provider: resolvedProvider ?? routedProvider,
           model: resolvedModel,
+          attemptCount,
+          requestUsage: aggregateObservedUsage(attemptUsages),
           errorMessage: this.getErrorDetails(error).errorMessage,
         });
 
@@ -296,6 +321,8 @@ export class ExperienceOrchestratorService {
     requestId: string;
     provider?: ProviderKind;
     model?: string;
+    attemptCount: number;
+    requestUsage: LlmUsageTelemetry;
     errorMessage: string;
   }): Promise<void> {
     try {

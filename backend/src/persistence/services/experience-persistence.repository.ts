@@ -18,6 +18,8 @@ interface CreateVersionInput {
   provider: ProviderKind;
   model: string;
   maxTokens: number;
+  tokensIn: number | null;
+  tokensOut: number | null;
   experience: GeneratedExperiencePayload;
   latencyMs: number;
 }
@@ -42,6 +44,7 @@ export class ExperiencePersistenceRepository {
       operation: input.operation,
       quality_mode: input.qualityMode,
       input_prompt: input.inputPrompt,
+      attempt_count: 0,
       status: 'running',
       started_at: new Date().toISOString(),
     });
@@ -58,6 +61,9 @@ export class ExperiencePersistenceRepository {
     provider: ProviderKind;
     model: string;
     qualityMode: QualityMode;
+    attemptCount: number;
+    requestTokensIn: number | null;
+    requestTokensOut: number | null;
     outputRaw: Record<string, unknown>;
   }): Promise<void> {
     const { error } = await this.client
@@ -68,6 +74,9 @@ export class ExperiencePersistenceRepository {
         provider: input.provider,
         model: input.model,
         quality_mode: input.qualityMode,
+        attempt_count: input.attemptCount,
+        request_tokens_in: input.requestTokensIn,
+        request_tokens_out: input.requestTokensOut,
         output_raw: input.outputRaw,
         status: 'succeeded',
         completed_at: new Date().toISOString(),
@@ -84,6 +93,9 @@ export class ExperiencePersistenceRepository {
     requestId: string;
     provider?: ProviderKind;
     model?: string;
+    attemptCount: number;
+    requestTokensIn: number | null;
+    requestTokensOut: number | null;
     errorMessage: string;
   }): Promise<void> {
     const { error } = await this.client
@@ -91,6 +103,9 @@ export class ExperiencePersistenceRepository {
       .update({
         provider: input.provider ?? null,
         model: input.model ?? null,
+        attempt_count: input.attemptCount,
+        request_tokens_in: input.requestTokensIn,
+        request_tokens_out: input.requestTokensOut,
         status: 'failed',
         completed_at: new Date().toISOString(),
         error_message: input.errorMessage,
@@ -164,6 +179,8 @@ export class ExperiencePersistenceRepository {
         provider: input.provider,
         model: input.model,
         max_tokens: input.maxTokens,
+        tokens_in: input.tokensIn,
+        tokens_out: input.tokensOut,
         title: input.experience.title,
         description: input.experience.description,
         html: input.experience.html,

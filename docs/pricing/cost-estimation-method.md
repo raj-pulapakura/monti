@@ -10,7 +10,7 @@ This method defines how Monti estimates three separate lenses of cost:
 2. successful-request cost
 3. full monetized-success cost
 
-The method is intentionally explicit about what is observed versus estimated. Today's telemetry is good enough for a planning recommendation, but not good enough for a production billing launch without follow-on instrumentation.
+The method is intentionally explicit about what is observed versus estimated. Monti's telemetry foundation now persists generation, router, and conversation usage for new runtime rows, but this planning pass still leans on a small historical sample captured before that rollout.
 
 ## Evidence Set
 
@@ -52,9 +52,8 @@ The method is intentionally explicit about what is observed versus estimated. To
 
 - Overall estimate confidence: `assumption-heavy`
 - Reason:
-  - generation token counts are not persisted;
-  - router token usage is not normalized into a dedicated ledger;
-  - automatic retry attempts are not separately observable;
+  - the current planning sample predates the usage-telemetry rollout, so historical rows still lack observed generation and router token counts;
+  - aggregate retry-aware request totals are now persisted, but there is still no per-attempt event table for forensic replay;
   - the weighting basis is one observed success, not a representative production distribution.
 
 ## Billable Successful-Run Policy
@@ -134,12 +133,16 @@ What is actually observed today:
 - `assistant_runs.provider_response_raw.usage` for the single observed conversation run shows:
   - input tokens: `757`
   - output tokens: `132`
-- `experience_versions.tokens_in` and `experience_versions.tokens_out` are present in schema but null in the observed success.
-- Generation provider contracts currently return only `{ provider, model, rawText }`, so generation usage is dropped before persistence.
+- the historical `experience_versions`, `generation_runs`, and `tool_invocations` rows in the 2026-03-29 planning sample predate the telemetry rollout, so their new usage fields remain null there.
+- the current runtime now persists:
+  - `experience_versions.tokens_in` / `tokens_out` for the successful artifact-producing attempt when observed;
+  - `generation_runs.attempt_count` plus `request_tokens_in` / `request_tokens_out` when every attempt in the request exposed observed usage;
+  - `assistant_runs.conversation_tokens_in` / `conversation_tokens_out` across completed conversation rounds when every round exposed observed usage; and
+  - `tool_invocations.router_tokens_in` / `router_tokens_out` plus router request/response traces for auto-routed `generate_experience` executions.
 
 ### Fallback generation-token assumption
 
-Because generation token usage is not persisted, this method uses a deterministic proxy for the current planning pass:
+Because the historical planning sample predates persisted generation telemetry, this method still uses a deterministic proxy for the current planning pass:
 
 - observed successful source prompt length: `895` chars;
 - prompt builder output for the same request shape: `3542` chars;
@@ -192,10 +195,9 @@ That means the current weighted average is descriptive for the single observed r
 
 | Gap | Evidence | Impact |
 | --- | --- | --- |
-| `experience_versions.tokens_in` / `tokens_out` are not populated | Live row is null; persistence repository does not write them | Artifact-producing cost is estimated, not observed |
-| Generation provider contract omits usage | `LlmProviderResult` only includes `provider`, `model`, `rawText` | No first-party generation token ledger |
-| Router token usage is not persisted | Router call happens in `LlmDecisionRouterService`, but no normalized usage write follows | Auto-mode full-cost estimates miss a small but real component |
-| Automatic retry attempts are not logged separately | Orchestrator retries max-token failures inside one request boundary | Successful-request cost can undercount retry chains |
+| Historical planning sample predates the telemetry rollout | The 2026-03-29 rows still have null generation/router token fields even though the current runtime now writes them | This recommendation still relies on a proxy for artifact and request cost |
+| No per-attempt generation table exists | `generation_runs` now stores `attempt_count` and aggregate request totals only | Retry cost is measured at request level, but individual attempts are not queryable as separate rows |
+| Conversation raw traces still overwrite by round | `assistant_runs.provider_request_raw` / `provider_response_raw` keep the latest completed round only | Per-round debugging remains limited even though aggregate conversation tokens are now queryable |
 | No observed failures in the current window | Live sample has zero failed tool invocations and zero failed generation runs | Leakage factor is provisional and assumption-based |
 | Preview-model volatility | Active Gemini routes are both preview models | Rates can change before billing launch |
 | Anthropic alias ambiguity | Configured alias is retired | Anthropic sensitivity must use a replacement mapping, not the configured alias directly |
@@ -204,7 +206,7 @@ That means the current weighted average is descriptive for the single observed r
 
 When estimating a successful run, use the first available source in this order:
 
-1. observed generation token counts persisted on the successful artifact
+1. observed generation token counts persisted on the successful artifact and request run
 2. observed provider usage exports or retained provider-side usage traces
 3. deterministic proxy from current prompt-builder output length and persisted artifact size
 4. conservative scenario bands if even the proxy is unavailable
@@ -246,6 +248,6 @@ Refresh this method before billing launch if any of the following changes:
 - the default generation route leaves Gemini preview models;
 - Anthropic becomes an active route and the config is migrated off Sonnet 3.5 aliases;
 - conversation model pricing changes materially;
-- generation token usage starts being persisted;
+- fresh post-rollout telemetry accumulates enough generation, router, and failure volume to replace the current proxy-heavy sample;
 - failure leakage becomes measurable from a larger sample;
 - observed successful-invocation mix gains enough fast or refine volume to change the weight table.

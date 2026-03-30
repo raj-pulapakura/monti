@@ -3,6 +3,7 @@ import { AppError } from '../../common/errors/app-error';
 import { ExperienceOrchestratorService } from '../../experience/services/experience-orchestrator.service';
 import { LlmDecisionRouterService } from '../../llm/llm-decision-router.service';
 import { LlmConfigService } from '../../llm/llm-config.service';
+import { toUsageCounts } from '../../llm/llm-usage';
 import type { QualityMode } from '../../llm/llm.types';
 import { ChatRuntimeRepository } from '../services/chat-runtime.repository';
 import type {
@@ -21,6 +22,7 @@ export class GenerateExperienceToolService {
   ) {}
 
   async execute(input: {
+    invocationId: string;
     runId: string;
     threadId: string;
     userId: string;
@@ -28,6 +30,7 @@ export class GenerateExperienceToolService {
     requestedQualityMode?: QualityMode;
   }): Promise<GenerateExperienceToolResult> {
     const route = await this.selectRoute({
+      invocationId: input.invocationId,
       runId: input.runId,
       operation: input.arguments.operation,
       prompt: input.arguments.prompt,
@@ -113,6 +116,7 @@ export class GenerateExperienceToolService {
   }
 
   private async selectRoute(input: {
+    invocationId: string;
     runId: string;
     operation: 'generate' | 'refine';
     prompt: string;
@@ -149,7 +153,7 @@ export class GenerateExperienceToolService {
       return forcedDecision;
     }
 
-    const decision = await this.decisionRouter.decideRoute({
+    const routing = await this.decisionRouter.decideRoute({
       requestId: input.runId,
       operation: input.operation,
       prompt: input.prompt,
@@ -159,6 +163,7 @@ export class GenerateExperienceToolService {
       refinementInstruction: input.refinementInstruction,
       hasPriorExperience: input.hasPriorExperience,
     });
+    const decision = routing.decision;
 
     await this.repository.recordRunRoutingDecision({
       runId: input.runId,
@@ -169,6 +174,25 @@ export class GenerateExperienceToolService {
       selectedProvider: decision.selectedProvider,
       selectedModel: decision.selectedModel,
     });
+
+    if (routing.telemetry) {
+      const routerUsage = toUsageCounts(routing.telemetry.usage);
+      await this.repository.recordToolInvocationRouterTelemetry({
+        invocationId: input.invocationId,
+        routerProvider: routing.telemetry.provider,
+        routerModel: routing.telemetry.model,
+        routerRequestRaw: routing.telemetry.requestRaw,
+        routerResponseRaw: routing.telemetry.responseRaw,
+        routerTokensIn: routerUsage.tokensIn,
+        routerTokensOut: routerUsage.tokensOut,
+        routerTier: decision.tier,
+        routerConfidence: decision.confidence,
+        routerReason: decision.reason,
+        routerFallbackReason: decision.fallbackReason,
+        selectedProvider: decision.selectedProvider,
+        selectedModel: decision.selectedModel,
+      });
+    }
 
     return decision;
   }

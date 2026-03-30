@@ -20,6 +20,15 @@ describe('LlmDecisionRouterService', () => {
         json: async () => ({
           output_text: '{}',
         }),
+        text: async () =>
+          JSON.stringify({
+            output_text: '{}',
+            usage: {
+              input_tokens: 11,
+              output_tokens: 3,
+              total_tokens: 14,
+            },
+          }),
       }) as Response,
     );
 
@@ -30,10 +39,20 @@ describe('LlmDecisionRouterService', () => {
       prompt: 'Teach solar system',
     });
 
-    expect(result.tier).toBe('fast');
-    expect(result.fallbackReason).toBeTruthy();
-    expect(result.selectedProvider).toBeTruthy();
-    expect(result.selectedModel).toBeTruthy();
+    expect(result.decision.tier).toBe('fast');
+    expect(result.decision.fallbackReason).toBeTruthy();
+    expect(result.decision.selectedProvider).toBeTruthy();
+    expect(result.decision.selectedModel).toBeTruthy();
+    expect(result.telemetry).toMatchObject({
+      provider: 'openai',
+      model: 'gpt-5-mini',
+      usage: {
+        availability: 'observed',
+        inputTokens: 11,
+        outputTokens: 3,
+        totalTokens: 14,
+      },
+    });
   });
 
   it('uses fallback immediately when router stage is disabled', async () => {
@@ -49,7 +68,8 @@ describe('LlmDecisionRouterService', () => {
       prompt: 'Teach photosynthesis',
     });
 
-    expect(result.fallbackReason).toBe('ROUTER_STAGE_DISABLED');
+    expect(result.decision.fallbackReason).toBe('ROUTER_STAGE_DISABLED');
+    expect(result.telemetry).toBeNull();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -60,10 +80,16 @@ describe('LlmDecisionRouterService', () => {
     const fetchSpy = jest.fn(async () =>
       ({
         ok: true,
-        json: async () => ({
-          output_text:
-            '{"tier":"fast","confidence":0.81,"reason":"Straightforward single-concept request."}',
-        }),
+        text: async () =>
+          JSON.stringify({
+            output_text:
+              '{"tier":"fast","confidence":0.81,"reason":"Straightforward single-concept request."}',
+            usage: {
+              input_tokens: 29,
+              output_tokens: 7,
+              total_tokens: 36,
+            },
+          }),
       }) as Response,
     );
     global.fetch = fetchSpy as unknown as typeof fetch;
@@ -81,7 +107,17 @@ describe('LlmDecisionRouterService', () => {
       hasPriorExperience: true,
     });
 
-    expect(result.tier).toBe('fast');
+    expect(result.decision.tier).toBe('fast');
+    expect(result.telemetry).toMatchObject({
+      provider: 'openai',
+      model: 'gpt-5-mini',
+      usage: {
+        availability: 'observed',
+        inputTokens: 29,
+        outputTokens: 7,
+        totalTokens: 36,
+      },
+    });
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [, options] = fetchSpy.mock.calls[0] as [string, { body: string }];

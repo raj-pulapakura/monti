@@ -66,4 +66,84 @@ describe('ChatRuntimeRepository', () => {
       }),
     ).rejects.toBeInstanceOf(ValidationError);
   });
+
+  it('persists router telemetry on a tool invocation', async () => {
+    const update = jest.fn().mockReturnThis();
+    const eq = jest.fn(async () => ({
+      error: null,
+    }));
+    const query = {
+      update,
+      eq,
+    };
+    const client = {
+      from: jest.fn(() => query),
+    };
+    const repository = new ChatRuntimeRepository(client as never);
+
+    await repository.recordToolInvocationRouterTelemetry({
+      invocationId: 'tool-1',
+      routerProvider: 'openai',
+      routerModel: 'gpt-5-mini',
+      routerRequestRaw: { model: 'gpt-5-mini' },
+      routerResponseRaw: { output_text: '{"tier":"fast"}' },
+      routerTokensIn: 18,
+      routerTokensOut: 6,
+      routerTier: 'fast',
+      routerConfidence: 0.81,
+      routerReason: 'straightforward request',
+      routerFallbackReason: null,
+      selectedProvider: 'gemini',
+      selectedModel: 'gemini-3.1-flash-lite-preview',
+    });
+
+    expect(client.from).toHaveBeenCalledWith('tool_invocations');
+    expect(update).toHaveBeenCalledWith({
+      router_provider: 'openai',
+      router_model: 'gpt-5-mini',
+      router_request_raw: { model: 'gpt-5-mini' },
+      router_response_raw: { output_text: '{"tier":"fast"}' },
+      router_tokens_in: 18,
+      router_tokens_out: 6,
+      router_tier: 'fast',
+      router_confidence: 0.81,
+      router_reason: 'straightforward request',
+      router_fallback_reason: null,
+      selected_provider: 'gemini',
+      selected_model: 'gemini-3.1-flash-lite-preview',
+    });
+    expect(eq).toHaveBeenCalledWith('id', 'tool-1');
+  });
+
+  it('persists assistant-run conversation token totals on completion', async () => {
+    const update = jest.fn().mockReturnThis();
+    const eq = jest.fn(async () => ({
+      error: null,
+    }));
+    const query = {
+      update,
+      eq,
+    };
+    const client = {
+      from: jest.fn(() => query),
+    };
+    const repository = new ChatRuntimeRepository(client as never);
+
+    await repository.markRunSucceeded({
+      runId: 'run-1',
+      assistantMessageId: 'assistant-1',
+      conversationTokensIn: 150,
+      conversationTokensOut: 42,
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'succeeded',
+        assistant_message_id: 'assistant-1',
+        conversation_tokens_in: 150,
+        conversation_tokens_out: 42,
+      }),
+    );
+    expect(eq).toHaveBeenCalledWith('id', 'run-1');
+  });
 });

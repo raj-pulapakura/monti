@@ -9,6 +9,7 @@ describe('ChatToolRegistryService', () => {
     } as never);
 
     const result = await service.executeToolCall({
+      invocationId: 'invocation-1',
       threadId: 'thread-1',
       runId: 'run-1',
       userId: 'client-1',

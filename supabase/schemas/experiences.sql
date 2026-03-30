@@ -1,6 +1,7 @@
 -- Declarative schema for experiences app.
 -- This snapshot mirrors the active experience/chat runtime migrations through
 -- supabase/migrations/20260330000100_persist_usage_telemetry.sql.
+-- Billing tables live in z_billing.sql (loads after this file; see that header).
 
 create schema if not exists extensions;
 create extension if not exists pgcrypto with schema extensions;

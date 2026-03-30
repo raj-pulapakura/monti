@@ -175,6 +175,258 @@ export interface Database {
         };
         Relationships: [];
       };
+      billing_checkout_sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          stripe_checkout_session_id: string;
+          mode: 'subscription' | 'payment';
+          intent: 'subscription' | 'topup';
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          stripe_checkout_session_id: string;
+          mode: 'subscription' | 'payment';
+          intent: 'subscription' | 'topup';
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          stripe_checkout_session_id?: string;
+          mode?: 'subscription' | 'payment';
+          intent?: 'subscription' | 'topup';
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      billing_customers: {
+        Row: {
+          id: string;
+          user_id: string;
+          stripe_customer_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          stripe_customer_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          stripe_customer_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      billing_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          stripe_subscription_id: string;
+          status: string;
+          current_period_start: string | null;
+          current_period_end: string | null;
+          cancel_at_period_end: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          stripe_subscription_id: string;
+          status: string;
+          current_period_start?: string | null;
+          current_period_end?: string | null;
+          cancel_at_period_end?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          status?: string;
+          current_period_start?: string | null;
+          current_period_end?: string | null;
+          cancel_at_period_end?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      billing_webhook_events: {
+        Row: {
+          id: string;
+          stripe_event_id: string;
+          event_type: string;
+          payload: Record<string, unknown> | null;
+          processing_status: 'received' | 'processing' | 'processed' | 'failed';
+          error_message: string | null;
+          created_at: string;
+          processed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          stripe_event_id: string;
+          event_type: string;
+          payload?: Record<string, unknown> | null;
+          processing_status?: 'received' | 'processing' | 'processed' | 'failed';
+          error_message?: string | null;
+          created_at?: string;
+          processed_at?: string | null;
+        };
+        Update: {
+          payload?: Record<string, unknown> | null;
+          processing_status?: 'received' | 'processing' | 'processed' | 'failed';
+          error_message?: string | null;
+          processed_at?: string | null;
+        };
+        Relationships: [];
+      };
+      credit_grants: {
+        Row: {
+          id: string;
+          user_id: string;
+          pricing_rule_snapshot_id: string;
+          source: 'free_cycle' | 'paid_cycle' | 'topup' | 'manual' | 'promo';
+          bucket_kind: 'recurring_free' | 'recurring_paid' | 'topup' | 'manual';
+          granted_credits: number;
+          remaining_credits: number;
+          reserved_credits: number;
+          cycle_start: string | null;
+          cycle_end: string | null;
+          stripe_invoice_id: string | null;
+          stripe_checkout_session_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          pricing_rule_snapshot_id: string;
+          source: 'free_cycle' | 'paid_cycle' | 'topup' | 'manual' | 'promo';
+          bucket_kind: 'recurring_free' | 'recurring_paid' | 'topup' | 'manual';
+          granted_credits: number;
+          remaining_credits: number;
+          reserved_credits?: number;
+          cycle_start?: string | null;
+          cycle_end?: string | null;
+          stripe_invoice_id?: string | null;
+          stripe_checkout_session_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          remaining_credits?: number;
+          reserved_credits?: number;
+          cycle_start?: string | null;
+          cycle_end?: string | null;
+          stripe_invoice_id?: string | null;
+          stripe_checkout_session_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      credit_ledger_entries: {
+        Row: {
+          id: string;
+          user_id: string;
+          entry_type:
+            | 'free_monthly_grant'
+            | 'paid_monthly_grant'
+            | 'topup_grant'
+            | 'manual_grant'
+            | 'reservation_created'
+            | 'reservation_released'
+            | 'debit_settled'
+            | 'manual_adjustment'
+            | 'expiration';
+          credits_delta: number;
+          pricing_rule_snapshot_id: string | null;
+          credit_grant_id: string | null;
+          credit_reservation_id: string | null;
+          stripe_event_id: string | null;
+          metadata: Record<string, unknown> | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          entry_type:
+            | 'free_monthly_grant'
+            | 'paid_monthly_grant'
+            | 'topup_grant'
+            | 'manual_grant'
+            | 'reservation_created'
+            | 'reservation_released'
+            | 'debit_settled'
+            | 'manual_adjustment'
+            | 'expiration';
+          credits_delta: number;
+          pricing_rule_snapshot_id?: string | null;
+          credit_grant_id?: string | null;
+          credit_reservation_id?: string | null;
+          stripe_event_id?: string | null;
+          metadata?: Record<string, unknown> | null;
+          created_at?: string;
+        };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      credit_reservations: {
+        Row: {
+          id: string;
+          user_id: string;
+          status: 'active' | 'released' | 'settled';
+          credits_reserved: number;
+          credit_grant_id: string | null;
+          tool_invocation_id: string | null;
+          generation_run_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          status?: 'active' | 'released' | 'settled';
+          credits_reserved: number;
+          credit_grant_id?: string | null;
+          tool_invocation_id?: string | null;
+          generation_run_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          status?: 'active' | 'released' | 'settled';
+          credits_reserved?: number;
+          credit_grant_id?: string | null;
+          tool_invocation_id?: string | null;
+          generation_run_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      pricing_rule_snapshots: {
+        Row: {
+          id: string;
+          version_key: string;
+          rules_json: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          version_key: string;
+          rules_json: Record<string, unknown>;
+          created_at?: string;
+        };
+        Update: {
+          version_key?: string;
+          rules_json?: Record<string, unknown>;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       chat_threads: {
         Row: {
           id: string;

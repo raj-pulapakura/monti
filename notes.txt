@@ -1,0 +1,3 @@
+- monetization (subscription based)
+- creation previews
+- prompt suggestions

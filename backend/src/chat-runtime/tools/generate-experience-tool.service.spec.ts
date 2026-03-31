@@ -279,7 +279,13 @@ describe('GenerateExperienceToolService', () => {
     const credits = {
       shouldEnforceReservation: jest.fn().mockReturnValue(true),
       reserveForToolInvocation: jest.fn(async () => ({
-        reservationId: 'res-1',
+        slices: [
+          {
+            reservationId: 'res-1',
+            creditGrantId: 'grant-1',
+            creditsReserved: 1,
+          },
+        ],
         pricingRuleSnapshotId: 'snap-1',
       })),
       releaseReservation: jest.fn(),
@@ -304,7 +310,8 @@ describe('GenerateExperienceToolService', () => {
     });
 
     expect(credits.settleReservation).toHaveBeenCalledWith({
-      reservationId: 'res-1',
+      userId: 'user-settle',
+      toolInvocationId: 'tool-settle',
       pricingRuleSnapshotId: 'snap-1',
       experienceVersionId: 'ver-1',
     });
@@ -335,7 +342,7 @@ describe('GenerateExperienceToolService', () => {
     const credits = {
       shouldEnforceReservation: jest.fn().mockReturnValue(true),
       reserveForToolInvocation: jest.fn(async () => ({
-        reservationId: 'res-2',
+        slices: [{ reservationId: 'res-2', creditGrantId: 'g2', creditsReserved: 1 }],
         pricingRuleSnapshotId: 'snap-2',
       })),
       releaseReservation: jest.fn(),
@@ -361,7 +368,8 @@ describe('GenerateExperienceToolService', () => {
 
     expect(result.status).toBe('failed');
     expect(credits.releaseReservation).toHaveBeenCalledWith({
-      reservationId: 'res-2',
+      userId: 'user-rel',
+      toolInvocationId: 'tool-rel',
       pricingRuleSnapshotId: 'snap-2',
     });
     expect(credits.settleReservation).not.toHaveBeenCalled();

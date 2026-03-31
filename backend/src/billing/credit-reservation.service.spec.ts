@@ -92,4 +92,78 @@ describe('CreditReservationService', () => {
       }),
     );
   });
+
+  it('reserveForToolInvocation parses multi-slice JSON from RPC', async () => {
+    const rpc = jest.fn().mockResolvedValue({
+      data: {
+        slices: [
+          {
+            reservation_id: 'r1',
+            credit_grant_id: 'g1',
+            credits_reserved: 2,
+          },
+          {
+            reservation_id: 'r2',
+            credit_grant_id: 'g2',
+            credits_reserved: 3,
+          },
+        ],
+      },
+      error: null,
+    });
+    const svc = makeService({
+      billingConfig: {
+        billingEnabled: true,
+        creditEnforcementEnabled: true,
+        launchPricingVersionKey: 'launch-v1',
+        launchCatalog: catalog,
+      } as BillingConfigService,
+      repository: {
+        findPricingRuleSnapshotByVersionKey: jest.fn().mockResolvedValue({
+          id: 'snap-1',
+          version_key: 'launch-v1',
+          rules_json: {},
+        }),
+      },
+      rpc,
+    });
+
+    const result = await svc.reserveForToolInvocation({
+      userId: 'u1',
+      toolInvocationId: '00000000-0000-0000-0000-000000000088',
+      qualityTier: 'quality',
+    });
+
+    expect(result.slices).toEqual([
+      { reservationId: 'r1', creditGrantId: 'g1', creditsReserved: 2 },
+      { reservationId: 'r2', creditGrantId: 'g2', creditsReserved: 3 },
+    ]);
+    expect(result.pricingRuleSnapshotId).toBe('snap-1');
+  });
+
+  it('releaseReservation calls invocation-scoped RPC', async () => {
+    const rpc = jest.fn().mockResolvedValue({ data: null, error: null });
+    const svc = makeService({
+      billingConfig: {
+        billingEnabled: true,
+        creditEnforcementEnabled: true,
+        launchPricingVersionKey: 'launch-v1',
+        launchCatalog: catalog,
+      } as BillingConfigService,
+      repository: {},
+      rpc,
+    });
+
+    await svc.releaseReservation({
+      userId: 'u1',
+      toolInvocationId: '00000000-0000-0000-0000-000000000077',
+      pricingRuleSnapshotId: 'snap-x',
+    });
+
+    expect(rpc).toHaveBeenCalledWith('billing_release_generation_reservation', {
+      p_user_id: 'u1',
+      p_tool_invocation_id: '00000000-0000-0000-0000-000000000077',
+      p_pricing_rule_snapshot_id: 'snap-x',
+    });
+  });
 });

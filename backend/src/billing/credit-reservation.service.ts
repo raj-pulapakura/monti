@@ -6,6 +6,12 @@ import { BillingConfigService } from './billing-config.service';
 import { BillingRepository } from './billing.repository';
 import { creditsForQualityTier, resolvePricingFromSnapshot } from './billing-pricing';
 
+export type CreditReservationSlice = {
+  reservationId: string;
+  creditGrantId: string;
+  creditsReserved: number;
+};
+
 @Injectable()
 export class CreditReservationService {
   constructor(
@@ -24,7 +30,7 @@ export class CreditReservationService {
     userId: string;
     toolInvocationId: string;
     qualityTier: 'fast' | 'quality';
-  }): Promise<{ reservationId: string; pricingRuleSnapshotId: string }> {
+  }): Promise<{ slices: CreditReservationSlice[]; pricingRuleSnapshotId: string }> {
     const snapshot = await this.billingRepository.findPricingRuleSnapshotByVersionKey(
       this.billingConfig.launchPricingVersionKey,
     );
@@ -53,16 +59,22 @@ export class CreditReservationService {
       this.throwRpcError('reserve generation credits', error);
     }
 
-    if (data == null || data === '') {
-      throw new AppError('INTERNAL_ERROR', 'Reserve credits RPC returned no reservation id.', 500);
+    const slices = parseReserveSlicesPayload(data);
+    if (slices.length === 0) {
+      throw new AppError('INTERNAL_ERROR', 'Reserve credits RPC returned no reservation slices.', 500);
     }
 
-    return { reservationId: data, pricingRuleSnapshotId: snapshot.id };
+    return { slices, pricingRuleSnapshotId: snapshot.id };
   }
 
-  async releaseReservation(input: { reservationId: string; pricingRuleSnapshotId: string }): Promise<void> {
+  async releaseReservation(input: {
+    userId: string;
+    toolInvocationId: string;
+    pricingRuleSnapshotId: string;
+  }): Promise<void> {
     const { error } = await this.admin.rpc('billing_release_generation_reservation', {
-      p_reservation_id: input.reservationId,
+      p_user_id: input.userId,
+      p_tool_invocation_id: input.toolInvocationId,
       p_pricing_rule_snapshot_id: input.pricingRuleSnapshotId,
     });
 
@@ -72,12 +84,14 @@ export class CreditReservationService {
   }
 
   async settleReservation(input: {
-    reservationId: string;
+    userId: string;
+    toolInvocationId: string;
     pricingRuleSnapshotId: string;
-    experienceVersionId: string | null;
+    experienceVersionId: string;
   }): Promise<void> {
     const { error } = await this.admin.rpc('billing_settle_generation_reservation', {
-      p_reservation_id: input.reservationId,
+      p_user_id: input.userId,
+      p_tool_invocation_id: input.toolInvocationId,
       p_pricing_rule_snapshot_id: input.pricingRuleSnapshotId,
       p_experience_version_id: input.experienceVersionId,
     });
@@ -98,4 +112,38 @@ export class CreditReservationService {
       hint: error.hint ?? undefined,
     });
   }
+}
+
+function parseReserveSlicesPayload(data: unknown): CreditReservationSlice[] {
+  if (data == null || typeof data !== 'object') {
+    return [];
+  }
+  const raw = data as Record<string, unknown>;
+  const slices = raw.slices;
+  if (!Array.isArray(slices)) {
+    return [];
+  }
+  const out: CreditReservationSlice[] = [];
+  for (const row of slices) {
+    if (row == null || typeof row !== 'object') {
+      continue;
+    }
+    const s = row as Record<string, unknown>;
+    const reservationId = s.reservation_id;
+    const creditGrantId = s.credit_grant_id;
+    const creditsReserved = s.credits_reserved;
+    if (
+      typeof reservationId === 'string' &&
+      typeof creditGrantId === 'string' &&
+      typeof creditsReserved === 'number' &&
+      Number.isFinite(creditsReserved)
+    ) {
+      out.push({
+        reservationId,
+        creditGrantId,
+        creditsReserved,
+      });
+    }
+  }
+  return out;
 }

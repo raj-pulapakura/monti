@@ -49,7 +49,7 @@ export class GenerateExperienceToolService {
       input.arguments.conversationContext,
     );
 
-    let reservationId: string | null = null;
+    let reservedCredits = false;
     let pricingRuleSnapshotId: string | null = null;
 
     if (this.creditReservation.shouldEnforceReservation()) {
@@ -59,7 +59,7 @@ export class GenerateExperienceToolService {
           toolInvocationId: input.invocationId,
           qualityTier: route.tier,
         });
-        reservationId = reserved.reservationId;
+        reservedCredits = true;
         pricingRuleSnapshotId = reserved.pricingRuleSnapshotId;
       } catch (error) {
         if (error instanceof InsufficientCreditsError) {
@@ -109,16 +109,18 @@ export class GenerateExperienceToolService {
         payload.metadata.generationId,
       );
 
-      if (reservationId && pricingRuleSnapshotId) {
+      if (reservedCredits && pricingRuleSnapshotId) {
         if (versionRef?.versionId) {
           await this.creditReservation.settleReservation({
-            reservationId,
+            userId: input.userId,
+            toolInvocationId: input.invocationId,
             pricingRuleSnapshotId,
             experienceVersionId: versionRef.versionId,
           });
         } else {
           await this.creditReservation.releaseReservation({
-            reservationId,
+            userId: input.userId,
+            toolInvocationId: input.invocationId,
             pricingRuleSnapshotId,
           });
         }
@@ -144,9 +146,10 @@ export class GenerateExperienceToolService {
         route,
       };
     } catch (error) {
-      if (reservationId && pricingRuleSnapshotId) {
+      if (reservedCredits && pricingRuleSnapshotId) {
         await this.creditReservation.releaseReservation({
-          reservationId,
+          userId: input.userId,
+          toolInvocationId: input.invocationId,
           pricingRuleSnapshotId,
         });
       }

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createAuthenticatedApiClient } from '@/lib/api/authenticated-api-client';
+import type { BillingMeResponse } from '@/lib/api/billing-me';
 import { writeHomePromptHandoff } from '@/lib/chat/prompt-handoff';
 import type { GenerationMode } from '@/lib/chat/generation-mode';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -133,6 +134,8 @@ function HomeWorkspace(input: {
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
   const [generationMode, setGenerationMode] = useState<GenerationMode>('auto');
+  const [billingSummary, setBillingSummary] = useState<BillingMeResponse['data'] | null>(null);
+  const [billingLoadState, setBillingLoadState] = useState<'idle' | 'loading' | 'error'>('idle');
 
   useEffect(() => {
     let cancelled = false;
@@ -161,6 +164,34 @@ function HomeWorkspace(input: {
     }
 
     void loadThreads();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [input.accessToken]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadBilling() {
+      setBillingLoadState('loading');
+      try {
+        const response = await apiClientFor(input.accessToken).getJson<BillingMeResponse>(
+          '/api/billing/me',
+        );
+        if (!cancelled) {
+          setBillingSummary(response.data);
+          setBillingLoadState('idle');
+        }
+      } catch {
+        if (!cancelled) {
+          setBillingSummary(null);
+          setBillingLoadState('error');
+        }
+      }
+    }
+
+    void loadBilling();
 
     return () => {
       cancelled = true;
@@ -253,6 +284,31 @@ function HomeWorkspace(input: {
           <h1 className="display-script home-hero-heading">What will you create today?</h1>
         </div>
       </header>
+
+      {billingLoadState === 'error' ? (
+        <p className="home-billing-muted" role="status">
+          Billing summary unavailable.
+        </p>
+      ) : null}
+
+      {billingSummary?.billingEnabled && billingLoadState !== 'error' ? (
+        <section className="home-billing-strip" aria-label="Credits and plan">
+          <p className="home-billing-strip-text">
+            <span className="home-billing-plan">{billingSummary.plan === 'paid' ? 'Paid' : 'Free'} plan</span>
+            <span className="home-billing-sep" aria-hidden="true">
+              ·
+            </span>
+            <span>{billingSummary.includedCreditsAvailable ?? 0} included credits left</span>
+            <span className="home-billing-sep" aria-hidden="true">
+              ·
+            </span>
+            <span>
+              Fast {billingSummary.costs.fastCredits ?? '—'} · Quality {billingSummary.costs.qualityCredits ?? '—'}{' '}
+              credits
+            </span>
+          </p>
+        </section>
+      ) : null}
 
       <form className="home-create-form" onSubmit={handleCreate}>
         <div className="home-create-row">

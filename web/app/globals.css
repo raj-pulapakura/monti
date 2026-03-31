@@ -155,6 +155,37 @@ button:disabled {
   padding-top: 0.22rem;
 }
 
+.home-billing-strip {
+  margin-top: 0.35rem;
+  margin-bottom: 0.15rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius-md, 10px);
+  background: var(--brand-soft);
+  border: 1px solid #ebc5ac;
+}
+
+.home-billing-strip-text {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.35;
+  color: var(--content-strong);
+}
+
+.home-billing-plan {
+  font-weight: 600;
+}
+
+.home-billing-sep {
+  margin-inline: 0.35rem;
+  color: var(--content-muted);
+}
+
+.home-billing-muted {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: var(--content-muted);
+}
+
 .kicker,
 .landing-kicker {
   width: fit-content;

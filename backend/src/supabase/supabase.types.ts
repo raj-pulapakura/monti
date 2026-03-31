@@ -685,6 +685,16 @@ export interface Database {
           deduplicated: boolean;
         }[];
       };
+      billing_ensure_free_monthly_grant_with_ledger: {
+        Args: {
+          p_user_id: string;
+          p_pricing_rule_snapshot_id: string;
+          p_amount: number;
+          p_cycle_start: string;
+          p_cycle_end: string;
+        };
+        Returns: string;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

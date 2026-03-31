@@ -695,6 +695,31 @@ export interface Database {
         };
         Returns: string;
       };
+      billing_reserve_generation_credits: {
+        Args: {
+          p_user_id: string;
+          p_tool_invocation_id: string;
+          p_credits: number;
+          p_pricing_rule_snapshot_id: string;
+          p_now?: string;
+        };
+        Returns: string;
+      };
+      billing_release_generation_reservation: {
+        Args: {
+          p_reservation_id: string;
+          p_pricing_rule_snapshot_id: string;
+        };
+        Returns: undefined;
+      };
+      billing_settle_generation_reservation: {
+        Args: {
+          p_reservation_id: string;
+          p_pricing_rule_snapshot_id: string;
+          p_experience_version_id: string | null;
+        };
+        Returns: undefined;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

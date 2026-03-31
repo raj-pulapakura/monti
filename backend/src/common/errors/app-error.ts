@@ -1,6 +1,7 @@
 export type ApiErrorCode =
   | 'VALIDATION_ERROR'
   | 'AUTHENTICATION_ERROR'
+  | 'INSUFFICIENT_CREDITS'
   | 'PROVIDER_TIMEOUT'
   | 'PROVIDER_REFUSAL'
   | 'PROVIDER_UNAVAILABLE'
@@ -32,6 +33,13 @@ export class AuthenticationError extends AppError {
   constructor(message: string, details?: unknown) {
     super('AUTHENTICATION_ERROR', message, 401, details);
     this.name = 'AuthenticationError';
+  }
+}
+
+export class InsufficientCreditsError extends AppError {
+  constructor(message = 'Not enough credits for this generation.', details?: unknown) {
+    super('INSUFFICIENT_CREDITS', message, 402, details);
+    this.name = 'InsufficientCreditsError';
   }
 }
 

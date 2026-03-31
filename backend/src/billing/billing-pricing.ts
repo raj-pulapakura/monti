@@ -33,3 +33,7 @@ export function resolvePricingFromSnapshot(
     qualityCredits: readPositiveInt(j.qualityCredits, catalog.qualityCredits),
   };
 }
+
+export function creditsForQualityTier(pricing: ResolvedPricingCosts, tier: 'fast' | 'quality'): number {
+  return tier === 'fast' ? pricing.fastCredits : pricing.qualityCredits;
+}

@@ -1,5 +1,14 @@
-import { AppError } from '../../common/errors/app-error';
+import { AppError, InsufficientCreditsError } from '../../common/errors/app-error';
 import { GenerateExperienceToolService } from './generate-experience-tool.service';
+
+function mockCreditReservation() {
+  return {
+    shouldEnforceReservation: jest.fn().mockReturnValue(false),
+    reserveForToolInvocation: jest.fn(),
+    releaseReservation: jest.fn(),
+    settleReservation: jest.fn(),
+  };
+}
 
 describe('GenerateExperienceToolService', () => {
   it('passes structured routing inputs and normalizes provider refusals', async () => {
@@ -64,6 +73,7 @@ describe('GenerateExperienceToolService', () => {
       llmConfig as never,
       orchestrator as never,
       repository as never,
+      mockCreditReservation() as never,
     );
 
     const result = await service.execute({
@@ -149,6 +159,7 @@ describe('GenerateExperienceToolService', () => {
       llmConfig as never,
       orchestrator as never,
       repository as never,
+      mockCreditReservation() as never,
     );
 
     const result = await service.execute({
@@ -193,5 +204,166 @@ describe('GenerateExperienceToolService', () => {
         selectedModel: 'gemini-3.1-pro-preview',
       }),
     );
+  });
+
+  it('returns insufficient credits when enforcement reserves fail', async () => {
+    const decisionRouter = { decideRoute: jest.fn() };
+    const llmConfig = {
+      resolveExecutionRoute: jest.fn((input: { tier: 'fast' | 'quality' }) => ({
+        qualityMode: input.tier,
+        provider: 'openai' as const,
+        model: 'gpt-5-mini',
+      })),
+    };
+    const orchestrator = { generate: jest.fn(), refine: jest.fn() };
+    const repository = {
+      recordRunRoutingDecision: jest.fn(async () => undefined),
+      recordToolInvocationRouterTelemetry: jest.fn(async () => undefined),
+      findExperienceVersionByGenerationId: jest.fn(async () => null),
+      updateSandboxState: jest.fn(async () => undefined),
+    };
+    const credits = {
+      shouldEnforceReservation: jest.fn().mockReturnValue(true),
+      reserveForToolInvocation: jest.fn(async () => {
+        throw new InsufficientCreditsError();
+      }),
+      releaseReservation: jest.fn(),
+      settleReservation: jest.fn(),
+    };
+
+    const service = new GenerateExperienceToolService(
+      decisionRouter as never,
+      llmConfig as never,
+      orchestrator as never,
+      repository as never,
+      credits as never,
+    );
+
+    const result = await service.execute({
+      invocationId: 'tool-insuf',
+      runId: 'run-insuf',
+      threadId: 'thread-insuf',
+      userId: 'user-insuf',
+      requestedQualityMode: 'fast',
+      arguments: { operation: 'generate', prompt: 'x' },
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.errorCode).toBe('INSUFFICIENT_CREDITS');
+    expect(orchestrator.generate).not.toHaveBeenCalled();
+    expect(credits.releaseReservation).not.toHaveBeenCalled();
+  });
+
+  it('settles reservation on success when enforcement is on', async () => {
+    const decisionRouter = { decideRoute: jest.fn() };
+    const llmConfig = {
+      resolveExecutionRoute: jest.fn(() => ({
+        qualityMode: 'fast' as const,
+        provider: 'openai' as const,
+        model: 'gpt-5-mini',
+      })),
+    };
+    const orchestrator = {
+      generate: jest.fn(async () => ({ metadata: { generationId: 'gen-s' } })),
+      refine: jest.fn(),
+    };
+    const repository = {
+      recordRunRoutingDecision: jest.fn(async () => undefined),
+      recordToolInvocationRouterTelemetry: jest.fn(async () => undefined),
+      findExperienceVersionByGenerationId: jest.fn(async () => ({
+        experienceId: 'exp-1',
+        versionId: 'ver-1',
+      })),
+      updateSandboxState: jest.fn(async () => undefined),
+    };
+    const credits = {
+      shouldEnforceReservation: jest.fn().mockReturnValue(true),
+      reserveForToolInvocation: jest.fn(async () => ({
+        reservationId: 'res-1',
+        pricingRuleSnapshotId: 'snap-1',
+      })),
+      releaseReservation: jest.fn(),
+      settleReservation: jest.fn(),
+    };
+
+    const service = new GenerateExperienceToolService(
+      decisionRouter as never,
+      llmConfig as never,
+      orchestrator as never,
+      repository as never,
+      credits as never,
+    );
+
+    await service.execute({
+      invocationId: 'tool-settle',
+      runId: 'run-settle',
+      threadId: 'thread-settle',
+      userId: 'user-settle',
+      requestedQualityMode: 'fast',
+      arguments: { operation: 'generate', prompt: 'y' },
+    });
+
+    expect(credits.settleReservation).toHaveBeenCalledWith({
+      reservationId: 'res-1',
+      pricingRuleSnapshotId: 'snap-1',
+      experienceVersionId: 'ver-1',
+    });
+    expect(credits.releaseReservation).not.toHaveBeenCalled();
+  });
+
+  it('releases reservation when orchestrator fails under enforcement', async () => {
+    const decisionRouter = { decideRoute: jest.fn() };
+    const llmConfig = {
+      resolveExecutionRoute: jest.fn(() => ({
+        qualityMode: 'fast' as const,
+        provider: 'openai' as const,
+        model: 'gpt-5-mini',
+      })),
+    };
+    const orchestrator = {
+      generate: jest.fn(async () => {
+        throw new AppError('PROVIDER_RESPONSE_INVALID', 'bad', 502);
+      }),
+      refine: jest.fn(),
+    };
+    const repository = {
+      recordRunRoutingDecision: jest.fn(async () => undefined),
+      recordToolInvocationRouterTelemetry: jest.fn(async () => undefined),
+      findExperienceVersionByGenerationId: jest.fn(async () => null),
+      updateSandboxState: jest.fn(async () => undefined),
+    };
+    const credits = {
+      shouldEnforceReservation: jest.fn().mockReturnValue(true),
+      reserveForToolInvocation: jest.fn(async () => ({
+        reservationId: 'res-2',
+        pricingRuleSnapshotId: 'snap-2',
+      })),
+      releaseReservation: jest.fn(),
+      settleReservation: jest.fn(),
+    };
+
+    const service = new GenerateExperienceToolService(
+      decisionRouter as never,
+      llmConfig as never,
+      orchestrator as never,
+      repository as never,
+      credits as never,
+    );
+
+    const result = await service.execute({
+      invocationId: 'tool-rel',
+      runId: 'run-rel',
+      threadId: 'thread-rel',
+      userId: 'user-rel',
+      requestedQualityMode: 'fast',
+      arguments: { operation: 'generate', prompt: 'z' },
+    });
+
+    expect(result.status).toBe('failed');
+    expect(credits.releaseReservation).toHaveBeenCalledWith({
+      reservationId: 'res-2',
+      pricingRuleSnapshotId: 'snap-2',
+    });
+    expect(credits.settleReservation).not.toHaveBeenCalled();
   });
 });

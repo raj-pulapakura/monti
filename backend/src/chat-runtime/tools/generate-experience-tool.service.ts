@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { AppError } from '../../common/errors/app-error';
+import { AppError, InsufficientCreditsError } from '../../common/errors/app-error';
+import { CreditReservationService } from '../../billing/credit-reservation.service';
 import { ExperienceOrchestratorService } from '../../experience/services/experience-orchestrator.service';
 import { LlmDecisionRouterService } from '../../llm/llm-decision-router.service';
 import { LlmConfigService } from '../../llm/llm-config.service';
@@ -19,6 +20,7 @@ export class GenerateExperienceToolService {
     private readonly llmConfig: LlmConfigService,
     private readonly orchestrator: ExperienceOrchestratorService,
     private readonly repository: ChatRuntimeRepository,
+    private readonly creditReservation: CreditReservationService,
   ) {}
 
   async execute(input: {
@@ -47,6 +49,41 @@ export class GenerateExperienceToolService {
       input.arguments.conversationContext,
     );
 
+    let reservationId: string | null = null;
+    let pricingRuleSnapshotId: string | null = null;
+
+    if (this.creditReservation.shouldEnforceReservation()) {
+      try {
+        const reserved = await this.creditReservation.reserveForToolInvocation({
+          userId: input.userId,
+          toolInvocationId: input.invocationId,
+          qualityTier: route.tier,
+        });
+        reservationId = reserved.reservationId;
+        pricingRuleSnapshotId = reserved.pricingRuleSnapshotId;
+      } catch (error) {
+        if (error instanceof InsufficientCreditsError) {
+          await this.repository.updateSandboxState({
+            threadId: input.threadId,
+            status: 'error',
+            lastErrorCode: error.code,
+            lastErrorMessage: error.message,
+          });
+          return {
+            status: 'failed',
+            generationId: null,
+            experienceId: null,
+            experienceVersionId: null,
+            errorCode: error.code,
+            errorMessage: error.message,
+            sandboxStatus: 'error',
+            route,
+          };
+        }
+        throw error;
+      }
+    }
+
     try {
       const payload =
         input.arguments.operation === 'generate'
@@ -72,6 +109,21 @@ export class GenerateExperienceToolService {
         payload.metadata.generationId,
       );
 
+      if (reservationId && pricingRuleSnapshotId) {
+        if (versionRef?.versionId) {
+          await this.creditReservation.settleReservation({
+            reservationId,
+            pricingRuleSnapshotId,
+            experienceVersionId: versionRef.versionId,
+          });
+        } else {
+          await this.creditReservation.releaseReservation({
+            reservationId,
+            pricingRuleSnapshotId,
+          });
+        }
+      }
+
       await this.repository.updateSandboxState({
         threadId: input.threadId,
         status: 'ready',
@@ -92,6 +144,13 @@ export class GenerateExperienceToolService {
         route,
       };
     } catch (error) {
+      if (reservationId && pricingRuleSnapshotId) {
+        await this.creditReservation.releaseReservation({
+          reservationId,
+          pricingRuleSnapshotId,
+        });
+      }
+
       const errorCode = toErrorCode(error);
       const errorMessage = toErrorMessage(error);
 

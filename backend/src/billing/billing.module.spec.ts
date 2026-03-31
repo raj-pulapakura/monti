@@ -6,6 +6,7 @@ import type { MontiSupabaseClient } from '../supabase/supabase.types';
 import { SupabaseModule } from '../supabase/supabase.module';
 import { BillingModule } from './billing.module';
 import { BillingRepository } from './billing.repository';
+import { CreditReservationService } from './credit-reservation.service';
 
 function mockClient(): MontiSupabaseClient {
   const rowChain: Record<string, unknown> = {
@@ -61,5 +62,6 @@ describe('BillingModule', () => {
       .compile();
 
     expect(moduleRef.get(BillingRepository)).toBeDefined();
+    expect(moduleRef.get(CreditReservationService)).toBeDefined();
   });
 });

@@ -470,6 +470,160 @@ button:disabled {
   font-size: 1.02rem;
 }
 
+.landing-pricing {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-1);
+  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-paper));
+  padding: clamp(1rem, 3vw, 1.4rem);
+  display: grid;
+  gap: 1rem;
+}
+
+.landing-pricing-header {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.landing-pricing-header h2 {
+  color: var(--content-strong);
+  font-size: clamp(1.25rem, 3vw, 1.7rem);
+}
+
+.landing-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.landing-plan-card,
+.pricing-plan {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, var(--surface-elevated), #f8efdf);
+  padding: 0.95rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.landing-plan-card h3,
+.pricing-plan h2 {
+  color: var(--content-strong);
+  font-size: 1.06rem;
+}
+
+.landing-plan-card ul,
+.pricing-plan ul {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.38rem;
+  color: var(--content-muted);
+}
+
+.landing-plan-price,
+.pricing-plan-price {
+  color: #7f4023;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.landing-plan-card.is-featured,
+.pricing-plan.is-featured {
+  border-color: rgba(167, 70, 33, 0.42);
+  background: linear-gradient(160deg, #fff3e5, #f8e0cb);
+}
+
+.landing-pricing-link {
+  width: fit-content;
+  color: #8d4b2f;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.pricing-shell {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.pricing-hero {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-1);
+  background:
+    radial-gradient(circle at 88% 20%, rgba(217, 106, 57, 0.18), transparent 40%),
+    linear-gradient(170deg, var(--surface-elevated), var(--surface-muted));
+  padding: clamp(1.2rem, 5vw, 2rem);
+  display: grid;
+  gap: 0.7rem;
+}
+
+.pricing-hero h1 {
+  color: var(--content-strong);
+  font-size: clamp(1.5rem, 4vw, 2.3rem);
+}
+
+.pricing-hero p {
+  color: var(--content-muted);
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.pricing-cta-skeleton {
+  display: inline-block;
+  width: 11rem;
+  height: 2.45rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-soft);
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 250, 242, 0.9) 0%,
+      rgba(247, 232, 215, 0.9) 40%,
+      rgba(255, 250, 242, 0.9) 100%
+    );
+  background-size: 220% 100%;
+  animation: shimmer 1.7s linear infinite;
+}
+
+.pricing-explainer {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-elevated);
+  padding: 0.95rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.pricing-explainer h2 {
+  color: var(--content-strong);
+  font-size: 1.06rem;
+}
+
+.pricing-explainer ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--content-muted);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.checkout-shell {
+  padding: 1.25rem;
+}
+
+.checkout-card {
+  width: min(540px, 100%);
+  justify-items: start;
+}
+
 .auth-shell {
   min-height: 100svh;
   display: grid;
@@ -1476,6 +1630,11 @@ button:disabled {
   }
 
   .landing-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-pricing-grid,
+  .pricing-grid {
     grid-template-columns: 1fr;
   }
 

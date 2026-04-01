@@ -1,17 +1,38 @@
 'use client';
 
-import { FormEvent, useRef, useState } from 'react';
+import { FormEvent, Suspense, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { Provider } from '@supabase/supabase-js';
 import {
   signInWithOAuthProvider,
   signUpWithEmailPassword,
 } from '@/lib/auth/auth-flow';
+import { resolveSafeNextPath } from '@/lib/auth/next-path';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export default function SignUpPage() {
+  return (
+    <Suspense fallback={<SignUpFallback />}>
+      <SignUpForm />
+    </Suspense>
+  );
+}
+
+function SignUpFallback() {
+  return (
+    <main className="auth-shell">
+      <section className="auth-card">
+        <h1>Create your account</h1>
+        <p className="auth-copy">Preparing your sign-up options...</p>
+      </section>
+    </main>
+  );
+}
+
+function SignUpForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabaseRef = useRef<ReturnType<typeof createSupabaseBrowserClient> | null>(
     null,
   );
@@ -21,6 +42,7 @@ export default function SignUpPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const nextPath = resolveSafeNextPath(searchParams.get('next'));
 
   function getSupabaseClient() {
     if (supabaseRef.current) {
@@ -73,6 +95,7 @@ export default function SignUpPage() {
       email,
       password,
       origin,
+      nextPath,
     });
 
     if (error) {
@@ -82,7 +105,7 @@ export default function SignUpPage() {
     }
 
     if (data.session) {
-      router.replace('/');
+      router.replace(nextPath);
       return;
     }
 
@@ -109,7 +132,7 @@ export default function SignUpPage() {
     const { error } = await signInWithOAuthProvider(supabase.auth, {
       provider,
       origin,
-      nextPath: '/',
+      nextPath,
     });
 
     if (error) {

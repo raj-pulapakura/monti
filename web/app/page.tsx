@@ -455,6 +455,43 @@ function MarketingLanding(input: {
         </article>
       </section>
 
+      <section className="landing-pricing" aria-labelledby="landing-pricing-title">
+        <div className="landing-pricing-header">
+          <p className="landing-kicker">Pricing</p>
+          <h2 id="landing-pricing-title">Simple credits that scale with your classroom.</h2>
+        </div>
+        <div className="landing-pricing-grid">
+          <article className="landing-plan-card">
+            <h3>Free</h3>
+            <p className="landing-plan-price">$0/month</p>
+            <ul>
+              <li>15 credits each month</li>
+              <li>Fast generation: 1 credit</li>
+              <li>Quality generation: 5 credits</li>
+            </ul>
+            <Link href="/auth/sign-up" className="landing-secondary">
+              Get started free
+            </Link>
+          </article>
+          <article className="landing-plan-card is-featured">
+            <h3>Paid</h3>
+            <p className="landing-plan-price">$10/month</p>
+            <ul>
+              <li>150 credits each month</li>
+              <li>Fast generation: 1 credit</li>
+              <li>Quality generation: 5 credits</li>
+              <li>Top-up: 50 credits for $4</li>
+            </ul>
+            <Link href="/auth/sign-up?next=/checkout/start" className="landing-primary">
+              Choose paid plan
+            </Link>
+          </article>
+        </div>
+        <Link href="/pricing" className="landing-pricing-link">
+          See full pricing →
+        </Link>
+      </section>
+
       {input.authError ? <p className="error-banner">{input.authError}</p> : null}
     </main>
   );

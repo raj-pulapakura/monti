@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronDown, Home, LogOut, UserRound } from 'lucide-react';
+import { ChevronDown, CreditCard, Home, LogOut, UserRound } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 export function FloatingProfileControls(input: {
@@ -63,6 +63,15 @@ export function FloatingProfileControls(input: {
 
           {menuOpen ? (
             <div className="profile-menu" role="menu" aria-label="Profile options">
+              <Link
+                href="/pricing"
+                role="menuitem"
+                className="profile-menu-item"
+                onClick={() => setMenuOpen(false)}
+              >
+                <CreditCard size={16} strokeWidth={2.2} />
+                <span>Billing &amp; plan</span>
+              </Link>
               <button
                 type="button"
                 role="menuitem"

@@ -49,6 +49,7 @@ describe('auth flow e2e coverage', () => {
       email: '  new-user@example.test  ',
       password: 'password-456',
       origin: LOCAL_SITE_URL,
+      nextPath: '/',
     });
 
     expect(auth.signInWithPassword).toHaveBeenCalledWith({

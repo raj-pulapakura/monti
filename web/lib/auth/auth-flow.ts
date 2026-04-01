@@ -13,11 +13,14 @@ export function buildOAuthRedirectUrl(input: {
   origin: string;
   nextPath: string;
 }): string {
-  return `${input.origin}${AUTH_CALLBACK_PATH}?next=${encodeURIComponent(input.nextPath)}`;
+  return `${resolveAuthRedirectOrigin(input.origin)}${AUTH_CALLBACK_PATH}?next=${encodeURIComponent(input.nextPath)}`;
 }
 
-export function buildSignUpEmailRedirectUrl(origin: string): string {
-  return `${origin}${AUTH_CALLBACK_PATH}?next=${encodeURIComponent('/')}`;
+export function buildSignUpEmailRedirectUrl(input: {
+  origin: string;
+  nextPath: string;
+}): string {
+  return `${resolveAuthRedirectOrigin(input.origin)}${AUTH_CALLBACK_PATH}?next=${encodeURIComponent(input.nextPath)}`;
 }
 
 export function buildPasswordRecoveryRedirectUrl(origin: string): string {
@@ -62,15 +65,28 @@ export async function signUpWithEmailPassword(
     email: string;
     password: string;
     origin: string;
+    nextPath: string;
   },
 ) {
   return auth.signUp({
     email: input.email.trim(),
     password: input.password,
     options: {
-      emailRedirectTo: buildSignUpEmailRedirectUrl(input.origin),
+      emailRedirectTo: buildSignUpEmailRedirectUrl({
+        origin: input.origin,
+        nextPath: input.nextPath,
+      }),
     },
   });
+}
+
+function resolveAuthRedirectOrigin(origin: string): string {
+  // In local dev we force localhost callback URLs to avoid OAuth falling back to staged Site URL.
+  if (process.env.NODE_ENV === 'development') {
+    return LOCAL_SITE_URL;
+  }
+
+  return origin;
 }
 
 export async function sendPasswordRecoveryEmail(

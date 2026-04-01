@@ -774,6 +774,10 @@ Exit criteria:
 
 Suggested change name: `build-public-pricing-funnel`
 
+Status:
+
+- archived on 2026-04-01
+
 Goal:
 
 - give non-authenticated users a clear pricing story and a usable path into paid conversion.

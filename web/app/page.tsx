@@ -299,6 +299,15 @@ function HomeWorkspace(input: {
               ·
             </span>
             <span>{billingSummary.includedCreditsAvailable ?? 0} included credits left</span>
+            {typeof billingSummary.topupCreditsAvailable === 'number' &&
+            billingSummary.topupCreditsAvailable > 0 ? (
+              <>
+                <span className="home-billing-sep" aria-hidden="true">
+                  ·
+                </span>
+                <span>{billingSummary.topupCreditsAvailable} top-up credits available</span>
+              </>
+            ) : null}
             <span className="home-billing-sep" aria-hidden="true">
               ·
             </span>

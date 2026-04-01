@@ -825,6 +825,10 @@ Exit criteria:
 
 Suggested change name: `build-billing-workspace`
 
+Status:
+
+- archived on 2026-04-01
+
 Goal:
 
 - make billing visible and manageable inside the authenticated product.

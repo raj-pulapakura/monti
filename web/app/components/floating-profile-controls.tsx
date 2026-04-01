@@ -64,7 +64,7 @@ export function FloatingProfileControls(input: {
           {menuOpen ? (
             <div className="profile-menu" role="menu" aria-label="Profile options">
               <Link
-                href="/pricing"
+                href="/billing"
                 role="menuitem"
                 className="profile-menu-item"
                 onClick={() => setMenuOpen(false)}

@@ -1239,6 +1239,37 @@ button:disabled {
   opacity: 0.72;
 }
 
+.composer-credit-cost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.2rem;
+  padding: 0.38rem 0.58rem;
+  border-radius: 999px;
+  border: 1px solid rgba(167, 70, 33, 0.22);
+  background: #fff5ea;
+  color: #7f4023;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.inline-link-button {
+  border: none;
+  background: transparent;
+  color: #8d4b2f;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.inline-link-button:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
 .composer-spinner {
   animation: spin 0.8s linear infinite;
 }

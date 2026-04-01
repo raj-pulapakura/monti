@@ -8,6 +8,7 @@ import {
   API_BASE_URL,
   createAuthenticatedApiClient,
 } from '@/lib/api/authenticated-api-client';
+import type { BillingMeResponse } from '@/lib/api/billing-me';
 import { consumeHomePromptHandoff } from '@/lib/chat/prompt-handoff';
 import { GenerationModeDropdown } from '@/app/components/generation-mode-segmented-control';
 import type { GenerationMode } from '@/lib/chat/generation-mode';
@@ -91,6 +92,13 @@ type SandboxPreviewResponse = {
 };
 
 type StreamConnectionState = 'idle' | 'connecting' | 'open' | 'reconnecting';
+type RedirectResponse = {
+  ok: true;
+  data: {
+    url?: string;
+    checkoutUrl?: string;
+  };
+};
 
 type ConversationTimelineItem =
   | {
@@ -130,6 +138,9 @@ export default function ChatThreadPage() {
   const previewStageRef = useRef<HTMLDivElement | null>(null);
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
   const [fullscreenErrorMessage, setFullscreenErrorMessage] = useState<string | null>(null);
+  const [billingData, setBillingData] = useState<BillingMeResponse['data'] | null>(null);
+  const [billingLoaded, setBillingLoaded] = useState(false);
+  const [billingActionPending, setBillingActionPending] = useState(false);
 
   function getSupabaseClient() {
     if (supabaseRef.current) {
@@ -161,6 +172,9 @@ export default function ChatThreadPage() {
     setErrorMessage(null);
     setIsPreviewFullscreen(false);
     setFullscreenErrorMessage(null);
+    setBillingData(null);
+    setBillingLoaded(false);
+    setBillingActionPending(false);
     handoffAttemptedThreadRef.current = null;
   }, [routeThreadId]);
 
@@ -203,6 +217,37 @@ export default function ChatThreadPage() {
       setErrorMessage(toErrorMessage(error));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hydration is keyed to the resolved token/thread tuple.
+  }, [accessToken, routeThreadId, threadIdIsValid]);
+
+  useEffect(() => {
+    if (!accessToken || !threadIdIsValid) {
+      return;
+    }
+
+    let cancelled = false;
+    setBillingLoaded(false);
+
+    void apiClientFor(accessToken)
+      .getJson<BillingMeResponse>('/api/billing/me')
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+        setBillingData(response.data);
+        setBillingLoaded(true);
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        // Billing failures on chat are intentionally non-blocking.
+        setBillingData(null);
+        setBillingLoaded(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [accessToken, routeThreadId, threadIdIsValid]);
 
   useEffect(() => {
@@ -290,6 +335,22 @@ export default function ChatThreadPage() {
   const fullscreenSupported = isPreviewFullscreenSupported(
     typeof document === 'undefined' ? null : document,
   );
+  const totalAvailableCredits =
+    billingData === null
+      ? null
+      : (billingData.includedCreditsAvailable ?? 0) + (billingData.topupCreditsAvailable ?? 0);
+  const costForMode =
+    generationMode === 'fast'
+      ? billingData?.costs.fastCredits ?? null
+      : generationMode === 'quality'
+        ? billingData?.costs.qualityCredits ?? null
+        : null;
+  const softGateActive =
+    billingLoaded &&
+    Boolean(billingData?.billingEnabled) &&
+    typeof totalAvailableCredits === 'number' &&
+    typeof costForMode === 'number' &&
+    totalAvailableCredits < costForMode;
 
   useEffect(() => {
     if (typeof document === 'undefined') {
@@ -673,6 +734,28 @@ export default function ChatThreadPage() {
     }
   }
 
+  async function handleBuyTopup() {
+    if (!accessToken || billingActionPending) {
+      return;
+    }
+    setBillingActionPending(true);
+    setErrorMessage(null);
+    try {
+      const response = await apiClientFor(accessToken).postJson<RedirectResponse>(
+        '/api/billing/checkout/topup',
+        {},
+      );
+      const destination = response.data.checkoutUrl ?? response.data.url;
+      if (!destination) {
+        throw new Error('No checkout URL returned by the server.');
+      }
+      window.location.href = destination;
+    } catch (error) {
+      setBillingActionPending(false);
+      setErrorMessage(toErrorMessage(error));
+    }
+  }
+
   return (
     <div className="page-shell thread-page-shell">
       <FloatingProfileControls onSignOut={() => void handleSignOut()} homeHref="/" />
@@ -763,6 +846,11 @@ export default function ChatThreadPage() {
                 disabled={submitPending || !thread?.id || !threadIdIsValid}
               />
               <div className="composer-actions">
+                {billingData?.billingEnabled && typeof costForMode === 'number' ? (
+                  <span className="composer-credit-cost" aria-live="polite">
+                    {costForMode} cr
+                  </span>
+                ) : null}
                 <GenerationModeDropdown
                   value={generationMode}
                   onChange={setGenerationMode}
@@ -775,6 +863,7 @@ export default function ChatThreadPage() {
                     !accessToken ||
                     submitPending ||
                     generationInFlight ||
+                    softGateActive ||
                     composerText.trim().length === 0 ||
                     !thread?.id ||
                     !threadIdIsValid
@@ -796,6 +885,30 @@ export default function ChatThreadPage() {
               </div>
             </div>
           </form>
+
+          {softGateActive ? (
+            <p className="stream-notice" role="status" aria-live="polite">
+              {billingData?.plan === 'paid' ? (
+                <>
+                  You do not have enough credits for this mode.
+                  <button
+                    type="button"
+                    className="inline-link-button"
+                    onClick={() => void handleBuyTopup()}
+                    disabled={billingActionPending}
+                  >
+                    {billingActionPending ? ' Opening checkout...' : ' Buy top-up'}
+                  </button>
+                  .
+                </>
+              ) : (
+                <>
+                  You do not have enough credits for this mode.{' '}
+                  <a href="/billing">Upgrade in billing</a>.
+                </>
+              )}
+            </p>
+          ) : null}
 
           {getRetryComposerValue(runtimeState.activeRun, runtimeState.messages) ? (
             <button

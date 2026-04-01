@@ -3,7 +3,7 @@ import { ApiExceptionFilter } from './common/filters/api-exception.filter';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const allowedOrigins = parseAllowedOrigins(process.env.CORS_ALLOWED_ORIGINS);
   app.enableCors({
     origin: allowedOrigins.length > 0 ? allowedOrigins : true,

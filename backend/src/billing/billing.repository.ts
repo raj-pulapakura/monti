@@ -8,6 +8,14 @@ type BillingCustomerInsert = Database['public']['Tables']['billing_customers']['
 type PricingRuleSnapshotRow = Database['public']['Tables']['pricing_rule_snapshots']['Row'];
 type CreditGrantRow = Database['public']['Tables']['credit_grants']['Row'];
 type BillingSubscriptionRow = Database['public']['Tables']['billing_subscriptions']['Row'];
+type BillingCheckoutSessionInsert = Database['public']['Tables']['billing_checkout_sessions']['Insert'];
+type BillingWebhookEventInsert = Database['public']['Tables']['billing_webhook_events']['Insert'];
+type CreditGrantInsert = Database['public']['Tables']['credit_grants']['Insert'];
+type CreditLedgerInsert = Database['public']['Tables']['credit_ledger_entries']['Insert'];
+
+function isUniqueViolation(error: { code?: string | null }): boolean {
+  return error.code === '23505';
+}
 
 @Injectable()
 export class BillingRepository {
@@ -87,6 +95,274 @@ export class BillingRepository {
     }
 
     return data ?? [];
+  }
+
+  async ensureBillingCustomerRow(userId: string): Promise<BillingCustomerRow> {
+    const existing = await this.findBillingCustomerByUserId(userId);
+    if (existing) {
+      return existing;
+    }
+
+    const { error } = await this.admin.from('billing_customers').insert({ user_id: userId });
+
+    if (error && !isUniqueViolation(error)) {
+      this.throwQueryError('insert billing customer row', error);
+    }
+
+    if (error && isUniqueViolation(error)) {
+      const retry = await this.findBillingCustomerByUserId(userId);
+      if (retry) {
+        return retry;
+      }
+    }
+
+    const created = await this.findBillingCustomerByUserId(userId);
+    if (!created) {
+      throw new AppError('INTERNAL_ERROR', 'Expected billing customer row after insert.', 500);
+    }
+    return created;
+  }
+
+  async updateBillingCustomerStripeId(userId: string, stripeCustomerId: string): Promise<void> {
+    const now = new Date().toISOString();
+    const { error } = await this.admin
+      .from('billing_customers')
+      .update({ stripe_customer_id: stripeCustomerId, updated_at: now })
+      .eq('user_id', userId);
+
+    if (error) {
+      this.throwQueryError('update billing customer stripe id', error);
+    }
+  }
+
+  async findUserIdByStripeCustomerId(stripeCustomerId: string): Promise<string | null> {
+    const { data, error } = await this.admin
+      .from('billing_customers')
+      .select('user_id')
+      .eq('stripe_customer_id', stripeCustomerId)
+      .maybeSingle();
+
+    if (error) {
+      this.throwQueryError('find user id by stripe customer id', error);
+    }
+
+    return data?.user_id ?? null;
+  }
+
+  async insertBillingCheckoutSession(input: BillingCheckoutSessionInsert): Promise<void> {
+    const { error } = await this.admin.from('billing_checkout_sessions').insert(input);
+    if (error) {
+      this.throwQueryError('insert billing checkout session', error);
+    }
+  }
+
+  /**
+   * Inserts a webhook row in `received` state. Returns false if `stripe_event_id` already exists (idempotent no-op).
+   */
+  async tryInsertWebhookEventReceived(input: {
+    stripeEventId: string;
+    eventType: string;
+    payload: Record<string, unknown> | null;
+  }): Promise<boolean> {
+    const row: BillingWebhookEventInsert = {
+      stripe_event_id: input.stripeEventId,
+      event_type: input.eventType,
+      payload: input.payload,
+      processing_status: 'received',
+    };
+
+    const { error } = await this.admin.from('billing_webhook_events').insert(row);
+
+    if (error && isUniqueViolation(error)) {
+      return false;
+    }
+
+    if (error) {
+      this.throwQueryError('insert billing webhook event', error);
+    }
+
+    return true;
+  }
+
+  async updateWebhookEventByStripeEventId(
+    stripeEventId: string,
+    patch: {
+      processing_status: 'received' | 'processing' | 'processed' | 'failed';
+      error_message?: string | null;
+      processed_at?: string | null;
+    },
+  ): Promise<void> {
+    const { error } = await this.admin
+      .from('billing_webhook_events')
+      .update(patch)
+      .eq('stripe_event_id', stripeEventId);
+
+    if (error) {
+      this.throwQueryError('update billing webhook event', error);
+    }
+  }
+
+  async upsertBillingSubscription(input: {
+    userId: string;
+    stripeSubscriptionId: string;
+    status: string;
+    currentPeriodStartIso: string | null;
+    currentPeriodEndIso: string | null;
+    cancelAtPeriodEnd: boolean;
+  }): Promise<void> {
+    const now = new Date().toISOString();
+    const row = {
+      user_id: input.userId,
+      stripe_subscription_id: input.stripeSubscriptionId,
+      status: input.status,
+      current_period_start: input.currentPeriodStartIso,
+      current_period_end: input.currentPeriodEndIso,
+      cancel_at_period_end: input.cancelAtPeriodEnd,
+      updated_at: now,
+    };
+
+    const { error } = await this.admin.from('billing_subscriptions').upsert(row, {
+      onConflict: 'stripe_subscription_id',
+    });
+
+    if (error) {
+      this.throwQueryError('upsert billing subscription', error);
+    }
+  }
+
+  async findCreditGrantByStripeInvoiceId(stripeInvoiceId: string): Promise<CreditGrantRow | null> {
+    const { data, error } = await this.admin
+      .from('credit_grants')
+      .select('*')
+      .eq('stripe_invoice_id', stripeInvoiceId)
+      .maybeSingle();
+
+    if (error) {
+      this.throwQueryError('find credit grant by stripe invoice id', error);
+    }
+
+    return data;
+  }
+
+  async findCreditGrantByStripeCheckoutSessionId(
+    stripeCheckoutSessionId: string,
+  ): Promise<CreditGrantRow | null> {
+    const { data, error } = await this.admin
+      .from('credit_grants')
+      .select('*')
+      .eq('stripe_checkout_session_id', stripeCheckoutSessionId)
+      .maybeSingle();
+
+    if (error) {
+      this.throwQueryError('find credit grant by stripe checkout session id', error);
+    }
+
+    return data;
+  }
+
+  async insertPaidRecurringGrantWithLedger(input: {
+    userId: string;
+    pricingRuleSnapshotId: string;
+    grantedCredits: number;
+    cycleStartIso: string | null;
+    cycleEndIso: string | null;
+    stripeInvoiceId: string | null;
+    stripeCheckoutSessionId: string | null;
+    stripeEventId: string;
+  }): Promise<void> {
+    const grantRow: CreditGrantInsert = {
+      user_id: input.userId,
+      pricing_rule_snapshot_id: input.pricingRuleSnapshotId,
+      source: 'paid_cycle',
+      bucket_kind: 'recurring_paid',
+      granted_credits: input.grantedCredits,
+      remaining_credits: input.grantedCredits,
+      reserved_credits: 0,
+      cycle_start: input.cycleStartIso,
+      cycle_end: input.cycleEndIso,
+      stripe_invoice_id: input.stripeInvoiceId,
+      stripe_checkout_session_id: input.stripeCheckoutSessionId,
+    };
+
+    const { data: grant, error: grantError } = await this.admin
+      .from('credit_grants')
+      .insert(grantRow)
+      .select('id')
+      .single();
+
+    if (grantError) {
+      this.throwQueryError('insert paid recurring credit grant', grantError);
+    }
+
+    if (!grant) {
+      throw new AppError('INTERNAL_ERROR', 'Inserted paid grant was not returned.', 500);
+    }
+
+    const ledgerRow: CreditLedgerInsert = {
+      user_id: input.userId,
+      entry_type: 'paid_monthly_grant',
+      credits_delta: input.grantedCredits,
+      pricing_rule_snapshot_id: input.pricingRuleSnapshotId,
+      credit_grant_id: grant.id,
+      stripe_event_id: input.stripeEventId,
+    };
+
+    const { error: ledgerError } = await this.admin.from('credit_ledger_entries').insert(ledgerRow);
+
+    if (ledgerError) {
+      this.throwQueryError('insert paid monthly grant ledger entry', ledgerError);
+    }
+  }
+
+  async insertTopupGrantWithLedger(input: {
+    userId: string;
+    pricingRuleSnapshotId: string;
+    grantedCredits: number;
+    stripeCheckoutSessionId: string;
+    stripeEventId: string;
+  }): Promise<void> {
+    const grantRow: CreditGrantInsert = {
+      user_id: input.userId,
+      pricing_rule_snapshot_id: input.pricingRuleSnapshotId,
+      source: 'topup',
+      bucket_kind: 'topup',
+      granted_credits: input.grantedCredits,
+      remaining_credits: input.grantedCredits,
+      reserved_credits: 0,
+      cycle_start: null,
+      cycle_end: null,
+      stripe_invoice_id: null,
+      stripe_checkout_session_id: input.stripeCheckoutSessionId,
+    };
+
+    const { data: grant, error: grantError } = await this.admin
+      .from('credit_grants')
+      .insert(grantRow)
+      .select('id')
+      .single();
+
+    if (grantError) {
+      this.throwQueryError('insert topup credit grant', grantError);
+    }
+
+    if (!grant) {
+      throw new AppError('INTERNAL_ERROR', 'Inserted topup grant was not returned.', 500);
+    }
+
+    const ledgerRow: CreditLedgerInsert = {
+      user_id: input.userId,
+      entry_type: 'topup_grant',
+      credits_delta: input.grantedCredits,
+      pricing_rule_snapshot_id: input.pricingRuleSnapshotId,
+      credit_grant_id: grant.id,
+      stripe_event_id: input.stripeEventId,
+    };
+
+    const { error: ledgerError } = await this.admin.from('credit_ledger_entries').insert(ledgerRow);
+
+    if (ledgerError) {
+      this.throwQueryError('insert topup grant ledger entry', ledgerError);
+    }
   }
 
   /**

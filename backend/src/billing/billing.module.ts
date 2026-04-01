@@ -7,16 +7,23 @@ import { BillingRepository } from './billing.repository';
 import { CreditLedgerService } from './credit-ledger.service';
 import { CreditReservationService } from './credit-reservation.service';
 import { EntitlementService } from './entitlement.service';
+import { StripeCheckoutService } from './stripe-checkout.service';
+import { StripeService } from './stripe.service';
+import { StripeWebhookController } from './stripe-webhook.controller';
+import { StripeWebhookService } from './stripe-webhook.service';
 
 @Module({
   imports: [AuthModule, SupabaseModule],
-  controllers: [BillingController],
+  controllers: [BillingController, StripeWebhookController],
   providers: [
     BillingConfigService,
     BillingRepository,
     CreditLedgerService,
     CreditReservationService,
     EntitlementService,
+    StripeService,
+    StripeCheckoutService,
+    StripeWebhookService,
   ],
   exports: [
     BillingConfigService,
@@ -24,6 +31,9 @@ import { EntitlementService } from './entitlement.service';
     CreditLedgerService,
     CreditReservationService,
     EntitlementService,
+    StripeService,
+    StripeCheckoutService,
+    StripeWebhookService,
   ],
 })
 export class BillingModule {}

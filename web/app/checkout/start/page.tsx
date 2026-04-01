@@ -39,6 +39,7 @@ export default function CheckoutStartPage() {
       router.replace('/auth/sign-in?next=/checkout/start');
       return;
     }
+    const supabaseClient = supabase;
 
     async function startCheckout() {
       if (startedRef.current) {
@@ -46,7 +47,7 @@ export default function CheckoutStartPage() {
       }
       startedRef.current = true;
 
-      const { data, error } = await supabase.auth.getSession();
+      const { data, error } = await supabaseClient.auth.getSession();
       if (error || !data.session?.access_token) {
         router.replace('/auth/sign-in?next=/checkout/start');
         return;

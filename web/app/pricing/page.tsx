@@ -44,10 +44,11 @@ export default function PricingPage() {
       setState('signed-out');
       return;
     }
+    const supabaseClient = supabase;
 
     async function resolveStateFromSession() {
       setState('loading');
-      const { data, error } = await supabase.auth.getSession();
+      const { data, error } = await supabaseClient.auth.getSession();
       if (cancelled) {
         return;
       }
@@ -81,7 +82,7 @@ export default function PricingPage() {
 
     void resolveStateFromSession();
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data } = supabaseClient.auth.onAuthStateChange((_event, session) => {
       const token = session?.access_token ?? null;
       setAccessToken(token);
       if (!token) {

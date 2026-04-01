@@ -46,10 +46,11 @@ export default function BillingPage() {
       router.replace('/auth/sign-in?next=/billing');
       return;
     }
+    const supabaseClient = supabase;
 
     async function resolveAuthAndBilling() {
       setViewState('auth-loading');
-      const { data, error } = await supabase.auth.getSession();
+      const { data, error } = await supabaseClient.auth.getSession();
       if (cancelled) {
         return;
       }
@@ -91,7 +92,7 @@ export default function BillingPage() {
 
     void resolveAuthAndBilling();
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data } = supabaseClient.auth.onAuthStateChange((_event, session) => {
       const token = session?.access_token ?? null;
       setAccessToken(token);
       if (!token) {

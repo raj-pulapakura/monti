@@ -11,7 +11,21 @@ type BillingSubscriptionRow = Database['public']['Tables']['billing_subscription
 type BillingCheckoutSessionInsert = Database['public']['Tables']['billing_checkout_sessions']['Insert'];
 type BillingWebhookEventInsert = Database['public']['Tables']['billing_webhook_events']['Insert'];
 type CreditGrantInsert = Database['public']['Tables']['credit_grants']['Insert'];
+type CreditGrantUpdate = Database['public']['Tables']['credit_grants']['Update'];
 type CreditLedgerInsert = Database['public']['Tables']['credit_ledger_entries']['Insert'];
+type CreditLedgerRow = Database['public']['Tables']['credit_ledger_entries']['Row'];
+type BillingWebhookEventRow = Database['public']['Tables']['billing_webhook_events']['Row'];
+type ExperienceVersionRow = Database['public']['Tables']['experience_versions']['Row'];
+
+export type ReconciliationSummaryRow = {
+  month: string;
+  quality_tier: 'fast' | 'quality' | 'unknown';
+  credits_debited: number;
+  request_tokens_in: number;
+  request_tokens_out: number;
+  total_tokens: number;
+  rows_included: number;
+};
 
 function isUniqueViolation(error: { code?: string | null }): boolean {
   return error.code === '23505';
@@ -70,6 +84,18 @@ export class BillingRepository {
     return data;
   }
 
+  async findPricingRuleSnapshotById(id: string): Promise<PricingRuleSnapshotRow | null> {
+    const { data, error } = await this.admin
+      .from('pricing_rule_snapshots')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) {
+      this.throwQueryError('find pricing rule snapshot by id', error);
+    }
+    return data;
+  }
+
   async listCreditGrantsByUserId(userId: string): Promise<CreditGrantRow[]> {
     const { data, error } = await this.admin
       .from('credit_grants')
@@ -82,6 +108,24 @@ export class BillingRepository {
     }
 
     return data ?? [];
+  }
+
+  async findMostSpendableGrantByUserId(userId: string): Promise<CreditGrantRow | null> {
+    const { data, error } = await this.admin
+      .from('credit_grants')
+      .select('*')
+      .eq('user_id', userId)
+      .gt('remaining_credits', 0)
+      .order('cycle_end', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      this.throwQueryError('find most spendable credit grant by user id', error);
+    }
+
+    return data;
   }
 
   async listBillingSubscriptionsByUserId(userId: string): Promise<BillingSubscriptionRow[]> {
@@ -199,6 +243,31 @@ export class BillingRepository {
 
     if (error) {
       this.throwQueryError('update billing webhook event', error);
+    }
+  }
+
+  async findWebhookEventById(id: string): Promise<BillingWebhookEventRow | null> {
+    const { data, error } = await this.admin
+      .from('billing_webhook_events')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      this.throwQueryError('find webhook event by id', error);
+    }
+
+    return data;
+  }
+
+  async resetWebhookEventStatus(id: string): Promise<void> {
+    const { error } = await this.admin
+      .from('billing_webhook_events')
+      .update({ processing_status: 'received', error_message: null, processed_at: null })
+      .eq('id', id);
+
+    if (error) {
+      this.throwQueryError('reset webhook event status', error);
     }
   }
 
@@ -365,6 +434,126 @@ export class BillingRepository {
     }
   }
 
+  async insertManualGrantWithLedger(input: {
+    userId: string;
+    pricingRuleSnapshotId: string;
+    credits: number;
+    reason: string;
+    operatorNote?: string;
+  }): Promise<string> {
+    const grantRow: CreditGrantInsert = {
+      user_id: input.userId,
+      pricing_rule_snapshot_id: input.pricingRuleSnapshotId,
+      source: 'manual',
+      bucket_kind: 'manual',
+      granted_credits: input.credits,
+      remaining_credits: input.credits,
+      reserved_credits: 0,
+      cycle_start: null,
+      cycle_end: null,
+      stripe_invoice_id: null,
+      stripe_checkout_session_id: null,
+    };
+
+    const { data: grant, error: grantError } = await this.admin
+      .from('credit_grants')
+      .insert(grantRow)
+      .select('id')
+      .single();
+    if (grantError) {
+      this.throwQueryError('insert manual credit grant', grantError);
+    }
+    if (!grant) {
+      throw new AppError('INTERNAL_ERROR', 'Inserted manual grant was not returned.', 500);
+    }
+
+    const ledgerRow: CreditLedgerInsert = {
+      user_id: input.userId,
+      entry_type: 'manual_grant',
+      credits_delta: input.credits,
+      pricing_rule_snapshot_id: input.pricingRuleSnapshotId,
+      credit_grant_id: grant.id,
+      metadata: { reason: input.reason, operatorNote: input.operatorNote ?? null },
+    };
+
+    const { error: ledgerError } = await this.admin.from('credit_ledger_entries').insert(ledgerRow);
+    if (ledgerError) {
+      this.throwQueryError('insert manual grant ledger entry', ledgerError);
+    }
+
+    return grant.id;
+  }
+
+  async applyManualReversalToGrant(input: { grantId: string; credits: number }): Promise<void> {
+    const grant = await this.findCreditGrantById(input.grantId);
+    if (!grant) {
+      throw new AppError('VALIDATION_ERROR', 'No eligible credit grant found for reversal.', 400);
+    }
+    if (grant.remaining_credits < input.credits) {
+      throw new AppError('VALIDATION_ERROR', 'Insufficient credits available for reversal.', 400);
+    }
+    const patch: CreditGrantUpdate = {
+      remaining_credits: grant.remaining_credits - input.credits,
+    };
+    const { error } = await this.admin.from('credit_grants').update(patch).eq('id', input.grantId);
+    if (error) {
+      this.throwQueryError('apply manual reversal to credit grant', error);
+    }
+  }
+
+  async insertManualAdjustmentLedgerEntry(input: {
+    userId: string;
+    grantId: string;
+    credits: number;
+    reason: string;
+    operatorNote?: string;
+  }): Promise<void> {
+    const ledgerRow: CreditLedgerInsert = {
+      user_id: input.userId,
+      entry_type: 'manual_adjustment',
+      credits_delta: -Math.abs(input.credits),
+      credit_grant_id: input.grantId,
+      metadata: { reason: input.reason, operatorNote: input.operatorNote ?? null },
+    };
+    const { error } = await this.admin.from('credit_ledger_entries').insert(ledgerRow);
+    if (error) {
+      this.throwQueryError('insert manual adjustment ledger entry', error);
+    }
+  }
+
+  async listLedgerEntriesByUserId(userId: string, limit = 50): Promise<CreditLedgerRow[]> {
+    const { data, error } = await this.admin
+      .from('credit_ledger_entries')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) {
+      this.throwQueryError('list ledger entries by user id', error);
+    }
+    return data ?? [];
+  }
+
+  async listReconciliationSummary(): Promise<ReconciliationSummaryRow[]> {
+    const { data, error } = await this.admin
+      .from('billing_reconciliation_summary')
+      .select('*')
+      .order('month', { ascending: false })
+      .order('quality_tier', { ascending: true });
+    if (error) {
+      this.throwQueryError('list reconciliation summary', error);
+    }
+    return (data ?? []) as ReconciliationSummaryRow[];
+  }
+
+  async findExperienceVersionById(id: string): Promise<ExperienceVersionRow | null> {
+    const { data, error } = await this.admin.from('experience_versions').select('*').eq('id', id).maybeSingle();
+    if (error) {
+      this.throwQueryError('find experience version by id', error);
+    }
+    return data;
+  }
+
   /**
    * Atomically ensures a recurring_free grant for the UTC month and inserts a ledger row when newly created.
    */
@@ -395,6 +584,14 @@ export class BillingRepository {
       );
     }
 
+    return data;
+  }
+
+  private async findCreditGrantById(id: string): Promise<CreditGrantRow | null> {
+    const { data, error } = await this.admin.from('credit_grants').select('*').eq('id', id).maybeSingle();
+    if (error) {
+      this.throwQueryError('find credit grant by id', error);
+    }
     return data;
   }
 

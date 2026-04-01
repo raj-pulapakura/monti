@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { AppError } from '../common/errors/app-error';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { BillingConfigService } from './billing-config.service';
@@ -8,6 +8,8 @@ import { StripeService } from './stripe.service';
 
 @Injectable()
 export class StripeCheckoutService {
+  private readonly logger = new Logger(StripeCheckoutService.name);
+
   constructor(
     private readonly config: BillingConfigService,
     private readonly stripeService: StripeService,
@@ -51,6 +53,9 @@ export class StripeCheckoutService {
       mode: 'subscription',
       intent: 'subscription',
     });
+    this.logger.log(
+      JSON.stringify({ event: 'billing.checkout_session_created', userId: user.id, type: 'subscription' }),
+    );
 
     return { url: session.url };
   }
@@ -104,6 +109,7 @@ export class StripeCheckoutService {
       mode: 'payment',
       intent: 'topup',
     });
+    this.logger.log(JSON.stringify({ event: 'billing.checkout_session_created', userId: user.id, type: 'topup' }));
 
     return { url: session.url };
   }
@@ -139,6 +145,7 @@ export class StripeCheckoutService {
     if (!session.url) {
       throw new AppError('INTERNAL_ERROR', 'Stripe Billing Portal session missing URL.', 502);
     }
+    this.logger.log(JSON.stringify({ event: 'billing.portal_session_created', userId: user.id }));
 
     return { url: session.url };
   }

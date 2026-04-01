@@ -40,6 +40,7 @@ export class BillingConfigService {
   readonly stripeWebhookSecret: string | null;
   readonly stripePriceIdPaidMonthly: string | null;
   readonly stripePriceIdTopup50: string | null;
+  readonly adminSecret: string | null;
 
   /** Public web origin for Checkout success/cancel redirects (e.g. https://app.example.com). */
   readonly billingPublicBaseUrl: string | null;
@@ -61,6 +62,7 @@ export class BillingConfigService {
     this.stripeWebhookSecret = optionalSecret(process.env.STRIPE_WEBHOOK_SECRET);
     this.stripePriceIdPaidMonthly = optionalSecret(process.env.STRIPE_PRICE_ID_PAID_MONTHLY);
     this.stripePriceIdTopup50 = optionalSecret(process.env.STRIPE_PRICE_ID_TOPUP_50);
+    this.adminSecret = optionalSecret(process.env.ADMIN_SECRET);
 
     this.billingPublicBaseUrl = optionalSecret(process.env.BILLING_PUBLIC_BASE_URL);
     this.billingPortalReturnUrl = optionalSecret(process.env.BILLING_PORTAL_RETURN_URL);

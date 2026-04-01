@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { AppError, InsufficientCreditsError } from '../common/errors/app-error';
 import { SUPABASE_ADMIN_CLIENT } from '../supabase/supabase.constants';
 import type { MontiSupabaseClient } from '../supabase/supabase.types';
@@ -14,6 +14,8 @@ export type CreditReservationSlice = {
 
 @Injectable()
 export class CreditReservationService {
+  private readonly logger = new Logger(CreditReservationService.name);
+
   constructor(
     private readonly billingConfig: BillingConfigService,
     private readonly billingRepository: BillingRepository,
@@ -54,6 +56,15 @@ export class CreditReservationService {
 
     if (error) {
       if (error.message?.includes('INSUFFICIENT_CREDITS')) {
+        this.logger.log(
+          JSON.stringify({
+            event: 'billing.balance_insufficient',
+            userId: input.userId,
+            tier: input.qualityTier,
+            requiredCredits: credits,
+            availableCredits: 0,
+          }),
+        );
         throw new InsufficientCreditsError();
       }
       this.throwRpcError('reserve generation credits', error);
@@ -63,6 +74,15 @@ export class CreditReservationService {
     if (slices.length === 0) {
       throw new AppError('INTERNAL_ERROR', 'Reserve credits RPC returned no reservation slices.', 500);
     }
+    this.logger.log(
+      JSON.stringify({
+        event: 'billing.reservation_created',
+        userId: input.userId,
+        toolInvocationId: input.toolInvocationId,
+        tier: input.qualityTier,
+        credits,
+      }),
+    );
 
     return { slices, pricingRuleSnapshotId: snapshot.id };
   }
@@ -81,6 +101,14 @@ export class CreditReservationService {
     if (error) {
       this.throwRpcError('release generation reservation', error);
     }
+    this.logger.log(
+      JSON.stringify({
+        event: 'billing.reservation_released',
+        userId: input.userId,
+        toolInvocationId: input.toolInvocationId,
+        reason: 'manual_or_failure_path',
+      }),
+    );
   }
 
   async settleReservation(input: {
@@ -99,6 +127,25 @@ export class CreditReservationService {
     if (error) {
       this.throwRpcError('settle generation reservation', error);
     }
+    const snapshot = await this.billingRepository.findPricingRuleSnapshotById(input.pricingRuleSnapshotId);
+    const version = await this.billingRepository.findExperienceVersionById(input.experienceVersionId);
+    const tier = version?.quality_mode === 'fast' || version?.quality_mode === 'quality' ? version.quality_mode : null;
+    const credits =
+      snapshot && tier
+        ? creditsForQualityTier(
+            resolvePricingFromSnapshot(snapshot.rules_json, this.billingConfig.launchCatalog),
+            tier,
+          )
+        : null;
+    this.logger.log(
+      JSON.stringify({
+        event: 'billing.debit_settled',
+        userId: input.userId,
+        toolInvocationId: input.toolInvocationId,
+        experienceVersionId: input.experienceVersionId,
+        credits,
+      }),
+    );
   }
 
   private throwRpcError(

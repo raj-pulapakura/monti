@@ -583,6 +583,10 @@ Exit criteria:
 
 Suggested change name: `add-billing-domain-foundation`
 
+Status:
+
+- archived on 2026-03-31
+
 Goal:
 
 - create the application's billing domain model without yet enforcing it in the runtime.
@@ -621,6 +625,10 @@ Exit criteria:
 
 Suggested change name: `add-credit-grants-and-entitlements`
 
+Status:
+
+- archived on 2026-03-31
+
 Goal:
 
 - make Monti able to answer "what can this user do right now?" before wiring money collection.
@@ -657,6 +665,10 @@ Exit criteria:
 ### Proposal 4: Runtime Credit Enforcement And Settlement
 
 Suggested change name: `enforce-credits-in-generation-runtime`
+
+Status:
+
+- archived on 2026-03-31
 
 Goal:
 
@@ -702,6 +714,10 @@ Exit criteria:
 ### Proposal 5: Stripe Customer, Checkout, Webhooks, And Portal
 
 Suggested change name: `integrate-stripe-billing`
+
+Status:
+
+- archived on 2026-04-01
 
 Goal:
 

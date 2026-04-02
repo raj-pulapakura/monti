@@ -118,6 +118,68 @@ describe('StripeWebhookService', () => {
     );
   });
 
+  it('invoice.paid: resolves subscription from parent.subscription_details when top-level subscription field is absent (Stripe API 2025+)', async () => {
+    const insertPaidRecurringGrantWithLedger = jest.fn().mockResolvedValue(undefined);
+    const snapshot = { id: 'snap-1', version_key: 'launch-v1', rules_json: null };
+
+    const billingRepository = {
+      tryInsertWebhookEventReceived: jest.fn().mockResolvedValue(true),
+      updateWebhookEventByStripeEventId: jest.fn().mockResolvedValue(undefined),
+      findUserIdByStripeCustomerId: jest.fn().mockResolvedValue('user-1'),
+      upsertBillingSubscription: jest.fn().mockResolvedValue(undefined),
+      findCreditGrantByStripeInvoiceId: jest.fn().mockResolvedValue(null),
+      findPricingRuleSnapshotByVersionKey: jest.fn().mockResolvedValue(snapshot),
+      insertPaidRecurringGrantWithLedger,
+    } as unknown as BillingRepository;
+
+    const config = {
+      launchPricingVersionKey: 'launch-v1',
+      launchCatalog: { paidMonthlyCredits: 150, topupCredits: 50, freeMonthlyCredits: 15 },
+    } as BillingConfigService;
+
+    const sub = {
+      id: 'sub_1',
+      customer: 'cus_1',
+      status: 'active',
+      metadata: { monti_user_id: 'user-1' },
+      items: { data: [{ current_period_start: 1000, current_period_end: 2000 }] },
+      cancel_at_period_end: false,
+    };
+
+    const stripeService = {
+      requireStripe: jest.fn().mockReturnValue({
+        subscriptions: { retrieve: jest.fn().mockResolvedValue(sub) },
+      }),
+    } as unknown as StripeService;
+
+    const service = new StripeWebhookService(config, billingRepository, stripeService);
+
+    const event: StripeWebhookEventPayload = {
+      id: 'evt_inv_new_api',
+      type: 'invoice.paid',
+      data: {
+        object: {
+          id: 'in_new',
+          // no top-level subscription field (Stripe API 2025-01-27.acacia+)
+          parent: {
+            type: 'subscription_details',
+            subscription_details: {
+              subscription: 'sub_1',
+              metadata: { monti_user_id: 'user-1' },
+            },
+          },
+          customer: 'cus_1',
+          amount_paid: 1000,
+        },
+      },
+    };
+
+    await expect(service.processVerifiedEvent(event)).resolves.toBe('processed');
+    expect(insertPaidRecurringGrantWithLedger).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-1', grantedCredits: 150 }),
+    );
+  });
+
   it('invoice.paid: warns and returns without grant when both customer mapping and subscription metadata are missing', async () => {
     const billingRepository = {
       tryInsertWebhookEventReceived: jest.fn().mockResolvedValue(true),

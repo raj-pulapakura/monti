@@ -155,7 +155,9 @@ export class StripeWebhookService {
 
   private async handleInvoicePaid(event: StripeWebhookEventPayload, stripe: MontiStripeClient): Promise<void> {
     const invoice = event.data.object as InvoiceLike;
-    const subscriptionId = stripeRefId(invoice.subscription);
+    // Stripe API 2025-01-27.acacia+ moved subscription off the invoice top-level into parent.subscription_details.subscription
+    const subscriptionId =
+      stripeRefId(invoice.subscription) ?? invoice.parent?.subscription_details?.subscription ?? null;
     if (!subscriptionId) {
       return;
     }

@@ -18,7 +18,19 @@ export type CheckoutSessionLike = {
 
 export type InvoiceLike = {
   id: string;
+  /** Top-level subscription field — present in Stripe API versions before 2025-01-27.acacia. */
   subscription?: unknown;
+  /**
+   * In Stripe API 2025-01-27.acacia+, subscription reference moved here.
+   * invoice.parent.subscription_details.subscription holds the subscription ID.
+   */
+  parent?: {
+    type?: string | null;
+    subscription_details?: {
+      subscription?: string | null;
+      metadata?: Record<string, string | undefined> | null;
+    } | null;
+  } | null;
   customer?: unknown;
   amount_paid?: number;
   period_start?: number | null;

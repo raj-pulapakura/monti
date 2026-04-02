@@ -13,6 +13,7 @@ export type CheckoutSessionLike = {
   client_reference_id?: string | null;
   metadata?: Record<string, string | undefined> | null;
   subscription?: string | { id: string } | null;
+  customer?: string | { id: string } | null;
 };
 
 export type InvoiceLike = {
@@ -33,6 +34,7 @@ export type SubscriptionLike = {
   id: string;
   customer?: unknown;
   status: string;
+  metadata?: Record<string, string | undefined> | null;
   /** Removed from top-level subscription in API 2026-03-25.dahlia — use items.data[0] instead. */
   current_period_start?: number | null;
   /** Removed from top-level subscription in API 2026-03-25.dahlia — use items.data[0] instead. */

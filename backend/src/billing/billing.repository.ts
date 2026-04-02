@@ -167,6 +167,11 @@ export class BillingRepository {
     return created;
   }
 
+  async upsertBillingCustomerStripeId(userId: string, stripeCustomerId: string): Promise<void> {
+    await this.ensureBillingCustomerRow(userId);
+    await this.updateBillingCustomerStripeId(userId, stripeCustomerId);
+  }
+
   async updateBillingCustomerStripeId(userId: string, stripeCustomerId: string): Promise<void> {
     const now = new Date().toISOString();
     const { error } = await this.admin

@@ -36,6 +36,7 @@ function asSubscriptionLike(raw: unknown): SubscriptionLike {
     id: String(o.id ?? ''),
     customer: o.customer,
     status: String(o.status ?? ''),
+    metadata: (o.metadata ?? null) as Record<string, string | undefined> | null,
     current_period_start: (firstItem?.current_period_start ?? o.current_period_start ?? null) as number | null,
     current_period_end: (firstItem?.current_period_end ?? o.current_period_end ?? null) as number | null,
     cancel_at_period_end: o.cancel_at_period_end === true,
@@ -137,6 +138,10 @@ export class StripeWebhookService {
       const subRaw = await stripe.subscriptions.retrieve(subId);
       const sub = asSubscriptionLike(subRaw);
       await this.syncSubscriptionMirror(userId, sub);
+      const customerId = stripeRefId(session.customer);
+      if (customerId) {
+        await this.billingRepository.upsertBillingCustomerStripeId(userId, customerId);
+      }
       return;
     }
 
@@ -164,14 +169,22 @@ export class StripeWebhookService {
       return;
     }
 
-    let userId = await this.billingRepository.findUserIdByStripeCustomerId(customerId);
-    if (!userId) {
-      this.logger.warn(`invoice.paid: no Monti user for Stripe customer ${customerId}`);
-      return;
-    }
-
     const subRaw = await stripe.subscriptions.retrieve(subscriptionId);
     const sub = asSubscriptionLike(subRaw);
+
+    let userId = await this.billingRepository.findUserIdByStripeCustomerId(customerId);
+    if (!userId) {
+      const metaUserId = sub.metadata?.monti_user_id ?? null;
+      if (!metaUserId) {
+        this.logger.warn(
+          `invoice.paid: no Monti user for Stripe customer ${customerId} (subscription ${subscriptionId})`,
+        );
+        return;
+      }
+      await this.billingRepository.upsertBillingCustomerStripeId(metaUserId, customerId);
+      userId = metaUserId;
+    }
+
     await this.syncSubscriptionMirror(userId, sub);
 
     const existing = await this.billingRepository.findCreditGrantByStripeInvoiceId(invoice.id);

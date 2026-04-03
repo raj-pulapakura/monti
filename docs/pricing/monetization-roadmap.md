@@ -866,6 +866,10 @@ Exit criteria:
 
 Suggested change name: `add-billing-ops-and-reconciliation`
 
+Status:
+
+- archived on 2026-04-01
+
 Goal:
 
 - make the monetization system operable in production.
@@ -914,6 +918,10 @@ Exit criteria:
 ### Proposal 9: Launch Hardening And Rollout
 
 Suggested change name: `launch-monetization`
+
+Status:
+
+- archived on 2026-04-02
 
 Goal:
 

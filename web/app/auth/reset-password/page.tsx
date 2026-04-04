@@ -83,7 +83,7 @@ export default function ResetPasswordPage() {
     <main className="auth-shell">
       <section className="auth-card">
         <h1>Choose a new password</h1>
-        <p className="auth-copy">Set a fresh password to continue in your studio.</p>
+        <p className="auth-copy">Set a fresh password to continue.</p>
 
         <form onSubmit={handleResetPassword} className="auth-form">
           <label>

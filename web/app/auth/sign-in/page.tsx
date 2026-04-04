@@ -123,7 +123,7 @@ function SignInForm() {
         <h1>
           Welcome back, <span className="display-script">creator</span>
         </h1>
-        <p className="auth-copy">Sign in to continue your studio.</p>
+        <p className="auth-copy">Sign in to continue.</p>
 
         <div className="auth-oauth-list">
           <button type="button" onClick={() => void handleOAuth('google')} disabled={submitting}>

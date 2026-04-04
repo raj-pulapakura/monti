@@ -10,6 +10,7 @@ import type { GenerationMode } from '@/lib/chat/generation-mode';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { FloatingProfileControls } from './components/floating-profile-controls';
 import { GenerationModeDropdown } from './components/generation-mode-segmented-control';
+import { MarketingLanding } from './components/marketing-landing';
 import { ArrowUp, ChevronLeft, ChevronRight, LoaderCircle } from 'lucide-react';
 
 type ThreadCard = {
@@ -425,86 +426,6 @@ function HomeWorkspace(input: {
   );
 }
 
-function MarketingLanding(input: {
-  authError: string | null;
-}) {
-  return (
-    <main className="landing-shell">
-      <section className="landing-hero">
-        <p className="landing-kicker">Monti Studio</p>
-        <h1>
-          Turn classroom ideas into <span className="display-script">wow</span> moments.
-        </h1>
-        <p>
-          Draft, refine, and preview interactive learning experiences in one calm, bespoke creation
-          space.
-        </p>
-        <div className="landing-actions">
-          <Link href="/auth/sign-up" className="landing-primary">
-            Get started
-          </Link>
-          <Link href="/auth/sign-in" className="landing-secondary">
-            Sign in
-          </Link>
-        </div>
-      </section>
-
-      <section className="landing-grid">
-        <article className="landing-card">
-          <h2>Idea to Activity</h2>
-          <p>Start with a rough prompt and shape it through guided iteration.</p>
-        </article>
-        <article className="landing-card">
-          <h2>Conversation Studio</h2>
-          <p>Keep drafting, edits, and context in one focused thread.</p>
-        </article>
-        <article className="landing-card">
-          <h2>Live Preview Loop</h2>
-          <p>See your interactive output update in a safe sandbox as you refine.</p>
-        </article>
-      </section>
-
-      <section className="landing-pricing" aria-labelledby="landing-pricing-title">
-        <div className="landing-pricing-header">
-          <p className="landing-kicker">Pricing</p>
-          <h2 id="landing-pricing-title">Simple credits that scale with your classroom.</h2>
-        </div>
-        <div className="landing-pricing-grid">
-          <article className="landing-plan-card">
-            <h3>Free</h3>
-            <p className="landing-plan-price">$0/month</p>
-            <ul>
-              <li>15 credits each month</li>
-              <li>Fast generation: 1 credit</li>
-              <li>Quality generation: 5 credits</li>
-            </ul>
-            <Link href="/auth/sign-up" className="landing-secondary">
-              Get started free
-            </Link>
-          </article>
-          <article className="landing-plan-card is-featured">
-            <h3>Paid</h3>
-            <p className="landing-plan-price">$10/month</p>
-            <ul>
-              <li>150 credits each month</li>
-              <li>Fast generation: 1 credit</li>
-              <li>Quality generation: 5 credits</li>
-              <li>Top-up: 50 credits for $4</li>
-            </ul>
-            <Link href="/auth/sign-up?next=/checkout/start" className="landing-primary">
-              Choose paid plan
-            </Link>
-          </article>
-        </div>
-        <Link href="/pricing" className="landing-pricing-link">
-          See full pricing →
-        </Link>
-      </section>
-
-      {input.authError ? <p className="error-banner">{input.authError}</p> : null}
-    </main>
-  );
-}
 
 function apiClientFor(accessToken: string) {
   return createAuthenticatedApiClient(accessToken);

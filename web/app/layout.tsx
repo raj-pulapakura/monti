@@ -17,9 +17,9 @@ const display = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: 'Monti Studio',
+  title: 'Monti',
   description:
-    'Design, iterate, and ship interactive learning experiences with a chat-first studio.',
+    'Turn any teaching idea into an interactive learning experience — in minutes, no coding.',
 };
 
 export default function RootLayout({

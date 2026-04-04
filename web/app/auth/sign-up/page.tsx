@@ -145,7 +145,7 @@ function SignUpForm() {
     <main className="auth-shell">
       <section className="auth-card">
         <h1>
-          Create your <span className="display-script">studio</span> account
+          Create your <span className="display-script">Monti</span> account
         </h1>
         <p className="auth-copy">Start drafting learning experiences in your private workspace.</p>
 

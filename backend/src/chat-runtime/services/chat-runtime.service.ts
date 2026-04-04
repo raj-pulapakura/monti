@@ -100,6 +100,7 @@ export class ChatRuntimeService {
       css: string;
       js: string;
       generationId: string;
+      slug: string | null;
     } | null;
   }> {
     assertChatRuntimeEnabled();

@@ -3,7 +3,7 @@
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowUp, Expand, LoaderCircle, X } from 'lucide-react';
+import { ArrowUp, Check, Expand, Link2, LoaderCircle, X } from 'lucide-react';
 import {
   API_BASE_URL,
   createAuthenticatedApiClient,
@@ -59,6 +59,7 @@ type ExperiencePayload = {
   css: string;
   js: string;
   generationId: string;
+  slug: string | null;
 };
 
 type ThreadHydrationResponse = {
@@ -141,6 +142,7 @@ export default function ChatThreadPage() {
   const [billingData, setBillingData] = useState<BillingMeResponse['data'] | null>(null);
   const [billingLoaded, setBillingLoaded] = useState(false);
   const [billingActionPending, setBillingActionPending] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   function getSupabaseClient() {
     if (supabaseRef.current) {
@@ -175,6 +177,7 @@ export default function ChatThreadPage() {
     setBillingData(null);
     setBillingLoaded(false);
     setBillingActionPending(false);
+    setLinkCopied(false);
     handoffAttemptedThreadRef.current = null;
   }, [routeThreadId]);
 
@@ -734,6 +737,17 @@ export default function ChatThreadPage() {
     }
   }
 
+  async function handleCopyLink() {
+    if (!activeExperience?.slug) {
+      return;
+    }
+
+    const url = `${window.location.origin}/play/${activeExperience.slug}`;
+    await navigator.clipboard.writeText(url);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  }
+
   async function handleBuyTopup() {
     if (!accessToken || billingActionPending) {
       return;
@@ -938,6 +952,21 @@ export default function ChatThreadPage() {
               ) : null}
             </div>
             <div className="sandbox-header-actions">
+              {activeExperience?.slug ? (
+                <button
+                  type="button"
+                  className="sandbox-control-button"
+                  onClick={() => void handleCopyLink()}
+                  aria-label={linkCopied ? 'Link copied' : 'Copy shareable link'}
+                  title={linkCopied ? 'Link copied!' : 'Copy shareable link'}
+                >
+                  {linkCopied ? (
+                    <Check size={17} strokeWidth={2.2} />
+                  ) : (
+                    <Link2 size={17} strokeWidth={2.2} />
+                  )}
+                </button>
+              ) : null}
               {activeExperience ? (
                 <button
                   type="button"

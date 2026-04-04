@@ -400,6 +400,7 @@ export class ChatRuntimeRepository {
       css: string;
       js: string;
       generationId: string;
+      slug: string | null;
     } | null;
   }> {
     const thread = await this.findThread(input);
@@ -428,14 +429,28 @@ export class ChatRuntimeRepository {
       };
     }
 
-    const { data: version, error: versionError } = await this.client
-      .from('experience_versions')
-      .select('title,description,html,css,js,generation_id')
-      .eq('id', sandboxState.experience_version_id)
-      .maybeSingle();
+    const [{ data: version, error: versionError }, { data: experience, error: experienceError }] =
+      await Promise.all([
+        this.client
+          .from('experience_versions')
+          .select('title,description,html,css,js,generation_id')
+          .eq('id', sandboxState.experience_version_id)
+          .maybeSingle(),
+        sandboxState.experience_id
+          ? this.client
+              .from('experiences')
+              .select('slug')
+              .eq('id', sandboxState.experience_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+      ]);
 
     if (versionError) {
       this.throwQueryError('load active sandbox experience version', versionError);
+    }
+
+    if (experienceError) {
+      this.throwQueryError('load experience slug', experienceError);
     }
 
     return {
@@ -448,6 +463,7 @@ export class ChatRuntimeRepository {
             css: version.css,
             js: version.js,
             generationId: version.generation_id,
+            slug: experience?.slug ?? null,
           }
         : null,
     };

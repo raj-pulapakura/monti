@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { AppError } from '../../common/errors/app-error';
 import { SUPABASE_CLIENT } from '../../supabase/supabase.constants';
@@ -121,11 +122,14 @@ export class ExperiencePersistenceRepository {
     userId: string;
     title: string;
   }): Promise<string> {
+    const slug = generateExperienceSlug(input.title);
+
     const { data, error } = await this.client
       .from('experiences')
       .insert({
         user_id: input.userId,
         title: input.title,
+        slug,
       })
       .select('id')
       .single();
@@ -199,7 +203,10 @@ export class ExperiencePersistenceRepository {
     return data.id;
   }
 
-  private throwQueryError(action: string, error: { message: string; code?: string | null }): never {
+  private throwQueryError(
+    action: string,
+    error: { message: string; code?: string | null },
+  ): never {
     throw new AppError(
       'INTERNAL_ERROR',
       `Failed to ${action}.`,
@@ -210,4 +217,19 @@ export class ExperiencePersistenceRepository {
       },
     );
   }
+}
+
+function generateExperienceSlug(title: string): string {
+  const normalized = title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 40)
+    .replace(/-+$/, '');
+
+  const base = normalized.length > 0 ? normalized : 'experience';
+  const suffix = randomBytes(3).toString('hex');
+  return `${base}-${suffix}`;
 }

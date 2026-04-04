@@ -23,6 +23,7 @@ services:
     environment:
       NODE_ENV: development
       NEXT_TELEMETRY_DISABLED: "1"
+      API_INTERNAL_URL: http://backend:3001
     ports:
       - "3000:3000"
     volumes:

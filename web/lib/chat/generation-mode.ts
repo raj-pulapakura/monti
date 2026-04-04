@@ -25,3 +25,8 @@ export const GENERATION_MODE_OPTIONS: Array<{
 export function isGenerationMode(value: unknown): value is GenerationMode {
   return value === 'auto' || value === 'fast' || value === 'quality';
 }
+
+export function generationModeMenuLabel(mode: GenerationMode): string {
+  const opt = GENERATION_MODE_OPTIONS.find((o) => o.value === mode);
+  return opt?.label ?? mode;
+}

@@ -915,6 +915,109 @@ button:disabled {
   gap: 1rem;
 }
 
+.home-example-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.62rem;
+  align-items: flex-start;
+}
+
+.home-example-prompt-chip {
+  appearance: none;
+  -webkit-appearance: none;
+  max-width: min(100%, 20rem);
+  padding: 0.45rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(167, 70, 33, 0.22);
+  background: var(--surface-soft);
+  color: #6c3a23;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.42rem;
+}
+
+.home-example-prompt-chip-emoji {
+  flex-shrink: 0;
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.home-example-prompt-chip-text-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.28rem;
+}
+
+.home-example-prompt-chip-label {
+  width: 100%;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.home-example-prompt-chip-mode {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8a6b5a;
+  padding: 0.12rem 0.38rem;
+  border-radius: 6px;
+  background: rgba(167, 70, 33, 0.08);
+  border: 1px solid rgba(167, 70, 33, 0.14);
+}
+
+.home-example-prompt-chip-mode[data-mode="quality"] {
+  color: #6b3a23;
+  background: rgba(188, 81, 39, 0.12);
+  border-color: rgba(188, 81, 39, 0.22);
+}
+
+.home-example-prompt-chip-mode[data-mode="fast"] {
+  color: #5c4a42;
+  background: rgba(120, 90, 70, 0.1);
+  border-color: rgba(120, 90, 70, 0.18);
+}
+
+.home-example-prompt-chip-mode[data-mode="auto"] {
+  color: #5a534d;
+  background: rgba(90, 83, 77, 0.1);
+  border-color: rgba(90, 83, 77, 0.16);
+}
+
+.home-example-prompt-chip:hover:not(:disabled) {
+  border-color: rgba(167, 70, 33, 0.35);
+  background: #fff4e8;
+  box-shadow: var(--elevation-1);
+}
+
+.home-example-prompt-chip:focus-visible {
+  outline: none;
+  border-color: var(--brand-500);
+  box-shadow:
+    0 0 0 3px rgba(188, 81, 39, 0.16),
+    var(--elevation-1);
+}
+
+.home-example-prompt-chip:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
 .home-create-row {
   display: grid;
   grid-template-columns: 1fr;

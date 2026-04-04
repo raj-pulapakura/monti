@@ -1,15 +1,22 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createAuthenticatedApiClient } from "@/lib/api/authenticated-api-client";
 import type { BillingMeResponse } from "@/lib/api/billing-me";
 import { writeHomePromptHandoff } from "@/lib/chat/prompt-handoff";
-import type { GenerationMode } from "@/lib/chat/generation-mode";
+import {
+  generationModeMenuLabel,
+  type GenerationMode,
+} from "@/lib/chat/generation-mode";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { FloatingProfileControls } from "./components/floating-profile-controls";
 import { GenerationModeDropdown } from "./components/generation-mode-segmented-control";
 import { MarketingLanding } from "./components/marketing-landing";
+import {
+  examplePromptChipLabel,
+  pickHomeExamplePrompts,
+} from "@/lib/home-example-prompts";
 import { ArrowUp, ChevronLeft, ChevronRight, LoaderCircle } from "lucide-react";
 
 type ThreadCard = {
@@ -59,6 +66,7 @@ export default function RootPage() {
   > | null>(null);
   const [mode, setMode] = useState<RootMode>("loading");
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
   function getSupabaseClient() {
@@ -89,6 +97,7 @@ export default function RootPage() {
 
       const token = data.session?.access_token ?? null;
       setAccessToken(token);
+      setUserId(data.session?.user?.id ?? null);
       setMode(token ? "home" : "marketing");
     });
 
@@ -96,6 +105,7 @@ export default function RootPage() {
       (_event, session) => {
         const token = session?.access_token ?? null;
         setAccessToken(token);
+        setUserId(session?.user?.id ?? null);
         setMode(token ? "home" : "marketing");
       },
     );
@@ -113,6 +123,7 @@ export default function RootPage() {
 
     await supabaseClient.auth.signOut();
     setAccessToken(null);
+    setUserId(null);
     setMode("marketing");
     router.replace("/");
   }
@@ -121,6 +132,7 @@ export default function RootPage() {
     return (
       <HomeWorkspace
         accessToken={accessToken}
+        userId={userId ?? ""}
         onSignOut={() => void handleSignOut()}
       />
     );
@@ -129,9 +141,14 @@ export default function RootPage() {
   return <MarketingLanding authError={authError} />;
 }
 
-function HomeWorkspace(input: { accessToken: string; onSignOut: () => void }) {
+function HomeWorkspace(input: {
+  accessToken: string;
+  userId: string;
+  onSignOut: () => void;
+}) {
   const router = useRouter();
   const carouselRef = useRef<HTMLDivElement | null>(null);
+  const createInputRef = useRef<HTMLInputElement | null>(null);
   const [prompt, setPrompt] = useState("");
   const [threads, setThreads] = useState<ThreadCard[]>([]);
   const [loadingThreads, setLoadingThreads] = useState(true);
@@ -147,6 +164,16 @@ function HomeWorkspace(input: { accessToken: string; onSignOut: () => void }) {
   const [billingLoadState, setBillingLoadState] = useState<
     "idle" | "loading" | "error"
   >("idle");
+
+  const utcDayKey = new Date().toISOString().slice(0, 10);
+  const exampleStarters = useMemo(
+    () =>
+      pickHomeExamplePrompts({
+        userId: input.userId || "anonymous",
+        now: new Date(`${utcDayKey}T12:00:00.000Z`),
+      }),
+    [input.userId, utcDayKey],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -346,6 +373,7 @@ function HomeWorkspace(input: { accessToken: string; onSignOut: () => void }) {
         <div className="home-create-row">
           <div className="home-create-input-shell">
             <input
+              ref={createInputRef}
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               placeholder="A fractions challenge with playful mini rounds..."
@@ -375,6 +403,48 @@ function HomeWorkspace(input: { accessToken: string; onSignOut: () => void }) {
               </button>
             </div>
           </div>
+        </div>
+
+        <div
+          className="home-example-prompts"
+          role="group"
+          aria-label="Example prompts"
+        >
+          {exampleStarters.map((item) => (
+            <button
+              key={item.prompt}
+              type="button"
+              className="home-example-prompt-chip"
+              disabled={creating}
+              title={item.prompt}
+              aria-label={`Fill create field with example (${generationModeMenuLabel(item.generationMode)} mode): ${item.prompt}`}
+              onClick={() => {
+                setPrompt(item.prompt);
+                setGenerationMode(item.generationMode);
+                queueMicrotask(() => {
+                  createInputRef.current?.focus();
+                });
+              }}
+            >
+              <span
+                className="home-example-prompt-chip-emoji"
+                aria-hidden="true"
+              >
+                {item.emoji}
+              </span>
+              <span className="home-example-prompt-chip-text-col">
+                <span className="home-example-prompt-chip-label">
+                  {examplePromptChipLabel(item.prompt)}
+                </span>
+                <span
+                  className="home-example-prompt-chip-mode"
+                  data-mode={item.generationMode}
+                >
+                  {generationModeMenuLabel(item.generationMode)}
+                </span>
+              </span>
+            </button>
+          ))}
         </div>
       </form>
 

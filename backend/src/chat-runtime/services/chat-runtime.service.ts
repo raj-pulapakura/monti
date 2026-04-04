@@ -137,7 +137,7 @@ export class ChatRuntimeService {
       deduplicated: result.deduplicated,
     });
 
-    let run = result.run;
+    const run = result.run;
     if (run && run.status === 'queued' && isConversationLoopEnabled()) {
       const queuedRun = run;
       void this.executeQueuedRun({
@@ -201,7 +201,9 @@ export class ChatRuntimeService {
           event: 'chat_runtime_conversation_turn_unhandled_failure',
           runId: input.run.id,
           errorMessage:
-            error instanceof Error ? error.message : 'Conversation loop failed.',
+            error instanceof Error
+              ? error.message
+              : 'Conversation loop failed.',
         }),
       );
     }
@@ -275,6 +277,10 @@ function mapThreadListItem(row: {
   updated_at: string;
   sandbox_status: 'empty' | 'creating' | 'ready' | 'error' | null;
   sandbox_updated_at: string | null;
+  experience_html: string | null;
+  experience_css: string | null;
+  experience_js: string | null;
+  experience_title: string | null;
 }): ThreadListItemEnvelope {
   return {
     id: row.id,
@@ -285,6 +291,10 @@ function mapThreadListItem(row: {
     updatedAt: row.updated_at,
     sandboxStatus: row.sandbox_status,
     sandboxUpdatedAt: row.sandbox_updated_at,
+    experienceHtml: row.experience_html,
+    experienceCss: row.experience_css,
+    experienceJs: row.experience_js,
+    experienceTitle: row.experience_title,
   };
 }
 

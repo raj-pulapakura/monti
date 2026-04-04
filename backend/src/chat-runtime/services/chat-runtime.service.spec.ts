@@ -52,6 +52,68 @@ describe('ChatRuntimeService', () => {
     delete process.env.CONVERSATION_LOOP_ENABLED;
   });
 
+  it('includes experience preview content in thread list responses', async () => {
+    const repository = {
+      listThreads: jest.fn(async () => [
+        {
+          id: 'thread-1',
+          user_id: 'client-1',
+          title: 'Fractions game',
+          archived_at: null,
+          created_at: '2026-04-04T00:00:00.000Z',
+          updated_at: '2026-04-04T00:05:00.000Z',
+          sandbox_status: 'ready' as const,
+          sandbox_updated_at: '2026-04-04T00:05:00.000Z',
+          experience_html: '<main>Hello</main>',
+          experience_css: 'body { color: red; }',
+          experience_js: 'console.log("preview");',
+          experience_title: 'Hello world',
+        },
+      ]),
+    };
+    const events = {
+      latestEventId: jest.fn(() => null),
+    };
+    const conversationLoop = {
+      executeTurn: jest.fn(),
+    };
+    const service = new ChatRuntimeService(
+      repository as never,
+      events as never,
+      conversationLoop as never,
+    );
+
+    const result = await service.listThreads({
+      userId: 'client-1',
+      request: {
+        limit: 25,
+      },
+    });
+
+    expect(repository.listThreads).toHaveBeenCalledWith({
+      userId: 'client-1',
+      limit: 25,
+    });
+    expect(result).toEqual({
+      threads: [
+        {
+          id: 'thread-1',
+          userId: 'client-1',
+          title: 'Fractions game',
+          archivedAt: null,
+          createdAt: '2026-04-04T00:00:00.000Z',
+          updatedAt: '2026-04-04T00:05:00.000Z',
+          sandboxStatus: 'ready',
+          sandboxUpdatedAt: '2026-04-04T00:05:00.000Z',
+          experienceHtml: '<main>Hello</main>',
+          experienceCss: 'body { color: red; }',
+          experienceJs: 'console.log("preview");',
+          experienceTitle: 'Hello world',
+        },
+      ],
+    });
+  });
+
   it('returns the accepted queued run while delegating execution to the conversation loop', async () => {
     const repository = {
       submitUserMessage: jest.fn(async () => ({

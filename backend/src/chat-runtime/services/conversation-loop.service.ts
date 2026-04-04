@@ -388,8 +388,12 @@ export class ConversationLoopService {
             await this.repository.updateSandboxState({
               threadId: input.threadId,
               status: execution.result.sandboxStatus,
-              experienceId: execution.result.experienceId,
-              experienceVersionId: execution.result.experienceVersionId,
+              ...(execution.result.experienceId != null
+                ? { experienceId: execution.result.experienceId }
+                : {}),
+              ...(execution.result.experienceVersionId != null
+                ? { experienceVersionId: execution.result.experienceVersionId }
+                : {}),
               lastErrorCode: execution.result.errorCode,
               lastErrorMessage: execution.result.errorMessage,
             });

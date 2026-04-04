@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 :root {
   color-scheme: light;
@@ -55,10 +55,18 @@ body {
 
 body {
   color: var(--content-default);
-  font-family: var(--font-sans), 'Avenir Next', 'Segoe UI', sans-serif;
+  font-family: var(--font-sans), "Avenir Next", "Segoe UI", sans-serif;
   background:
-    radial-gradient(circle at 12% 8%, rgba(217, 106, 57, 0.16), transparent 32%),
-    radial-gradient(circle at 85% 88%, rgba(47, 125, 97, 0.08), transparent 35%),
+    radial-gradient(
+      circle at 12% 8%,
+      rgba(217, 106, 57, 0.16),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 85% 88%,
+      rgba(47, 125, 97, 0.08),
+      transparent 35%
+    ),
     var(--surface-canvas);
   line-height: 1.45;
 }
@@ -97,7 +105,7 @@ button:disabled {
 }
 
 .display-script {
-  font-family: var(--font-display), 'Cormorant Garamond', Georgia, serif;
+  font-family: var(--font-display), "Cormorant Garamond", Georgia, serif;
   font-weight: 600;
   font-style: italic;
   letter-spacing: 0.005em;
@@ -134,7 +142,11 @@ button:disabled {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-lg);
   box-shadow: var(--elevation-1);
-  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-paper));
+  background: linear-gradient(
+    180deg,
+    var(--surface-elevated),
+    var(--surface-paper)
+  );
 }
 
 .hero-strip {
@@ -477,7 +489,11 @@ button:disabled {
   gap: clamp(2rem, 4vw, 4rem);
   align-items: center;
   background:
-    radial-gradient(circle at 85% 15%, rgba(217, 106, 57, 0.16), transparent 45%),
+    radial-gradient(
+      circle at 85% 15%,
+      rgba(217, 106, 57, 0.16),
+      transparent 45%
+    ),
     radial-gradient(circle at 10% 90%, rgba(47, 125, 97, 0.06), transparent 40%);
 }
 
@@ -567,7 +583,11 @@ button:disabled {
 .landing-showcase-card {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-md);
-  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-paper));
+  background: linear-gradient(
+    180deg,
+    var(--surface-elevated),
+    var(--surface-paper)
+  );
   box-shadow: var(--elevation-1);
   padding: 1rem;
   display: grid;
@@ -614,7 +634,11 @@ button:disabled {
 .landing-step {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-md);
-  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-paper));
+  background: linear-gradient(
+    180deg,
+    var(--surface-elevated),
+    var(--surface-paper)
+  );
   box-shadow: var(--elevation-1);
   padding: 1.1rem;
   display: grid;
@@ -742,7 +766,11 @@ button:disabled {
   border-radius: var(--radius-lg);
   box-shadow: var(--elevation-1);
   background:
-    radial-gradient(circle at 88% 20%, rgba(217, 106, 57, 0.18), transparent 40%),
+    radial-gradient(
+      circle at 88% 20%,
+      rgba(217, 106, 57, 0.18),
+      transparent 40%
+    ),
     linear-gradient(170deg, var(--surface-elevated), var(--surface-muted));
   padding: clamp(1.2rem, 5vw, 2rem);
   display: grid;
@@ -770,13 +798,12 @@ button:disabled {
   height: 2.45rem;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-soft);
-  background:
-    linear-gradient(
-      90deg,
-      rgba(255, 250, 242, 0.9) 0%,
-      rgba(247, 232, 215, 0.9) 40%,
-      rgba(255, 250, 242, 0.9) 100%
-    );
+  background: linear-gradient(
+    90deg,
+    rgba(255, 250, 242, 0.9) 0%,
+    rgba(247, 232, 215, 0.9) 40%,
+    rgba(255, 250, 242, 0.9) 100%
+  );
   background-size: 220% 100%;
   animation: shimmer 1.7s linear infinite;
 }
@@ -1066,8 +1093,8 @@ button:disabled {
 
 .home-creations {
   display: grid;
-  gap: 0.92rem;
-  margin-top: 0.35rem;
+  gap: 1.05rem;
+  margin-top: 0.55rem;
 }
 
 .home-creations-header {
@@ -1078,9 +1105,10 @@ button:disabled {
 }
 
 .home-creations h2 {
-  color: #6f4a35;
-  font-size: 0.92rem;
-  letter-spacing: 0.07em;
+  color: #5c3d2d;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -1113,11 +1141,11 @@ button:disabled {
 .creations-carousel {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(240px, 320px);
-  gap: 1.05rem;
+  grid-auto-columns: minmax(240px, 300px);
+  gap: 0.88rem;
   overflow-x: auto;
-  padding-top: 0.15rem;
-  padding-bottom: 0.55rem;
+  padding: 0.2rem 0.12rem 0.65rem;
+  scroll-padding-inline: 0.25rem;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -1127,43 +1155,118 @@ button:disabled {
 }
 
 .creation-card {
+  container-type: inline-size;
+  container-name: creation-card;
   display: grid;
-  grid-template-rows: 1fr 72px;
+  grid-template-rows: minmax(168px, 1fr) auto;
   min-height: 272px;
   border-radius: var(--radius-md);
   overflow: hidden;
   text-align: left;
   padding: 0;
   box-shadow: none;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
 }
 
-.creation-card:hover {
-  transform: translateY(-2px);
-  box-shadow: none;
+.creations-carousel .creation-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(62, 35, 20, 0.1);
 }
 
 .creation-thumb {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 50% 35%,
+      rgba(217, 106, 57, 0.2),
+      transparent 55%
+    ),
+    linear-gradient(155deg, #ffe9d7, #f7d2b5);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+/* Centers and scales the full-size iframe so it covers the thumb (like object-fit: cover). */
+.creation-thumb-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.creation-thumb-frame {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 960px;
+  height: 600px;
+  margin: 0;
+  border: 0;
+  display: block;
+  pointer-events: none;
+  background: #fff;
+  border-radius: 2px;
+  box-shadow: 0 6px 24px rgba(62, 35, 20, 0.12);
+  /* ~cover: fill short side of typical card thumb (~200×280) from 960×600 */
+  transform: translate(-50%, -50%) scale(0.36);
+  transform-origin: center center;
+}
+
+.creation-thumb-empty {
   display: grid;
   place-items: center;
-  min-height: 212px;
+  min-height: 168px;
+  width: 100%;
+  height: 100%;
+  padding: 1rem;
   font-weight: 700;
   color: #7a3f25;
-  background:
-    radial-gradient(circle at 80% 20%, rgba(217, 106, 57, 0.24), transparent 42%),
-    linear-gradient(155deg, #ffe9d7, #f7d2b5);
+  text-align: center;
+}
+
+@container creation-card (min-width: 260px) {
+  .creation-thumb-frame {
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+}
+
+.creation-card-footer {
+  border-top: 1px solid var(--border-soft);
+  background: linear-gradient(180deg, #fff6ed, #ffefe3);
+  padding: 0.58rem 0.72rem 0.62rem;
+  display: grid;
+  gap: 0.2rem;
+  min-height: 72px;
+  align-content: center;
 }
 
 .creation-subtitle {
-  border-top: 1px solid var(--border-soft);
-  background: #fff2e6;
-  padding: 0.64rem 0.78rem;
-  color: #5c3d2d;
-  font-size: 0.94rem;
-  line-height: 1.4;
+  margin: 0;
+  color: #3d2a1f;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+}
+
+.creation-subtitle-secondary {
+  margin: 0;
+  color: #8a6b52;
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+  opacity: 0.92;
 }
 
 .creation-skeleton,
@@ -1180,13 +1283,12 @@ button:disabled {
   height: 230px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-soft);
-  background:
-    linear-gradient(
-      90deg,
-      rgba(255, 250, 242, 0.9) 0%,
-      rgba(247, 232, 215, 0.9) 40%,
-      rgba(255, 250, 242, 0.9) 100%
-    );
+  background: linear-gradient(
+    90deg,
+    rgba(255, 250, 242, 0.9) 0%,
+    rgba(247, 232, 215, 0.9) 40%,
+    rgba(255, 250, 242, 0.9) 100%
+  );
   background-size: 240% 100%;
   animation: shimmer 1.8s linear infinite;
 }
@@ -1195,13 +1297,12 @@ button:disabled {
   width: 100%;
   height: 10px;
   border-radius: var(--radius-pill);
-  background:
-    linear-gradient(
-      90deg,
-      rgba(247, 232, 215, 0.85) 0%,
-      rgba(255, 250, 242, 0.95) 45%,
-      rgba(247, 232, 215, 0.85) 100%
-    );
+  background: linear-gradient(
+    90deg,
+    rgba(247, 232, 215, 0.85) 0%,
+    rgba(255, 250, 242, 0.95) 45%,
+    rgba(247, 232, 215, 0.85) 100%
+  );
   background-size: 220% 100%;
   animation: shimmer 1.7s linear infinite;
 }
@@ -1676,7 +1777,11 @@ button:disabled {
   height: 100vh;
   padding: 1rem;
   background:
-    radial-gradient(circle at 18% 14%, rgba(217, 106, 57, 0.18), transparent 34%),
+    radial-gradient(
+      circle at 18% 14%,
+      rgba(217, 106, 57, 0.18),
+      transparent 34%
+    ),
     radial-gradient(circle at 82% 84%, rgba(47, 125, 97, 0.1), transparent 36%),
     #f1e4d3;
 }
@@ -1698,8 +1803,16 @@ button:disabled {
 
 .sandbox-stage:fullscreen::backdrop {
   background:
-    radial-gradient(circle at 18% 14%, rgba(217, 106, 57, 0.22), transparent 34%),
-    radial-gradient(circle at 82% 84%, rgba(47, 125, 97, 0.12), transparent 36%),
+    radial-gradient(
+      circle at 18% 14%,
+      rgba(217, 106, 57, 0.22),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 82% 84%,
+      rgba(47, 125, 97, 0.12),
+      transparent 36%
+    ),
     #ead7c3;
 }
 
@@ -1739,7 +1852,11 @@ button:disabled {
   justify-items: stretch;
   border-radius: var(--radius-md);
   border: 1px solid rgba(188, 81, 39, 0.16);
-  background: linear-gradient(180deg, rgba(255, 250, 242, 0.98), rgba(247, 236, 224, 0.98));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 250, 242, 0.98),
+    rgba(247, 236, 224, 0.98)
+  );
   padding: 1rem 1.05rem;
   box-shadow: var(--elevation-1);
 }

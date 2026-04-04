@@ -1,17 +1,16 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { FormEvent, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { createAuthenticatedApiClient } from '@/lib/api/authenticated-api-client';
-import type { BillingMeResponse } from '@/lib/api/billing-me';
-import { writeHomePromptHandoff } from '@/lib/chat/prompt-handoff';
-import type { GenerationMode } from '@/lib/chat/generation-mode';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
-import { FloatingProfileControls } from './components/floating-profile-controls';
-import { GenerationModeDropdown } from './components/generation-mode-segmented-control';
-import { MarketingLanding } from './components/marketing-landing';
-import { ArrowUp, ChevronLeft, ChevronRight, LoaderCircle } from 'lucide-react';
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createAuthenticatedApiClient } from "@/lib/api/authenticated-api-client";
+import type { BillingMeResponse } from "@/lib/api/billing-me";
+import { writeHomePromptHandoff } from "@/lib/chat/prompt-handoff";
+import type { GenerationMode } from "@/lib/chat/generation-mode";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { FloatingProfileControls } from "./components/floating-profile-controls";
+import { GenerationModeDropdown } from "./components/generation-mode-segmented-control";
+import { MarketingLanding } from "./components/marketing-landing";
+import { ArrowUp, ChevronLeft, ChevronRight, LoaderCircle } from "lucide-react";
 
 type ThreadCard = {
   id: string;
@@ -20,8 +19,14 @@ type ThreadCard = {
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
-  sandboxStatus: 'empty' | 'creating' | 'ready' | 'error' | null;
+  sandboxStatus: "empty" | "creating" | "ready" | "error" | null;
   sandboxUpdatedAt: string | null;
+  /** API may omit keys; treat missing/undefined like no preview */
+  experienceHtml?: string | null;
+  experienceCss?: string | null;
+  experienceJs?: string | null;
+  /** From latest experience version; friendlier than thread title when present */
+  experienceTitle?: string | null;
 };
 
 type ThreadListResponse = {
@@ -45,12 +50,14 @@ type ThreadCreateResponse = {
   };
 };
 
-type RootMode = 'loading' | 'marketing' | 'home';
+type RootMode = "loading" | "marketing" | "home";
 
 export default function RootPage() {
   const router = useRouter();
-  const supabaseRef = useRef<ReturnType<typeof createSupabaseBrowserClient> | null>(null);
-  const [mode, setMode] = useState<RootMode>('loading');
+  const supabaseRef = useRef<ReturnType<
+    typeof createSupabaseBrowserClient
+  > | null>(null);
+  const [mode, setMode] = useState<RootMode>("loading");
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -76,20 +83,22 @@ export default function RootPage() {
     void supabaseClient.auth.getSession().then(({ data, error }) => {
       if (error) {
         setAuthError(error.message);
-        setMode('marketing');
+        setMode("marketing");
         return;
       }
 
       const token = data.session?.access_token ?? null;
       setAccessToken(token);
-      setMode(token ? 'home' : 'marketing');
+      setMode(token ? "home" : "marketing");
     });
 
-    const { data } = supabaseClient.auth.onAuthStateChange((_event, session) => {
-      const token = session?.access_token ?? null;
-      setAccessToken(token);
-      setMode(token ? 'home' : 'marketing');
-    });
+    const { data } = supabaseClient.auth.onAuthStateChange(
+      (_event, session) => {
+        const token = session?.access_token ?? null;
+        setAccessToken(token);
+        setMode(token ? "home" : "marketing");
+      },
+    );
 
     return () => {
       data.subscription.unsubscribe();
@@ -104,11 +113,11 @@ export default function RootPage() {
 
     await supabaseClient.auth.signOut();
     setAccessToken(null);
-    setMode('marketing');
-    router.replace('/');
+    setMode("marketing");
+    router.replace("/");
   }
 
-  if (mode === 'home' && accessToken) {
+  if (mode === "home" && accessToken) {
     return (
       <HomeWorkspace
         accessToken={accessToken}
@@ -120,13 +129,10 @@ export default function RootPage() {
   return <MarketingLanding authError={authError} />;
 }
 
-function HomeWorkspace(input: {
-  accessToken: string;
-  onSignOut: () => void;
-}) {
+function HomeWorkspace(input: { accessToken: string; onSignOut: () => void }) {
   const router = useRouter();
   const carouselRef = useRef<HTMLDivElement | null>(null);
-  const [prompt, setPrompt] = useState('');
+  const [prompt, setPrompt] = useState("");
   const [threads, setThreads] = useState<ThreadCard[]>([]);
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [threadsError, setThreadsError] = useState<string | null>(null);
@@ -134,9 +140,13 @@ function HomeWorkspace(input: {
   const [createError, setCreateError] = useState<string | null>(null);
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
-  const [generationMode, setGenerationMode] = useState<GenerationMode>('auto');
-  const [billingSummary, setBillingSummary] = useState<BillingMeResponse['data'] | null>(null);
-  const [billingLoadState, setBillingLoadState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [generationMode, setGenerationMode] = useState<GenerationMode>("auto");
+  const [billingSummary, setBillingSummary] = useState<
+    BillingMeResponse["data"] | null
+  >(null);
+  const [billingLoadState, setBillingLoadState] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
 
   useEffect(() => {
     let cancelled = false;
@@ -146,9 +156,9 @@ function HomeWorkspace(input: {
       setThreadsError(null);
 
       try {
-        const response = await apiClientFor(input.accessToken).getJson<ThreadListResponse>(
-          '/api/chat/threads?limit=1000',
-        );
+        const response = await apiClientFor(
+          input.accessToken,
+        ).getJson<ThreadListResponse>("/api/chat/threads?limit=1000");
 
         if (!cancelled) {
           setThreads(response.data.threads);
@@ -175,19 +185,19 @@ function HomeWorkspace(input: {
     let cancelled = false;
 
     async function loadBilling() {
-      setBillingLoadState('loading');
+      setBillingLoadState("loading");
       try {
-        const response = await apiClientFor(input.accessToken).getJson<BillingMeResponse>(
-          '/api/billing/me',
-        );
+        const response = await apiClientFor(
+          input.accessToken,
+        ).getJson<BillingMeResponse>("/api/billing/me");
         if (!cancelled) {
           setBillingSummary(response.data);
-          setBillingLoadState('idle');
+          setBillingLoadState("idle");
         }
       } catch {
         if (!cancelled) {
           setBillingSummary(null);
-          setBillingLoadState('error');
+          setBillingLoadState("error");
         }
       }
     }
@@ -214,7 +224,10 @@ function HomeWorkspace(input: {
         return;
       }
 
-      const maxScrollLeft = Math.max(0, carousel.scrollWidth - carousel.clientWidth);
+      const maxScrollLeft = Math.max(
+        0,
+        carousel.scrollWidth - carousel.clientWidth,
+      );
       setCanScrollPrev(carousel.scrollLeft > 8);
       setCanScrollNext(carousel.scrollLeft < maxScrollLeft - 8);
     }
@@ -226,12 +239,12 @@ function HomeWorkspace(input: {
       return;
     }
 
-    carousel.addEventListener('scroll', updateScrollState, { passive: true });
-    window.addEventListener('resize', updateScrollState);
+    carousel.addEventListener("scroll", updateScrollState, { passive: true });
+    window.addEventListener("resize", updateScrollState);
 
     return () => {
-      carousel.removeEventListener('scroll', updateScrollState);
-      window.removeEventListener('resize', updateScrollState);
+      carousel.removeEventListener("scroll", updateScrollState);
+      window.removeEventListener("resize", updateScrollState);
     };
   }, [threads.length, loadingThreads, threadsError]);
 
@@ -244,7 +257,7 @@ function HomeWorkspace(input: {
     const step = Math.max(240, Math.floor(carousel.clientWidth * 0.72));
     carousel.scrollBy({
       left: direction * step,
-      behavior: 'smooth',
+      behavior: "smooth",
     });
   }
 
@@ -263,10 +276,9 @@ function HomeWorkspace(input: {
     setCreateError(null);
 
     try {
-      const response = await apiClientFor(input.accessToken).postJson<ThreadCreateResponse>(
-        '/api/chat/threads',
-        {},
-      );
+      const response = await apiClientFor(
+        input.accessToken,
+      ).postJson<ThreadCreateResponse>("/api/chat/threads", {});
 
       const threadId = response.data.thread.id;
       writeHomePromptHandoff(threadId, trimmedPrompt, generationMode);
@@ -282,39 +294,49 @@ function HomeWorkspace(input: {
       <FloatingProfileControls onSignOut={input.onSignOut} />
       <header className="home-header">
         <div>
-          <h1 className="display-script home-hero-heading">What will you create today?</h1>
+          <h1 className="display-script home-hero-heading">
+            What will you create today?
+          </h1>
         </div>
       </header>
 
-      {billingLoadState === 'error' ? (
+      {billingLoadState === "error" ? (
         <p className="home-billing-muted" role="status">
           Billing summary unavailable.
         </p>
       ) : null}
 
-      {billingSummary?.billingEnabled && billingLoadState !== 'error' ? (
+      {billingSummary?.billingEnabled && billingLoadState !== "error" ? (
         <section className="home-billing-strip" aria-label="Credits and plan">
           <p className="home-billing-strip-text">
-            <span className="home-billing-plan">{billingSummary.plan === 'paid' ? 'Paid' : 'Free'} plan</span>
+            <span className="home-billing-plan">
+              {billingSummary.plan === "paid" ? "Paid" : "Free"} plan
+            </span>
             <span className="home-billing-sep" aria-hidden="true">
               ·
             </span>
-            <span>{billingSummary.includedCreditsAvailable ?? 0} included credits left</span>
-            {typeof billingSummary.topupCreditsAvailable === 'number' &&
+            <span>
+              {billingSummary.includedCreditsAvailable ?? 0} included credits
+              left
+            </span>
+            {typeof billingSummary.topupCreditsAvailable === "number" &&
             billingSummary.topupCreditsAvailable > 0 ? (
               <>
                 <span className="home-billing-sep" aria-hidden="true">
                   ·
                 </span>
-                <span>{billingSummary.topupCreditsAvailable} top-up credits available</span>
+                <span>
+                  {billingSummary.topupCreditsAvailable} top-up credits
+                  available
+                </span>
               </>
             ) : null}
             <span className="home-billing-sep" aria-hidden="true">
               ·
             </span>
             <span>
-              Fast {billingSummary.costs.fastCredits ?? '—'} · Quality {billingSummary.costs.qualityCredits ?? '—'}{' '}
-              credits
+              Fast {billingSummary.costs.fastCredits ?? "—"} · Quality{" "}
+              {billingSummary.costs.qualityCredits ?? "—"} credits
             </span>
           </p>
         </section>
@@ -337,12 +359,16 @@ function HomeWorkspace(input: {
               />
               <button
                 type="submit"
-                className={`home-create-submit ${creating ? 'is-busy' : ''}`}
+                className={`home-create-submit ${creating ? "is-busy" : ""}`}
                 disabled={creating || prompt.trim().length === 0}
-                aria-label={creating ? 'Starting thread' : 'Create thread'}
+                aria-label={creating ? "Starting thread" : "Create thread"}
               >
                 {creating ? (
-                  <LoaderCircle size={18} strokeWidth={2.3} className="composer-spinner" />
+                  <LoaderCircle
+                    size={18}
+                    strokeWidth={2.3}
+                    className="composer-spinner"
+                  />
                 ) : (
                   <ArrowUp size={18} strokeWidth={2.4} />
                 )}
@@ -388,11 +414,14 @@ function HomeWorkspace(input: {
           </>
         ) : null}
 
-        {!loadingThreads && threadsError ? <p className="error-banner">{threadsError}</p> : null}
+        {!loadingThreads && threadsError ? (
+          <p className="error-banner">{threadsError}</p>
+        ) : null}
 
         {!loadingThreads && !threadsError && threads.length === 0 ? (
           <p className="empty-state">
-            No creations yet. Start with one idea above and Monti will draft the first version.
+            No creations yet. Start with one idea above and Monti will draft the
+            first version.
           </p>
         ) : null}
 
@@ -412,9 +441,37 @@ function HomeWorkspace(input: {
                 onClick={() => router.push(`/chat/${thread.id}`)}
               >
                 <div className="creation-thumb" aria-hidden="true">
-                  <span>Creation Preview</span>
+                  {hasThreadPreview(thread) ? (
+                    <div className="creation-thumb-stage">
+                      <iframe
+                        className="creation-thumb-frame"
+                        srcDoc={buildSrcdoc(
+                          thread.experienceHtml,
+                          thread.experienceCss,
+                          thread.experienceJs,
+                        )}
+                        sandbox="allow-scripts"
+                        loading="lazy"
+                        tabIndex={-1}
+                        title=""
+                      />
+                    </div>
+                  ) : (
+                    <div className="creation-thumb-empty">
+                      <span>No preview yet</span>
+                    </div>
+                  )}
                 </div>
-                <p className="creation-subtitle">{thread.title?.trim() || 'Untitled creation'}</p>
+                <div className="creation-card-footer">
+                  <p className="creation-subtitle">
+                    {threadCardDisplayTitle(thread)}
+                  </p>
+                  {threadCardSecondaryTitle(thread) ? (
+                    <p className="creation-subtitle-secondary">
+                      {threadCardSecondaryTitle(thread)}
+                    </p>
+                  ) : null}
+                </div>
               </button>
             ))}
           </div>
@@ -426,9 +483,63 @@ function HomeWorkspace(input: {
   );
 }
 
-
 function apiClientFor(accessToken: string) {
   return createAuthenticatedApiClient(accessToken);
+}
+
+/** Prefer LLM experience title; fall back to thread title (often first-line prompt). */
+function threadCardDisplayTitle(thread: ThreadCard): string {
+  const fromExperience = thread.experienceTitle?.trim();
+  if (fromExperience) {
+    return fromExperience;
+  }
+  const fromThread = thread.title?.trim();
+  if (fromThread) {
+    return fromThread;
+  }
+  return "Untitled creation";
+}
+
+/** When the headline is the experience title, show thread prompt as a muted second line. */
+function threadCardSecondaryTitle(thread: ThreadCard): string | null {
+  const exp = thread.experienceTitle?.trim();
+  const raw = thread.title?.trim();
+  if (!exp || !raw || raw === exp) {
+    return null;
+  }
+  return raw;
+}
+
+function hasThreadPreview(thread: ThreadCard): thread is ThreadCard & {
+  experienceHtml: string;
+  experienceCss: string;
+  experienceJs: string;
+} {
+  return (
+    typeof thread.experienceHtml === "string" &&
+    typeof thread.experienceCss === "string" &&
+    typeof thread.experienceJs === "string"
+  );
+}
+
+function buildSrcdoc(html: string, css: string, js: string): string {
+  const safeHtml = typeof html === "string" ? html : "";
+  const safeCss = typeof css === "string" ? css : "";
+  const safeJs = typeof js === "string" ? js : "";
+  const sanitizedJs = safeJs.replace(/<\/script/gi, "<\\/script");
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>${safeCss}</style>
+  </head>
+  <body>
+    ${safeHtml}
+    <script>${sanitizedJs}</script>
+  </body>
+</html>`;
 }
 
 function toErrorMessage(error: unknown): string {
@@ -436,5 +547,5 @@ function toErrorMessage(error: unknown): string {
     return error.message;
   }
 
-  return 'We hit a snag while updating your creation. Please try again.';
+  return "We hit a snag while updating your creation. Please try again.";
 }

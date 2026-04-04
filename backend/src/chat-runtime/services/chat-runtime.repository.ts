@@ -1,13 +1,18 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AppError, ValidationError } from '../../common/errors/app-error';
 import { SUPABASE_CLIENT } from '../../supabase/supabase.constants';
-import type { Database, MontiSupabaseClient } from '../../supabase/supabase.types';
+import type {
+  Database,
+  MontiSupabaseClient,
+} from '../../supabase/supabase.types';
 
 type ChatThreadRow = Database['public']['Tables']['chat_threads']['Row'];
 type ChatMessageRow = Database['public']['Tables']['chat_messages']['Row'];
 type AssistantRunRow = Database['public']['Tables']['assistant_runs']['Row'];
-type ToolInvocationRow = Database['public']['Tables']['tool_invocations']['Row'];
+type ToolInvocationRow =
+  Database['public']['Tables']['tool_invocations']['Row'];
 type SandboxStateRow = Database['public']['Tables']['sandbox_states']['Row'];
+type SandboxStateInsert = Database['public']['Tables']['sandbox_states']['Insert'];
 
 interface RpcSubmitRow {
   message_id: string;
@@ -20,6 +25,10 @@ interface RpcSubmitRow {
 interface ThreadListRow extends ChatThreadRow {
   sandbox_status: 'empty' | 'creating' | 'ready' | 'error' | null;
   sandbox_updated_at: string | null;
+  experience_html: string | null;
+  experience_css: string | null;
+  experience_js: string | null;
+  experience_title: string | null;
 }
 
 @Injectable()
@@ -52,7 +61,7 @@ export class ChatRuntimeRepository {
     const threadIds = threadRows.map((thread) => thread.id);
     const { data: sandboxStates, error: sandboxError } = await this.client
       .from('sandbox_states')
-      .select('thread_id,status,updated_at')
+      .select('thread_id,status,updated_at,experience_version_id')
       .in('thread_id', threadIds);
 
     if (sandboxError) {
@@ -64,29 +73,127 @@ export class ChatRuntimeRepository {
       {
         status: 'empty' | 'creating' | 'ready' | 'error';
         updatedAt: string;
+        experienceVersionId: string | null;
       }
     >();
     (sandboxStates ?? []).forEach((row) => {
       sandboxByThread.set(row.thread_id, {
         status: row.status,
         updatedAt: row.updated_at,
+        experienceVersionId: row.experience_version_id,
       });
     });
 
+    const threadIdsMissingSandboxVersion = threadRows
+      .map((thread) => thread.id)
+      .filter((id) => {
+        const versionId = sandboxByThread.get(id)?.experienceVersionId;
+        return typeof versionId !== 'string' || versionId.length === 0;
+      });
+
+    const previewVersionFallbackByThread = new Map<string, string>();
+    if (threadIdsMissingSandboxVersion.length > 0) {
+      const { data: invocations, error: invocationsError } = await this.client
+        .from('tool_invocations')
+        .select('thread_id,experience_version_id,completed_at')
+        .in('thread_id', threadIdsMissingSandboxVersion)
+        .eq('tool_name', 'generate_experience')
+        .eq('status', 'succeeded')
+        .not('experience_version_id', 'is', null)
+        .order('completed_at', { ascending: false });
+
+      if (invocationsError) {
+        this.throwQueryError(
+          'list tool invocations for thread previews',
+          invocationsError,
+        );
+      }
+
+      (invocations ?? []).forEach((row) => {
+        if (
+          typeof row.experience_version_id !== 'string' ||
+          row.experience_version_id.length === 0
+        ) {
+          return;
+        }
+        if (!previewVersionFallbackByThread.has(row.thread_id)) {
+          previewVersionFallbackByThread.set(
+            row.thread_id,
+            row.experience_version_id,
+          );
+        }
+      });
+    }
+
+    const experienceVersionIds = Array.from(
+      new Set(
+        [
+          ...(sandboxStates ?? [])
+            .map((row) => row.experience_version_id)
+            .filter(
+              (value): value is string =>
+                typeof value === 'string' && value.length > 0,
+            ),
+          ...previewVersionFallbackByThread.values(),
+        ],
+      ),
+    );
+    const experienceVersionsById = new Map<
+      string,
+      {
+        title: string;
+        html: string;
+        css: string;
+        js: string;
+      }
+    >();
+    if (experienceVersionIds.length > 0) {
+      const { data: experienceVersions, error: experienceVersionError } =
+        await this.client
+          .from('experience_versions')
+          .select('id,title,html,css,js')
+          .in('id', experienceVersionIds);
+
+      if (experienceVersionError) {
+        this.throwQueryError(
+          'list experience versions for thread previews',
+          experienceVersionError,
+        );
+      }
+
+      (experienceVersions ?? []).forEach((row) => {
+        experienceVersionsById.set(row.id, {
+          title: row.title,
+          html: row.html,
+          css: row.css,
+          js: row.js,
+        });
+      });
+    }
+
     return threadRows.map((thread) => {
       const sandbox = sandboxByThread.get(thread.id);
+      const resolvedExperienceVersionId =
+        typeof sandbox?.experienceVersionId === 'string' &&
+        sandbox.experienceVersionId.length > 0
+          ? sandbox.experienceVersionId
+          : (previewVersionFallbackByThread.get(thread.id) ?? null);
+      const experienceVersion = resolvedExperienceVersionId
+        ? experienceVersionsById.get(resolvedExperienceVersionId)
+        : null;
       return {
         ...thread,
         sandbox_status: sandbox?.status ?? null,
         sandbox_updated_at: sandbox?.updatedAt ?? null,
+        experience_html: experienceVersion?.html ?? null,
+        experience_css: experienceVersion?.css ?? null,
+        experience_js: experienceVersion?.js ?? null,
+        experience_title: experienceVersion?.title ?? null,
       };
     });
   }
 
-  async createThread(input: {
-    userId: string;
-    title?: string;
-  }): Promise<{
+  async createThread(input: { userId: string; title?: string }): Promise<{
     thread: ChatThreadRow;
     sandboxState: SandboxStateRow;
   }> {
@@ -104,7 +211,11 @@ export class ChatRuntimeRepository {
     }
 
     if (!thread) {
-      throw new AppError('INTERNAL_ERROR', 'Created chat thread was not returned.', 500);
+      throw new AppError(
+        'INTERNAL_ERROR',
+        'Created chat thread was not returned.',
+        500,
+      );
     }
 
     const { data: sandboxState, error: sandboxError } = await this.client
@@ -121,7 +232,11 @@ export class ChatRuntimeRepository {
     }
 
     if (!sandboxState) {
-      throw new AppError('INTERNAL_ERROR', 'Created sandbox state was not returned.', 500);
+      throw new AppError(
+        'INTERNAL_ERROR',
+        'Created sandbox state was not returned.',
+        500,
+      );
     }
 
     return {
@@ -130,10 +245,7 @@ export class ChatRuntimeRepository {
     };
   }
 
-  async hydrateThread(input: {
-    threadId: string;
-    userId: string;
-  }): Promise<{
+  async hydrateThread(input: { threadId: string; userId: string }): Promise<{
     thread: ChatThreadRow;
     messages: ChatMessageRow[];
     sandboxState: SandboxStateRow;
@@ -196,7 +308,11 @@ export class ChatRuntimeRepository {
     }
 
     if (!sandboxState) {
-      throw new AppError('INTERNAL_ERROR', 'Sandbox state is missing for thread.', 500);
+      throw new AppError(
+        'INTERNAL_ERROR',
+        'Sandbox state is missing for thread.',
+        500,
+      );
     }
 
     return {
@@ -245,18 +361,29 @@ export class ChatRuntimeRepository {
       this.throwQueryError('submit chat message', error);
     }
 
-    const firstRow = Array.isArray(data) && data.length > 0 ? (data[0] as RpcSubmitRow) : null;
+    const firstRow =
+      Array.isArray(data) && data.length > 0 ? (data[0] as RpcSubmitRow) : null;
     if (!firstRow) {
-      throw new AppError('INTERNAL_ERROR', 'Chat submit RPC returned no rows.', 500);
+      throw new AppError(
+        'INTERNAL_ERROR',
+        'Chat submit RPC returned no rows.',
+        500,
+      );
     }
 
     const [message, run] = await Promise.all([
       this.findMessageById(firstRow.message_id),
-      firstRow.run_id ? this.findRunById(firstRow.run_id) : Promise.resolve(null),
+      firstRow.run_id
+        ? this.findRunById(firstRow.run_id)
+        : Promise.resolve(null),
     ]);
 
     if (!message) {
-      throw new AppError('INTERNAL_ERROR', 'Submitted message was not found.', 500);
+      throw new AppError(
+        'INTERNAL_ERROR',
+        'Submitted message was not found.',
+        500,
+      );
     }
 
     await this.seedThreadTitleIfEmpty({
@@ -419,7 +546,11 @@ export class ChatRuntimeRepository {
     }
 
     if (!sandboxState) {
-      throw new AppError('INTERNAL_ERROR', 'Sandbox state is missing for thread.', 500);
+      throw new AppError(
+        'INTERNAL_ERROR',
+        'Sandbox state is missing for thread.',
+        500,
+      );
     }
 
     if (!sandboxState.experience_version_id) {
@@ -429,24 +560,29 @@ export class ChatRuntimeRepository {
       };
     }
 
-    const [{ data: version, error: versionError }, { data: experience, error: experienceError }] =
-      await Promise.all([
-        this.client
-          .from('experience_versions')
-          .select('title,description,html,css,js,generation_id')
-          .eq('id', sandboxState.experience_version_id)
-          .maybeSingle(),
-        sandboxState.experience_id
-          ? this.client
-              .from('experiences')
-              .select('slug')
-              .eq('id', sandboxState.experience_id)
-              .maybeSingle()
-          : Promise.resolve({ data: null, error: null }),
-      ]);
+    const [
+      { data: version, error: versionError },
+      { data: experience, error: experienceError },
+    ] = await Promise.all([
+      this.client
+        .from('experience_versions')
+        .select('title,description,html,css,js,generation_id')
+        .eq('id', sandboxState.experience_version_id)
+        .maybeSingle(),
+      sandboxState.experience_id
+        ? this.client
+            .from('experiences')
+            .select('slug')
+            .eq('id', sandboxState.experience_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
 
     if (versionError) {
-      this.throwQueryError('load active sandbox experience version', versionError);
+      this.throwQueryError(
+        'load active sandbox experience version',
+        versionError,
+      );
     }
 
     if (experienceError) {
@@ -676,17 +812,25 @@ export class ChatRuntimeRepository {
     lastErrorCode?: string | null;
     lastErrorMessage?: string | null;
   }): Promise<void> {
-    const { error } = await this.client
-      .from('sandbox_states')
-      .upsert({
-        thread_id: input.threadId,
-        status: input.status,
-        experience_id: input.experienceId ?? null,
-        experience_version_id: input.experienceVersionId ?? null,
-        last_error_code: input.lastErrorCode ?? null,
-        last_error_message: input.lastErrorMessage ?? null,
-        updated_at: new Date().toISOString(),
-      });
+    const row: SandboxStateInsert = {
+      thread_id: input.threadId,
+      status: input.status,
+      updated_at: new Date().toISOString(),
+    };
+    if (input.experienceId !== undefined) {
+      row.experience_id = input.experienceId;
+    }
+    if (input.experienceVersionId !== undefined) {
+      row.experience_version_id = input.experienceVersionId;
+    }
+    if (input.lastErrorCode !== undefined) {
+      row.last_error_code = input.lastErrorCode;
+    }
+    if (input.lastErrorMessage !== undefined) {
+      row.last_error_message = input.lastErrorMessage;
+    }
+
+    const { error } = await this.client.from('sandbox_states').upsert(row);
 
     if (error) {
       this.throwQueryError('update sandbox state', error);
@@ -735,7 +879,9 @@ export class ChatRuntimeRepository {
     return data;
   }
 
-  private async findMessageById(messageId: string): Promise<ChatMessageRow | null> {
+  private async findMessageById(
+    messageId: string,
+  ): Promise<ChatMessageRow | null> {
     const { data, error } = await this.client
       .from('chat_messages')
       .select('*')
@@ -785,23 +931,21 @@ export class ChatRuntimeRepository {
     }
   }
 
-  private throwQueryError(action: string, error: {
-    message: string;
-    code?: string | null;
-    details?: string | null;
-    hint?: string | null;
-  }): never {
-    throw new AppError(
-      'INTERNAL_ERROR',
-      `Failed to ${action}.`,
-      500,
-      {
-        code: error.code ?? undefined,
-        message: error.message,
-        details: error.details ?? undefined,
-        hint: error.hint ?? undefined,
-      },
-    );
+  private throwQueryError(
+    action: string,
+    error: {
+      message: string;
+      code?: string | null;
+      details?: string | null;
+      hint?: string | null;
+    },
+  ): never {
+    throw new AppError('INTERNAL_ERROR', `Failed to ${action}.`, 500, {
+      code: error.code ?? undefined,
+      message: error.message,
+      details: error.details ?? undefined,
+      hint: error.hint ?? undefined,
+    });
   }
 }
 

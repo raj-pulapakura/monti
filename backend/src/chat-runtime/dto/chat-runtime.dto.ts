@@ -55,6 +55,11 @@ export interface ThreadListItemEnvelope {
   updatedAt: string;
   sandboxStatus: 'empty' | 'creating' | 'ready' | 'error' | null;
   sandboxUpdatedAt: string | null;
+  experienceHtml: string | null;
+  experienceCss: string | null;
+  experienceJs: string | null;
+  /** Display title from the latest experience version (LLM), when available */
+  experienceTitle: string | null;
 }
 
 export interface ThreadListPayload {
@@ -76,7 +81,10 @@ export function parseCreateThreadRequest(body: unknown): CreateThreadRequest {
   };
 }
 
-export function parseHydrateThreadRequest(threadId: string, query: unknown): HydrateThreadRequest {
+export function parseHydrateThreadRequest(
+  threadId: string,
+  query: unknown,
+): HydrateThreadRequest {
   if (!isUuidLike(threadId)) {
     throw new ValidationError('threadId must be a UUID string.');
   }
@@ -102,7 +110,10 @@ export function parseListThreadsRequest(query: unknown): ListThreadsRequest {
   };
 }
 
-export function parseSubmitMessageRequest(threadId: string, body: unknown): {
+export function parseSubmitMessageRequest(
+  threadId: string,
+  body: unknown,
+): {
   threadId: string;
   request: SubmitMessageRequest;
 } {
@@ -117,12 +128,18 @@ export function parseSubmitMessageRequest(threadId: string, body: unknown): {
     request: {
       content: asRequiredString(object.content, 'content'),
       idempotencyKey: asOptionalString(object.idempotencyKey, 'idempotencyKey'),
-      generationMode: asOptionalGenerationMode(object.generationMode, 'generationMode'),
+      generationMode: asOptionalGenerationMode(
+        object.generationMode,
+        'generationMode',
+      ),
     },
   };
 }
 
-export function parseStreamEventsRequest(threadId: string, query: unknown): {
+export function parseStreamEventsRequest(
+  threadId: string,
+  query: unknown,
+): {
   threadId: string;
   cursor?: string;
 } {
@@ -132,7 +149,7 @@ export function parseStreamEventsRequest(threadId: string, query: unknown): {
 export function parseStreamEventsRequestWithHeader(
   threadId: string,
   query: unknown,
-  lastEventIdHeader?: string | string[] | undefined,
+  lastEventIdHeader?: string | string[],
 ): {
   threadId: string;
   cursor?: string;
@@ -175,7 +192,10 @@ function asRequiredString(value: unknown, fieldName: string): string {
   return trimmed;
 }
 
-function asOptionalString(value: unknown, fieldName: string): string | undefined {
+function asOptionalString(
+  value: unknown,
+  fieldName: string,
+): string | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
@@ -188,7 +208,10 @@ function asOptionalString(value: unknown, fieldName: string): string | undefined
   return trimmed.length === 0 ? undefined : trimmed;
 }
 
-function asOptionalInteger(value: unknown, fieldName: string): number | undefined {
+function asOptionalInteger(
+  value: unknown,
+  fieldName: string,
+): number | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
@@ -203,7 +226,9 @@ function asOptionalInteger(value: unknown, fieldName: string): number | undefine
     }
 
     if (!/^-?\d+$/.test(normalized)) {
-      throw new ValidationError(`${fieldName} must be an integer when provided.`);
+      throw new ValidationError(
+        `${fieldName} must be an integer when provided.`,
+      );
     }
 
     parsed = Number.parseInt(normalized, 10);
@@ -228,7 +253,9 @@ function asOptionalGenerationMode(
     return value;
   }
 
-  throw new ValidationError(`${fieldName} must be one of: auto, fast, quality.`);
+  throw new ValidationError(
+    `${fieldName} must be one of: auto, fast, quality.`,
+  );
 }
 
 function isUuidLike(value: string): boolean {

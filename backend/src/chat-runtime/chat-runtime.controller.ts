@@ -21,6 +21,7 @@ import {
   parseStreamEventsRequestWithHeader,
   parseSubmitMessageRequest,
 } from './dto/chat-runtime.dto';
+import type { ThreadListPayload } from './dto/chat-runtime.dto';
 import { ChatRuntimeService } from './services/chat-runtime.service';
 import { ChatRuntimeEventService } from './services/chat-runtime-event.service';
 
@@ -33,7 +34,13 @@ export class ChatRuntimeController {
   ) {}
 
   @Get()
-  async listThreads(@CurrentUser() user: AuthenticatedUser, @Query() query: unknown) {
+  async listThreads(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: unknown,
+  ): Promise<{
+    ok: true;
+    data: ThreadListPayload;
+  }> {
     const request = parseListThreadsRequest(query);
     const payload = await this.chatRuntimeService.listThreads({
       request,
@@ -47,7 +54,10 @@ export class ChatRuntimeController {
   }
 
   @Post()
-  async createThread(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
+  async createThread(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: unknown,
+  ) {
     const request = parseCreateThreadRequest(body);
     const payload = await this.chatRuntimeService.createThread({
       request,

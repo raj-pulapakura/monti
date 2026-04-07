@@ -73,7 +73,7 @@ export class OpenAiLlmProvider implements LlmProvider {
             type: 'json_schema',
             name: 'monti_experience_payload',
             strict: true,
-            schema: WEBPAGE_OUTPUT_SCHEMA,
+            schema: request.responseSchema ?? WEBPAGE_OUTPUT_SCHEMA,
           },
         },
       }),

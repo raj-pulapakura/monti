@@ -9,6 +9,7 @@ import { ConversationLoopService } from './services/conversation-loop.service';
 import { ChatRuntimeEventService } from './services/chat-runtime-event.service';
 import { ChatRuntimeRepository } from './services/chat-runtime.repository';
 import { ChatRuntimeService } from './services/chat-runtime.service';
+import { RefinementSuggestionService } from './services/refinement-suggestion.service';
 import { ChatToolRegistryService } from './tools/chat-tool-registry.service';
 import { GenerateExperienceToolService } from './tools/generate-experience-tool.service';
 
@@ -20,6 +21,7 @@ import { GenerateExperienceToolService } from './tools/generate-experience-tool.
     ChatRuntimeService,
     ConversationLoopService,
     ChatRuntimeEventService,
+    RefinementSuggestionService,
     ChatToolRegistryService,
     GenerateExperienceToolService,
   ],

@@ -18,12 +18,15 @@ import {
   parseListThreadsRequest,
   parseCreateThreadRequest,
   parseHydrateThreadRequest,
+  parseRefinementSuggestionsRequest,
   parseStreamEventsRequestWithHeader,
   parseSubmitMessageRequest,
 } from './dto/chat-runtime.dto';
 import type { ThreadListPayload } from './dto/chat-runtime.dto';
 import { ChatRuntimeService } from './services/chat-runtime.service';
 import { ChatRuntimeEventService } from './services/chat-runtime-event.service';
+import { RefinementSuggestionService } from './services/refinement-suggestion.service';
+import type { RefinementSuggestion } from './services/refinement-suggestion.service';
 
 @Controller('api/chat/threads')
 @UseGuards(AuthGuard)
@@ -31,6 +34,7 @@ export class ChatRuntimeController {
   constructor(
     private readonly chatRuntimeService: ChatRuntimeService,
     private readonly chatRuntimeEvents: ChatRuntimeEventService,
+    private readonly refinementSuggestions: RefinementSuggestionService,
   ) {}
 
   @Get()
@@ -104,6 +108,25 @@ export class ChatRuntimeController {
     return {
       ok: true,
       data: payload,
+    };
+  }
+
+  @Get(':threadId/refinement-suggestions')
+  async getRefinementSuggestions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('threadId') threadId: string,
+    @Query() query: unknown,
+  ): Promise<{ ok: true; data: { suggestions: RefinementSuggestion[] } }> {
+    const request = parseRefinementSuggestionsRequest(threadId, query);
+    const suggestions = await this.refinementSuggestions.getSuggestions({
+      threadId: request.threadId,
+      userId: user.id,
+      experienceVersionId: request.experienceVersionId,
+    });
+
+    return {
+      ok: true,
+      data: { suggestions },
     };
   }
 

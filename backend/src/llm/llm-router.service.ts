@@ -19,6 +19,7 @@ export interface RoutedGenerationRequest {
   qualityMode: QualityMode;
   maxTokens: number;
   provider?: ProviderKind;
+  responseSchema?: Record<string, unknown>;
 }
 
 @Injectable()
@@ -77,6 +78,7 @@ export class LlmRouterService {
         qualityMode: request.qualityMode,
         model,
         signal: controller.signal,
+        responseSchema: request.responseSchema,
       });
 
       this.logger.log(

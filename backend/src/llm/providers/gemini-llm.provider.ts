@@ -79,7 +79,7 @@ export class GeminiLlmProvider implements LlmProvider {
           temperature: request.temperature,
           maxOutputTokens: request.maxTokens,
           responseMimeType: 'application/json',
-          responseSchema: WEBPAGE_OUTPUT_SCHEMA,
+          responseSchema: request.responseSchema ?? WEBPAGE_OUTPUT_SCHEMA,
         },
       }),
       signal: request.signal,

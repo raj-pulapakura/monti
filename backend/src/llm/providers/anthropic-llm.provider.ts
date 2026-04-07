@@ -61,7 +61,7 @@ export class AnthropicLlmProvider implements LlmProvider {
         output_config: {
           format: {
             type: 'json_schema',
-            schema: WEBPAGE_OUTPUT_SCHEMA,
+            schema: request.responseSchema ?? WEBPAGE_OUTPUT_SCHEMA,
           },
         },
       }),

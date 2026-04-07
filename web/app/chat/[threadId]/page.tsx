@@ -3,7 +3,7 @@
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowUp, Check, Expand, Link2, LoaderCircle, X } from 'lucide-react';
+import { ArrowUp, Check, Expand, Link2, LoaderCircle, Plus, X } from 'lucide-react';
 import {
   API_BASE_URL,
   createAuthenticatedApiClient,
@@ -33,15 +33,17 @@ import {
 } from '../../runtime-state';
 import { FloatingProfileControls } from '../../components/floating-profile-controls';
 
-const ADDABLE_PROMPT_WORDS = [
-  'quiz',
-  'game',
-  'explainer',
-  'elementary',
-  'middle school',
-  'high school',
-  'university',
-];
+type RefinementSuggestion = {
+  label: string;
+  prompt: string;
+};
+
+type RefinementSuggestionsResponse = {
+  ok: true;
+  data: {
+    suggestions: RefinementSuggestion[];
+  };
+};
 
 type ThreadEnvelope = {
   id: string;
@@ -143,6 +145,8 @@ export default function ChatThreadPage() {
   const [billingLoaded, setBillingLoaded] = useState(false);
   const [billingActionPending, setBillingActionPending] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [suggestions, setSuggestions] = useState<RefinementSuggestion[]>([]);
+  const latestSuggestionVersionRef = useRef<string | null>(null);
 
   function getSupabaseClient() {
     if (supabaseRef.current) {
@@ -178,6 +182,8 @@ export default function ChatThreadPage() {
     setBillingLoaded(false);
     setBillingActionPending(false);
     setLinkCopied(false);
+    setSuggestions([]);
+    latestSuggestionVersionRef.current = null;
     handoffAttemptedThreadRef.current = null;
   }, [routeThreadId]);
 
@@ -252,6 +258,39 @@ export default function ChatThreadPage() {
       cancelled = true;
     };
   }, [accessToken, routeThreadId, threadIdIsValid]);
+
+  const activeExperienceVersionId = runtimeState.sandboxState?.experienceVersionId ?? null;
+
+  useEffect(() => {
+    if (!accessToken || !thread?.id || !activeExperienceVersionId) {
+      return;
+    }
+
+    if (latestSuggestionVersionRef.current === activeExperienceVersionId) {
+      return;
+    }
+
+    const versionId = activeExperienceVersionId;
+    latestSuggestionVersionRef.current = versionId;
+
+    void apiClientFor(accessToken)
+      .getJson<RefinementSuggestionsResponse>(
+        `/api/chat/threads/${thread.id}/refinement-suggestions?experienceVersionId=${versionId}`,
+      )
+      .then((response) => {
+        // Ignore stale responses if a newer version has since arrived
+        if (latestSuggestionVersionRef.current !== versionId) {
+          return;
+        }
+        setSuggestions(response.data.suggestions);
+      })
+      .catch(() => {
+        // Suggestions are non-blocking; fail silently
+        if (latestSuggestionVersionRef.current === versionId) {
+          setSuggestions([]);
+        }
+      });
+  }, [accessToken, thread?.id, activeExperienceVersionId]);
 
   useEffect(() => {
     if (!accessToken || !thread?.id) {
@@ -580,21 +619,6 @@ export default function ChatThreadPage() {
     });
   }
 
-  function addPromptWord(word: string) {
-    setComposerText((previous) => {
-      const trimmed = previous.trim();
-      if (trimmed.length === 0) {
-        return word;
-      }
-
-      if (new RegExp(`\\b${word}\\b`, 'i').test(trimmed)) {
-        return trimmed;
-      }
-
-      return `${trimmed} ${word}`;
-    });
-  }
-
   async function submitPrompt(input: {
     prompt: string;
     generationMode?: GenerationMode;
@@ -833,19 +857,22 @@ export default function ChatThreadPage() {
             </p>
           ) : null}
 
-          <div className="prompt-pill-row" aria-label="Add to prompt">
-            {ADDABLE_PROMPT_WORDS.map((word) => (
-              <button
-                key={word}
-                type="button"
-                className="prompt-pill"
-                disabled={submitPending || !thread?.id || !threadIdIsValid}
-                onClick={() => addPromptWord(word)}
-              >
-                + {word}
-              </button>
-            ))}
-          </div>
+          {suggestions.length > 0 ? (
+            <div className="prompt-pill-row" aria-label="Suggested refinements">
+              {suggestions.map((suggestion) => (
+                <button
+                  key={suggestion.label}
+                  type="button"
+                  className="prompt-pill"
+                  disabled={submitPending || !thread?.id || !threadIdIsValid}
+                  onClick={() => setComposerText(suggestion.prompt)}
+                >
+                  <Plus size={12} strokeWidth={2.5} aria-hidden="true" />
+                  {suggestion.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           <form onSubmit={handleSubmit} className="composer-row">
             <div className="composer-input-shell">

@@ -13,6 +13,8 @@ export interface LlmGenerateRequest {
   qualityMode: QualityMode;
   model: string;
   signal?: AbortSignal;
+  /** Override the JSON response schema enforced by the provider. Defaults to the webpage output schema when omitted. */
+  responseSchema?: Record<string, unknown>;
 }
 
 export interface LlmProviderResult {

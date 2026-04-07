@@ -1,6 +1,7 @@
 import { ValidationError } from '../../common/errors/app-error';
 import {
   parseListThreadsRequest,
+  parseRefinementSuggestionsRequest,
   parseStreamEventsRequestWithHeader,
 } from './chat-runtime.dto';
 
@@ -32,6 +33,37 @@ describe('parseStreamEventsRequestWithHeader', () => {
   it('rejects invalid thread ids', () => {
     expect(() =>
       parseStreamEventsRequestWithHeader('not-a-uuid', {}, '1'),
+    ).toThrow(ValidationError);
+  });
+});
+
+describe('parseRefinementSuggestionsRequest', () => {
+  const threadId = '3ec42f7d-bf2f-4144-92fe-1f467f655dca';
+  const versionId = 'a1b2c3d4-0000-4000-8000-000000000001';
+
+  it('parses valid threadId and experienceVersionId', () => {
+    const parsed = parseRefinementSuggestionsRequest(threadId, {
+      experienceVersionId: versionId,
+    });
+
+    expect(parsed).toEqual({ threadId, experienceVersionId: versionId });
+  });
+
+  it('rejects non-UUID threadId', () => {
+    expect(() =>
+      parseRefinementSuggestionsRequest('not-a-uuid', { experienceVersionId: versionId }),
+    ).toThrow(ValidationError);
+  });
+
+  it('rejects non-UUID experienceVersionId', () => {
+    expect(() =>
+      parseRefinementSuggestionsRequest(threadId, { experienceVersionId: 'not-a-uuid' }),
+    ).toThrow(ValidationError);
+  });
+
+  it('rejects missing experienceVersionId', () => {
+    expect(() =>
+      parseRefinementSuggestionsRequest(threadId, {}),
     ).toThrow(ValidationError);
   });
 });

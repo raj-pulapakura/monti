@@ -136,6 +136,32 @@ export function parseSubmitMessageRequest(
   };
 }
 
+export interface RefinementSuggestionsRequest {
+  threadId: string;
+  experienceVersionId: string;
+}
+
+export function parseRefinementSuggestionsRequest(
+  threadId: string,
+  query: unknown,
+): RefinementSuggestionsRequest {
+  if (!isUuidLike(threadId)) {
+    throw new ValidationError('threadId must be a UUID string.');
+  }
+
+  const object = asRecord(query, 'Query params must be an object.');
+  const experienceVersionId = asRequiredString(
+    object.experienceVersionId,
+    'experienceVersionId',
+  );
+
+  if (!isUuidLike(experienceVersionId)) {
+    throw new ValidationError('experienceVersionId must be a UUID string.');
+  }
+
+  return { threadId, experienceVersionId };
+}
+
 export function parseStreamEventsRequest(
   threadId: string,
   query: unknown,

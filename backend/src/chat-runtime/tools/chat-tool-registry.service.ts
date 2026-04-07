@@ -11,7 +11,7 @@ import {
 const GENERATE_EXPERIENCE_TOOL_DEFINITION: CanonicalToolDefinition = {
   name: 'generate_experience',
   description:
-    'Generate or refine an interactive learning experience in the sandbox. For new requests use operation=generate. Use operation=refine only when you have priorGenerationId, refinementInstruction, and full priorExperience.',
+    'Generate or refine an interactive learning experience in the sandbox. Use operation=generate for new experiences. Use operation=refine when the user wants to modify or improve the current experience — the system automatically uses the active experience as the starting point.',
   inputSchema: {
     type: 'object',
     additionalProperties: false,
@@ -21,7 +21,7 @@ const GENERATE_EXPERIENCE_TOOL_DEFINITION: CanonicalToolDefinition = {
         type: 'string',
         enum: ['generate', 'refine'],
         description:
-          'Defaults to generate when omitted. Set to refine only for existing experiences.',
+          'Use generate for new experiences. Use refine when modifying the current experience in the sandbox.',
       },
       prompt: {
         type: 'string',
@@ -43,24 +43,7 @@ const GENERATE_EXPERIENCE_TOOL_DEFINITION: CanonicalToolDefinition = {
       },
       refinementInstruction: {
         type: 'string',
-        description: 'Required when operation=refine.',
-      },
-      priorGenerationId: {
-        type: 'string',
-        description: 'Required when operation=refine.',
-      },
-      priorExperience: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['title', 'description', 'html', 'css', 'js'],
-        description: 'Required when operation=refine.',
-        properties: {
-          title: { type: 'string' },
-          description: { type: 'string' },
-          html: { type: 'string' },
-          css: { type: 'string' },
-          js: { type: 'string' },
-        },
+        description: 'Required when operation=refine. Describe what to change.',
       },
     },
   },

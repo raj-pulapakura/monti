@@ -1739,6 +1739,56 @@ button:disabled {
   color: var(--state-danger-500);
 }
 
+.sandbox-version-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  height: 2.4rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-soft);
+  box-shadow: var(--elevation-1);
+  overflow: hidden;
+  padding: 0 0.15rem;
+}
+
+.sandbox-version-chevron {
+  display: inline-grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 100%;
+  background: transparent;
+  border: none;
+  color: #7b4026;
+  padding: 0;
+  flex-shrink: 0;
+  transition: opacity 0.1s;
+}
+
+.sandbox-version-chevron:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.sandbox-version-chevron:not(:disabled):hover {
+  background: rgba(123, 64, 38, 0.07);
+}
+
+.sandbox-version-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #7b4026;
+  white-space: nowrap;
+  padding: 0 0.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sandbox-version-total {
+  font-weight: 400;
+  color: var(--content-muted);
+}
+
 .sandbox-control-button,
 .sandbox-fullscreen-close {
   width: 2.4rem;

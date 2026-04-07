@@ -79,11 +79,6 @@ export function parseGenerateExperienceToolArguments(
     input.refinementInstruction,
     'refinementInstruction',
   );
-  const priorGenerationId = asRequiredString(
-    input.priorGenerationId,
-    'priorGenerationId',
-  );
-  const priorExperience = parsePriorExperience(input.priorExperience);
 
   return {
     operation,
@@ -91,8 +86,6 @@ export function parseGenerateExperienceToolArguments(
     format,
     audience,
     refinementInstruction,
-    priorGenerationId,
-    priorExperience,
   };
 }
 

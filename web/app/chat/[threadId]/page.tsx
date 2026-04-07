@@ -3,7 +3,7 @@
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowUp, Check, Expand, Link2, LoaderCircle, Plus, X } from 'lucide-react';
+import { ArrowUp, Check, ChevronLeft, ChevronRight, Expand, Link2, LoaderCircle, Plus, X } from 'lucide-react';
 import {
   API_BASE_URL,
   createAuthenticatedApiClient,
@@ -86,11 +86,28 @@ type SubmitMessageResponse = {
   };
 };
 
+type VersionMeta = {
+  id: string;
+  versionNumber: number;
+  promptSummary: string;
+};
+
+type VersionContentResponse = {
+  ok: true;
+  data: {
+    title: string;
+    html: string;
+    css: string;
+    js: string;
+  };
+};
+
 type SandboxPreviewResponse = {
   ok: true;
   data: {
     sandboxState: SandboxState;
     activeExperience: ExperiencePayload | null;
+    allVersions: VersionMeta[];
   };
 };
 
@@ -147,6 +164,9 @@ export default function ChatThreadPage() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [suggestions, setSuggestions] = useState<RefinementSuggestion[]>([]);
   const latestSuggestionVersionRef = useRef<string | null>(null);
+  const [versionList, setVersionList] = useState<VersionMeta[]>([]);
+  const [viewingVersionId, setViewingVersionId] = useState<string | null>(null);
+  const [newVersionAvailable, setNewVersionAvailable] = useState(false);
 
   function getSupabaseClient() {
     if (supabaseRef.current) {
@@ -184,6 +204,9 @@ export default function ChatThreadPage() {
     setLinkCopied(false);
     setSuggestions([]);
     latestSuggestionVersionRef.current = null;
+    setVersionList([]);
+    setViewingVersionId(null);
+    setNewVersionAvailable(false);
     handoffAttemptedThreadRef.current = null;
   }, [routeThreadId]);
 
@@ -261,6 +284,12 @@ export default function ChatThreadPage() {
 
   const activeExperienceVersionId = runtimeState.sandboxState?.experienceVersionId ?? null;
 
+  const viewingVersionIndex = viewingVersionId
+    ? versionList.findIndex((v) => v.id === viewingVersionId)
+    : versionList.findIndex((v) => v.id === activeExperienceVersionId);
+  const viewingVersionNumber =
+    viewingVersionIndex >= 0 ? versionList[viewingVersionIndex].versionNumber : null;
+
   useEffect(() => {
     if (!accessToken || !thread?.id || !activeExperienceVersionId) {
       return;
@@ -291,6 +320,53 @@ export default function ChatThreadPage() {
         }
       });
   }, [accessToken, thread?.id, activeExperienceVersionId]);
+
+  const prevActiveExperienceVersionIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevActiveExperienceVersionIdRef.current;
+    prevActiveExperienceVersionIdRef.current = activeExperienceVersionId;
+
+    if (
+      viewingVersionId !== null &&
+      activeExperienceVersionId !== null &&
+      prev !== null &&
+      activeExperienceVersionId !== prev
+    ) {
+      setNewVersionAvailable(true);
+    }
+  }, [activeExperienceVersionId, viewingVersionId]);
+
+  useEffect(() => {
+    if (!accessToken || !thread?.id || viewingVersionId === null) {
+      return;
+    }
+
+    const targetVersionId = viewingVersionId;
+
+    void apiClientFor(accessToken)
+      .getJson<VersionContentResponse>(
+        `/api/chat/threads/${thread.id}/experience-versions/${targetVersionId}`,
+      )
+      .then((response) => {
+        if (viewingVersionId !== targetVersionId) {
+          return;
+        }
+        setActiveExperience((prev) =>
+          prev
+            ? {
+                ...prev,
+                title: response.data.title,
+                html: response.data.html,
+                css: response.data.css,
+                js: response.data.js,
+              }
+            : null,
+        );
+      })
+      .catch(() => {
+        // Version content fetch failed — stay on current view silently
+      });
+  }, [accessToken, thread?.id, viewingVersionId]);
 
   useEffect(() => {
     if (!accessToken || !thread?.id) {
@@ -596,6 +672,7 @@ export default function ChatThreadPage() {
       sandboxState: response.data.sandboxState,
     }));
     setActiveExperience(response.data.activeExperience);
+    setVersionList(response.data.allVersions ?? []);
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -635,6 +712,8 @@ export default function ChatThreadPage() {
       return;
     }
 
+    setViewingVersionId(null);
+    setNewVersionAvailable(false);
     setErrorMessage(null);
     setSubmitPending(true);
     let optimisticId: string | null = null;
@@ -979,6 +1058,43 @@ export default function ChatThreadPage() {
               ) : null}
             </div>
             <div className="sandbox-header-actions">
+              {versionList.length > 1 && viewingVersionNumber !== null ? (
+                <div
+                  className="sandbox-version-nav"
+                  aria-label="Version navigation"
+                  title={versionList[viewingVersionIndex]?.promptSummary ?? ''}
+                >
+                  <button
+                    type="button"
+                    className="sandbox-version-chevron"
+                    disabled={viewingVersionIndex <= 0}
+                    onClick={() => {
+                      if (viewingVersionIndex > 0) {
+                        setViewingVersionId(versionList[viewingVersionIndex - 1].id);
+                      }
+                    }}
+                    aria-label="Previous version"
+                  >
+                    <ChevronLeft size={13} strokeWidth={2.5} />
+                  </button>
+                  <span className="sandbox-version-label">
+                    v{viewingVersionNumber} <span className="sandbox-version-total">/ {versionList.length}</span>
+                  </span>
+                  <button
+                    type="button"
+                    className="sandbox-version-chevron"
+                    disabled={viewingVersionIndex >= versionList.length - 1}
+                    onClick={() => {
+                      if (viewingVersionIndex < versionList.length - 1) {
+                        setViewingVersionId(versionList[viewingVersionIndex + 1].id);
+                      }
+                    }}
+                    aria-label="Next version"
+                  >
+                    <ChevronRight size={13} strokeWidth={2.5} />
+                  </button>
+                </div>
+              ) : null}
               {activeExperience?.slug ? (
                 <button
                   type="button"
@@ -1007,6 +1123,19 @@ export default function ChatThreadPage() {
               ) : null}
             </div>
           </div>
+
+          {newVersionAvailable ? (
+            <button
+              type="button"
+              className="sandbox-new-version-nudge"
+              onClick={() => {
+                setViewingVersionId(null);
+                setNewVersionAvailable(false);
+              }}
+            >
+              New version available — view latest
+            </button>
+          ) : null}
 
           {activeExperience ? (
             <div

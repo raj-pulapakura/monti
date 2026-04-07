@@ -529,6 +529,7 @@ export class ChatRuntimeRepository {
       generationId: string;
       slug: string | null;
     } | null;
+    allVersions: { id: string; versionNumber: number; promptSummary: string }[];
   }> {
     const thread = await this.findThread(input);
     if (!thread) {
@@ -557,12 +558,14 @@ export class ChatRuntimeRepository {
       return {
         sandboxState,
         activeExperience: null,
+        allVersions: [],
       };
     }
 
     const [
       { data: version, error: versionError },
       { data: experience, error: experienceError },
+      { data: versionRows, error: versionsError },
     ] = await Promise.all([
       this.client
         .from('experience_versions')
@@ -576,6 +579,14 @@ export class ChatRuntimeRepository {
             .eq('id', sandboxState.experience_id)
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
+      sandboxState.experience_id
+        ? this.client
+            .from('experience_versions')
+            .select('id,version_number,prompt_summary')
+            .eq('experience_id', sandboxState.experience_id)
+            .eq('generation_status', 'succeeded')
+            .order('version_number', { ascending: true })
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
     if (versionError) {
@@ -588,6 +599,16 @@ export class ChatRuntimeRepository {
     if (experienceError) {
       this.throwQueryError('load experience slug', experienceError);
     }
+
+    if (versionsError) {
+      this.throwQueryError('load experience version list', versionsError);
+    }
+
+    const allVersions = (versionRows ?? []).map((row) => ({
+      id: row.id,
+      versionNumber: row.version_number,
+      promptSummary: row.prompt_summary ?? '',
+    }));
 
     return {
       sandboxState,
@@ -602,6 +623,55 @@ export class ChatRuntimeRepository {
             slug: experience?.slug ?? null,
           }
         : null,
+      allVersions,
+    };
+  }
+
+  async getVersionContent(input: {
+    threadId: string;
+    userId: string;
+    versionId: string;
+  }): Promise<{ title: string; html: string; css: string; js: string }> {
+    const thread = await this.findThread(input);
+    if (!thread) {
+      throw new ValidationError('Thread not found for user scope.');
+    }
+
+    const { data: sandboxState, error: sandboxError } = await this.client
+      .from('sandbox_states')
+      .select('experience_id')
+      .eq('thread_id', input.threadId)
+      .maybeSingle();
+
+    if (sandboxError) {
+      this.throwQueryError('load sandbox state for version content', sandboxError);
+    }
+
+    if (!sandboxState?.experience_id) {
+      throw new ValidationError('No active experience for this thread.');
+    }
+
+    const { data: version, error: versionError } = await this.client
+      .from('experience_versions')
+      .select('title,html,css,js')
+      .eq('id', input.versionId)
+      .eq('experience_id', sandboxState.experience_id)
+      .eq('generation_status', 'succeeded')
+      .maybeSingle();
+
+    if (versionError) {
+      this.throwQueryError('load version content', versionError);
+    }
+
+    if (!version) {
+      throw new ValidationError('Version not found for this experience.');
+    }
+
+    return {
+      title: version.title,
+      html: version.html,
+      css: version.css,
+      js: version.js,
     };
   }
 

@@ -102,6 +102,7 @@ export class ChatRuntimeService {
       generationId: string;
       slug: string | null;
     } | null;
+    allVersions: { id: string; versionNumber: number; promptSummary: string }[];
   }> {
     assertChatRuntimeEnabled();
     const result = await this.repository.getSandboxPreview(input);
@@ -109,7 +110,17 @@ export class ChatRuntimeService {
     return {
       sandboxState: mapSandboxState(result.sandboxState),
       activeExperience: result.activeExperience,
+      allVersions: result.allVersions,
     };
+  }
+
+  async getVersionContent(input: {
+    threadId: string;
+    userId: string;
+    versionId: string;
+  }): Promise<{ title: string; html: string; css: string; js: string }> {
+    assertChatRuntimeEnabled();
+    return this.repository.getVersionContent(input);
   }
 
   async assertThreadAccess(input: {

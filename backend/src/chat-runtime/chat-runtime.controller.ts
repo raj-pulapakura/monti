@@ -21,6 +21,7 @@ import {
   parseRefinementSuggestionsRequest,
   parseStreamEventsRequestWithHeader,
   parseSubmitMessageRequest,
+  parseVersionContentRequest,
 } from './dto/chat-runtime.dto';
 import type { ThreadListPayload } from './dto/chat-runtime.dto';
 import { ChatRuntimeService } from './services/chat-runtime.service';
@@ -127,6 +128,25 @@ export class ChatRuntimeController {
     return {
       ok: true,
       data: { suggestions },
+    };
+  }
+
+  @Get(':threadId/experience-versions/:versionId')
+  async getVersionContent(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('threadId') threadId: string,
+    @Param('versionId') versionId: string,
+  ) {
+    const request = parseVersionContentRequest(threadId, versionId);
+    const content = await this.chatRuntimeService.getVersionContent({
+      threadId: request.threadId,
+      userId: user.id,
+      versionId: request.versionId,
+    });
+
+    return {
+      ok: true,
+      data: content,
     };
   }
 

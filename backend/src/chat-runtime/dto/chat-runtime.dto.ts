@@ -141,6 +141,26 @@ export interface RefinementSuggestionsRequest {
   experienceVersionId: string;
 }
 
+export interface VersionContentRequest {
+  threadId: string;
+  versionId: string;
+}
+
+export function parseVersionContentRequest(
+  threadId: string,
+  versionId: string,
+): VersionContentRequest {
+  if (!isUuidLike(threadId)) {
+    throw new ValidationError('threadId must be a UUID string.');
+  }
+
+  if (!isUuidLike(versionId)) {
+    throw new ValidationError('versionId must be a UUID string.');
+  }
+
+  return { threadId, versionId };
+}
+
 export function parseRefinementSuggestionsRequest(
   threadId: string,
   query: unknown,

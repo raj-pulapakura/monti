@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AppError, InsufficientCreditsError } from '../../common/errors/app-error';
+import { AppError, InsufficientCreditsError, ValidationError } from '../../common/errors/app-error';
 import { CreditReservationService } from '../../billing/credit-reservation.service';
 import { ExperienceOrchestratorService } from '../../experience/services/experience-orchestrator.service';
 import { LlmDecisionRouterService } from '../../llm/llm-decision-router.service';
@@ -85,25 +85,45 @@ export class GenerateExperienceToolService {
     }
 
     try {
-      const payload =
-        input.arguments.operation === 'generate'
-          ? await this.orchestrator.generate({
-              userId: input.userId,
-              prompt: generationPrompt,
-              format: input.arguments.format,
-              audience: input.arguments.audience,
-              qualityMode: route.tier,
-              provider: route.selectedProvider,
-            })
-          : await this.orchestrator.refine({
-              userId: input.userId,
-              originalPrompt: generationPrompt,
-              priorGenerationId: input.arguments.priorGenerationId!,
-              refinementInstruction: input.arguments.refinementInstruction!,
-              priorExperience: input.arguments.priorExperience!,
-              qualityMode: route.tier,
-              provider: route.selectedProvider,
-            });
+      let payload;
+      if (input.arguments.operation === 'generate') {
+        payload = await this.orchestrator.generate({
+          userId: input.userId,
+          prompt: generationPrompt,
+          format: input.arguments.format,
+          audience: input.arguments.audience,
+          qualityMode: route.tier,
+          provider: route.selectedProvider,
+        });
+      } else {
+        // Look up the active experience from the thread's sandbox state.
+        // The AI cannot supply priorExperience because tool results are not
+        // included in the conversation history sent back to the LLM.
+        const sandbox = await this.repository.getSandboxPreview({
+          threadId: input.threadId,
+          userId: input.userId,
+        });
+        if (!sandbox.activeExperience) {
+          throw new ValidationError(
+            'No active experience found in sandbox. Cannot refine.',
+          );
+        }
+        payload = await this.orchestrator.refine({
+          userId: input.userId,
+          originalPrompt: generationPrompt,
+          priorGenerationId: sandbox.activeExperience.generationId,
+          refinementInstruction: input.arguments.refinementInstruction!,
+          priorExperience: {
+            title: sandbox.activeExperience.title,
+            description: sandbox.activeExperience.description,
+            html: sandbox.activeExperience.html,
+            css: sandbox.activeExperience.css,
+            js: sandbox.activeExperience.js,
+          },
+          qualityMode: route.tier,
+          provider: route.selectedProvider,
+        });
+      }
 
       const versionRef = await this.repository.findExperienceVersionByGenerationId(
         payload.metadata.generationId,

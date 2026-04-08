@@ -17,7 +17,7 @@ import {
   examplePromptChipLabel,
   pickHomeExamplePrompts,
 } from "@/lib/home-example-prompts";
-import { ArrowUp, ChevronLeft, ChevronRight, LoaderCircle } from "lucide-react";
+import { ArrowUp, LoaderCircle, Search } from "lucide-react";
 
 type ThreadCard = {
   id: string;
@@ -58,6 +58,8 @@ type ThreadCreateResponse = {
 };
 
 type RootMode = "loading" | "marketing" | "home";
+
+const PAGE_SIZE = 12;
 
 export default function RootPage() {
   const router = useRouter();
@@ -147,7 +149,6 @@ function HomeWorkspace(input: {
   onSignOut: () => void;
 }) {
   const router = useRouter();
-  const carouselRef = useRef<HTMLDivElement | null>(null);
   const createInputRef = useRef<HTMLInputElement | null>(null);
   const [prompt, setPrompt] = useState("");
   const [threads, setThreads] = useState<ThreadCard[]>([]);
@@ -155,8 +156,8 @@ function HomeWorkspace(input: {
   const [threadsError, setThreadsError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [canScrollPrev, setCanScrollPrev] = useState(false);
-  const [canScrollNext, setCanScrollNext] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [generationMode, setGenerationMode] = useState<GenerationMode>("auto");
   const [billingSummary, setBillingSummary] = useState<
     BillingMeResponse["data"] | null
@@ -174,6 +175,27 @@ function HomeWorkspace(input: {
       }),
     [input.userId, utcDayKey],
   );
+
+  const filteredThreads = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) {
+      return threads;
+    }
+    return threads.filter((thread) =>
+      threadCardDisplayTitle(thread).toLowerCase().includes(q),
+    );
+  }, [threads, searchQuery]);
+
+  const pagedThreads = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredThreads.slice(start, start + PAGE_SIZE);
+  }, [filteredThreads, currentPage]);
+
+  const totalPages = Math.ceil(filteredThreads.length / PAGE_SIZE);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   useEffect(() => {
     let cancelled = false;
@@ -235,58 +257,6 @@ function HomeWorkspace(input: {
       cancelled = true;
     };
   }, [input.accessToken]);
-
-  useEffect(() => {
-    if (!carouselRef.current) {
-      setCanScrollPrev(false);
-      setCanScrollNext(false);
-      return;
-    }
-
-    function updateScrollState() {
-      const carousel = carouselRef.current;
-      if (!carousel) {
-        setCanScrollPrev(false);
-        setCanScrollNext(false);
-        return;
-      }
-
-      const maxScrollLeft = Math.max(
-        0,
-        carousel.scrollWidth - carousel.clientWidth,
-      );
-      setCanScrollPrev(carousel.scrollLeft > 8);
-      setCanScrollNext(carousel.scrollLeft < maxScrollLeft - 8);
-    }
-
-    updateScrollState();
-
-    const carousel = carouselRef.current;
-    if (!carousel) {
-      return;
-    }
-
-    carousel.addEventListener("scroll", updateScrollState, { passive: true });
-    window.addEventListener("resize", updateScrollState);
-
-    return () => {
-      carousel.removeEventListener("scroll", updateScrollState);
-      window.removeEventListener("resize", updateScrollState);
-    };
-  }, [threads.length, loadingThreads, threadsError]);
-
-  function handleCarouselStep(direction: -1 | 1) {
-    const carousel = carouselRef.current;
-    if (!carousel) {
-      return;
-    }
-
-    const step = Math.max(240, Math.floor(carousel.clientWidth * 0.72));
-    carousel.scrollBy({
-      left: direction * step,
-      behavior: "smooth",
-    });
-  }
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
@@ -450,26 +420,23 @@ function HomeWorkspace(input: {
 
       <section className="home-creations">
         <div className="home-creations-header">
-          <h2>Recents</h2>
-          <div className="carousel-nav" aria-label="Creation carousel controls">
-            <button
-              type="button"
-              className="carousel-nav-button"
-              onClick={() => handleCarouselStep(-1)}
-              disabled={!canScrollPrev}
-              aria-label="Scroll creations left"
-            >
-              <ChevronLeft size={16} strokeWidth={2.4} />
-            </button>
-            <button
-              type="button"
-              className="carousel-nav-button"
-              onClick={() => handleCarouselStep(1)}
-              disabled={!canScrollNext}
-              aria-label="Scroll creations right"
-            >
-              <ChevronRight size={16} strokeWidth={2.4} />
-            </button>
+          <h2>Library</h2>
+          <div className="library-search-shell">
+            <Search
+              className="library-search-icon"
+              size={18}
+              strokeWidth={2}
+              aria-hidden
+            />
+            <input
+              type="search"
+              className="library-search-input"
+              placeholder="Search your creations…"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              disabled={loadingThreads || threads.length === 0}
+              aria-label="Search your creations"
+            />
           </div>
         </div>
 
@@ -495,56 +462,92 @@ function HomeWorkspace(input: {
           </p>
         ) : null}
 
-        {!loadingThreads && !threadsError && threads.length > 0 ? (
-          <div
-            ref={carouselRef}
-            className="creations-carousel"
-            role="list"
-            aria-label="Recent creations"
-          >
-            {threads.map((thread) => (
-              <button
-                type="button"
-                key={thread.id}
-                className="creation-card"
-                role="listitem"
-                onClick={() => router.push(`/chat/${thread.id}`)}
-              >
-                <div className="creation-thumb" aria-hidden="true">
-                  {hasThreadPreview(thread) ? (
-                    <div className="creation-thumb-stage">
-                      <iframe
-                        className="creation-thumb-frame"
-                        srcDoc={buildSrcdoc(
-                          thread.experienceHtml,
-                          thread.experienceCss,
-                          thread.experienceJs,
-                        )}
-                        sandbox="allow-scripts"
-                        loading="lazy"
-                        tabIndex={-1}
-                        title=""
-                      />
-                    </div>
-                  ) : (
-                    <div className="creation-thumb-empty">
-                      <span>No preview yet</span>
-                    </div>
-                  )}
-                </div>
-                <div className="creation-card-footer">
-                  <p className="creation-subtitle">
-                    {threadCardDisplayTitle(thread)}
-                  </p>
-                  {threadCardSecondaryTitle(thread) ? (
-                    <p className="creation-subtitle-secondary">
-                      {threadCardSecondaryTitle(thread)}
+        {!loadingThreads &&
+        !threadsError &&
+        threads.length > 0 &&
+        filteredThreads.length === 0 ? (
+          <p className="empty-state">
+            No creations match &quot;{searchQuery}&quot;.
+          </p>
+        ) : null}
+
+        {!loadingThreads &&
+        !threadsError &&
+        threads.length > 0 &&
+        filteredThreads.length > 0 ? (
+          <>
+            <div
+              className="library-grid"
+              role="list"
+              aria-label="Your creations"
+            >
+              {pagedThreads.map((thread) => (
+                <button
+                  type="button"
+                  key={thread.id}
+                  className="creation-card"
+                  role="listitem"
+                  onClick={() => router.push(`/chat/${thread.id}`)}
+                >
+                  <div className="creation-thumb" aria-hidden="true">
+                    {hasThreadPreview(thread) ? (
+                      <div className="creation-thumb-stage">
+                        <iframe
+                          className="creation-thumb-frame"
+                          srcDoc={buildSrcdoc(
+                            thread.experienceHtml,
+                            thread.experienceCss,
+                            thread.experienceJs,
+                          )}
+                          sandbox="allow-scripts"
+                          loading="lazy"
+                          tabIndex={-1}
+                          title=""
+                        />
+                      </div>
+                    ) : (
+                      <div className="creation-thumb-empty">
+                        <span>No preview yet</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="creation-card-footer">
+                    <p className="creation-subtitle">
+                      {threadCardDisplayTitle(thread)}
                     </p>
-                  ) : null}
-                </div>
-              </button>
-            ))}
-          </div>
+                    {threadCardSecondaryTitle(thread) ? (
+                      <p className="creation-subtitle-secondary">
+                        {threadCardSecondaryTitle(thread)}
+                      </p>
+                    ) : null}
+                  </div>
+                </button>
+              ))}
+            </div>
+            {totalPages > 1 ? (
+              <div className="library-pagination">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </button>
+                <span className="library-pagination-label">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            ) : null}
+          </>
         ) : null}
       </section>
 

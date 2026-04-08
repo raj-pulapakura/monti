@@ -122,6 +122,7 @@ button:disabled {
 
 .home-shell {
   padding-top: 5.35rem;
+  padding-bottom: 3.25rem;
   gap: 1.45rem;
 }
 
@@ -1197,7 +1198,7 @@ button:disabled {
 .home-creations {
   display: grid;
   gap: 1.05rem;
-  margin-top: 0.55rem;
+  margin-top: 2.15rem;
 }
 
 .home-creations-header {
@@ -1215,46 +1216,116 @@ button:disabled {
   text-transform: uppercase;
 }
 
-.carousel-nav {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.42rem;
+.library-search-shell {
+  position: relative;
+  margin-left: auto;
+  min-width: 10.5rem;
+  max-width: 20rem;
+  width: 100%;
 }
 
-.carousel-nav-button {
-  width: 34px;
-  height: 34px;
+.library-search-icon {
+  position: absolute;
+  left: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9a8e83;
+  pointer-events: none;
+}
+
+.library-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-paper);
+  color: var(--content-default);
+  padding: 0.5rem 0.72rem 0.5rem 2.35rem;
+  font-size: 0.9rem;
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard);
+}
+
+.library-search-input::placeholder {
+  color: #9a8e83;
+}
+
+.library-search-input:hover:not(:disabled) {
+  border-color: #cf936f;
+  background: #fffdf8;
+}
+
+.library-search-input:focus,
+.library-search-input:focus-visible {
+  outline: none;
+  border-color: var(--brand-500);
+  background: var(--surface-elevated);
+  box-shadow:
+    0 0 0 3px rgba(188, 81, 39, 0.18),
+    0 6px 14px rgba(145, 55, 25, 0.12);
+}
+
+.library-search-input:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.library-search-shell:has(.library-search-input:disabled) .library-search-icon {
+  opacity: 0.55;
+}
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.88rem;
+  padding: 0.2rem 0.12rem 0.65rem;
+}
+
+.library-grid .creation-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(62, 35, 20, 0.1);
+}
+
+.library-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.1rem;
+  padding: 0.35rem 0 0;
+}
+
+.library-pagination-label {
+  color: #8a7a6e;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.library-pagination button {
+  min-width: 5.5rem;
+  padding: 0.45rem 0.85rem;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-strong);
   background: var(--surface-soft);
   color: #7a4127;
-  display: inline-grid;
-  place-items: center;
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    opacity 0.18s ease;
 }
 
-.carousel-nav-button:hover:not(:disabled) {
+.library-pagination button:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: var(--elevation-1);
 }
 
-.carousel-nav-button:disabled {
+.library-pagination button:disabled {
   opacity: 0.45;
-}
-
-.creations-carousel {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(240px, 300px);
-  gap: 0.88rem;
-  overflow-x: auto;
-  padding: 0.2rem 0.12rem 0.65rem;
-  scroll-padding-inline: 0.25rem;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.creations-carousel::-webkit-scrollbar {
-  display: none;
+  cursor: not-allowed;
 }
 
 .creation-card {
@@ -1271,11 +1342,6 @@ button:disabled {
   transition:
     transform 0.22s ease,
     box-shadow 0.22s ease;
-}
-
-.creations-carousel .creation-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 28px rgba(62, 35, 20, 0.1);
 }
 
 .creation-thumb {
@@ -2256,8 +2322,19 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .creations-carousel {
-    grid-auto-columns: minmax(220px, 84vw);
+  .library-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-creations-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .library-search-shell {
+    max-width: none;
+    margin-left: 0;
+    min-width: 0;
   }
 
   .chat-panel,

@@ -12,7 +12,7 @@ The web application SHALL treat `/` as a session-aware home entrypoint: unauthen
 
 #### Scenario: Authenticated user opens root route
 - **WHEN** a user with a valid session requests `/`
-- **THEN** the system renders the authenticated home workspace with create input and past-creations carousel
+- **THEN** the system renders the authenticated home workspace with create input and past-creations library
 
 ### Requirement: Start a new chat thread from home create input
 The system SHALL create a chat thread and transition to `/chat/<threadId>` when the authenticated user submits a non-empty prompt from home.
@@ -29,12 +29,12 @@ The system SHALL create a chat thread and transition to `/chat/<threadId>` when 
 - **WHEN** thread creation or initial prompt submission fails
 - **THEN** the system keeps the user on a recoverable UI state and shows an error without losing control of navigation state
 
-### Requirement: Display past creations carousel from user thread list
-The home workspace SHALL show all user threads as carousel cards ordered by most recently updated first, with a live scaled-down experience preview as the card thumbnail. Card labels SHALL prefer the latest experience version title when available, with thread title as fallback or secondary context. Threads with no experience content show a styled empty-state placeholder thumbnail.
+### Requirement: Display past creations as a searchable paginated library grid
+The home workspace SHALL show all user threads as a labeled "Library" section rendered as a paginated grid (4 columns × 3 rows, 12 cards per page) ordered by most recently updated first. Each card SHALL display a live scaled-down experience preview as its thumbnail and a display title that prefers the latest experience version title with thread title as fallback or secondary context. Threads with no experience content SHALL show a styled empty-state placeholder thumbnail. The library section SHALL include a text search input that filters visible cards client-side by display title, and SHALL show pagination controls below the grid when the filtered result set exceeds one page.
 
 #### Scenario: User has multiple threads
 - **WHEN** the home workspace loads for an authenticated user with persisted threads
-- **THEN** the system renders a card for each thread ordered by `updatedAt desc`
+- **THEN** the system renders a card for each thread ordered by `updatedAt desc`, up to 12 per page
 
 #### Scenario: Thread has a generated experience
 - **WHEN** a listed thread has non-null experience content
@@ -50,9 +50,9 @@ The home workspace SHALL show all user threads as carousel cards ordered by most
 
 #### Scenario: User has no threads
 - **WHEN** the authenticated user has no persisted threads
-- **THEN** the carousel area renders an explicit empty state and remains ready for first creation
+- **THEN** the library area renders an explicit empty state, the search input is rendered but disabled, no pagination controls are shown, and the section remains ready for first creation
 
-### Requirement: Reopen an existing creation from home carousel
+### Requirement: Reopen an existing creation from the home library
 The home workspace SHALL allow users to reopen prior creations by selecting a thread card.
 
 #### Scenario: User selects a creation card
@@ -113,7 +113,7 @@ The authenticated home workspace SHALL request the billing summary from `GET /ap
 #### Scenario: Billing off or request failure does not break home
 
 - **WHEN** billing is disabled or the billing summary request fails
-- **THEN** the home workspace still renders the create input and thread carousel without a hard error state that prevents starting a new thread
+- **THEN** the home workspace still renders the create input and creation library without a hard error state that prevents starting a new thread
 
 ### Requirement: Provide a billing navigation entry point in profile controls
 The `FloatingProfileControls` component SHALL include a "Billing & plan" navigation item that links authenticated users to `/billing`. The item MUST appear in the profile dropdown menu alongside the existing sign-out action. This entry point is the primary in-product path for authenticated users to view their billing state, upgrade their plan, or manage their subscription.

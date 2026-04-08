@@ -3,6 +3,7 @@
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { toggleExperienceFavourite } from '@/lib/chat/experience-favourite';
 import {
   ArrowUp,
   Check,
@@ -13,6 +14,7 @@ import {
   LoaderCircle,
   Pencil,
   Plus,
+  Star,
   X,
 } from 'lucide-react';
 import {
@@ -73,6 +75,7 @@ type ExperiencePayload = {
   js: string;
   generationId: string;
   slug: string | null;
+  isFavourite: boolean;
 };
 
 type ThreadHydrationResponse = {
@@ -189,6 +192,8 @@ export default function ChatThreadPage() {
   const [titleEditError, setTitleEditError] = useState<string | null>(null);
   const [titleEditPending, setTitleEditPending] = useState(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const [favouriteTogglePending, setFavouriteTogglePending] = useState(false);
+  const [favouriteActionError, setFavouriteActionError] = useState<string | null>(null);
 
   function getSupabaseClient() {
     if (supabaseRef.current) {
@@ -755,8 +760,43 @@ export default function ChatThreadPage() {
       ...previous,
       sandboxState: response.data.sandboxState,
     }));
-    setActiveExperience(response.data.activeExperience);
+    const nextExperience = response.data.activeExperience;
+    setActiveExperience(
+      nextExperience
+        ? {
+            ...nextExperience,
+            isFavourite: nextExperience.isFavourite ?? false,
+          }
+        : null,
+    );
     setVersionList(response.data.allVersions ?? []);
+  }
+
+  async function handleSandboxFavouriteToggle() {
+    if (
+      !accessToken ||
+      !thread?.id ||
+      !activeExperience ||
+      favouriteTogglePending
+    ) {
+      return;
+    }
+
+    const next = !activeExperience.isFavourite;
+    const previous = activeExperience.isFavourite;
+
+    setFavouriteActionError(null);
+    setActiveExperience({ ...activeExperience, isFavourite: next });
+    setFavouriteTogglePending(true);
+
+    try {
+      await toggleExperienceFavourite(accessToken, thread.id, next);
+    } catch (error) {
+      setActiveExperience({ ...activeExperience, isFavourite: previous });
+      setFavouriteActionError(toErrorMessage(error));
+    } finally {
+      setFavouriteTogglePending(false);
+    }
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -1219,6 +1259,11 @@ export default function ChatThreadPage() {
                   {fullscreenErrorMessage}
                 </p>
               ) : null}
+              {favouriteActionError ? (
+                <p className="sandbox-header-note is-error" role="status" aria-live="polite">
+                  {favouriteActionError}
+                </p>
+              ) : null}
             </div>
             <div className="sandbox-header-actions">
               {versionList.length > 1 && viewingVersionNumber !== null ? (
@@ -1257,6 +1302,26 @@ export default function ChatThreadPage() {
                     <ChevronRight size={13} strokeWidth={2.5} />
                   </button>
                 </div>
+              ) : null}
+              {activeExperience ? (
+                <button
+                  type="button"
+                  className={`sandbox-control-button${activeExperience.isFavourite ? ' is-favourited-star' : ''}`}
+                  onClick={() => void handleSandboxFavouriteToggle()}
+                  disabled={favouriteTogglePending}
+                  aria-label={
+                    activeExperience.isFavourite
+                      ? 'Remove from favourites'
+                      : 'Add to favourites'
+                  }
+                  title={
+                    activeExperience.isFavourite
+                      ? 'Remove from favourites'
+                      : 'Add to favourites'
+                  }
+                >
+                  <Star size={17} strokeWidth={2.2} />
+                </button>
               ) : null}
               {activeExperience?.slug ? (
                 <button

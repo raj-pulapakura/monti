@@ -101,6 +101,7 @@ export class ChatRuntimeService {
       js: string;
       generationId: string;
       slug: string | null;
+      isFavourite: boolean;
     } | null;
     allVersions: { id: string; versionNumber: number; promptSummary: string }[];
   }> {
@@ -138,6 +139,15 @@ export class ChatRuntimeService {
   }): Promise<{ title: string }> {
     assertChatRuntimeEnabled();
     return this.repository.updateExperienceTitle(input);
+  }
+
+  async toggleExperienceFavourite(input: {
+    threadId: string;
+    userId: string;
+    isFavourite: boolean;
+  }): Promise<{ isFavourite: boolean }> {
+    assertChatRuntimeEnabled();
+    return this.repository.toggleFavourite(input);
   }
 
   async submitMessage(input: {
@@ -301,6 +311,7 @@ function mapThreadListItem(row: {
   experience_css: string | null;
   experience_js: string | null;
   experience_title: string | null;
+  experience_is_favourite: boolean;
 }): ThreadListItemEnvelope {
   return {
     id: row.id,
@@ -315,6 +326,7 @@ function mapThreadListItem(row: {
     experienceCss: row.experience_css,
     experienceJs: row.experience_js,
     experienceTitle: row.experience_title,
+    isFavourite: row.experience_is_favourite,
   };
 }
 

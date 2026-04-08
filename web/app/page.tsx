@@ -17,7 +17,8 @@ import {
   examplePromptChipLabel,
   pickHomeExamplePrompts,
 } from "@/lib/home-example-prompts";
-import { ArrowUp, LoaderCircle, Search } from "lucide-react";
+import { toggleExperienceFavourite } from "@/lib/chat/experience-favourite";
+import { ArrowUp, LoaderCircle, Search, Star } from "lucide-react";
 
 type ThreadCard = {
   id: string;
@@ -34,6 +35,7 @@ type ThreadCard = {
   experienceJs?: string | null;
   /** From latest experience version; friendlier than thread title when present */
   experienceTitle?: string | null;
+  isFavourite: boolean;
 };
 
 type ThreadListResponse = {
@@ -157,7 +159,14 @@ function HomeWorkspace(input: {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showFavouritesOnly, setShowFavouritesOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [favouritePendingByThreadId, setFavouritePendingByThreadId] = useState<
+    Record<string, boolean>
+  >({});
+  const [libraryFavouriteError, setLibraryFavouriteError] = useState<
+    string | null
+  >(null);
   const [generationMode, setGenerationMode] = useState<GenerationMode>("auto");
   const [billingSummary, setBillingSummary] = useState<
     BillingMeResponse["data"] | null
@@ -177,14 +186,18 @@ function HomeWorkspace(input: {
   );
 
   const filteredThreads = useMemo(() => {
+    let list = threads;
+    if (showFavouritesOnly) {
+      list = list.filter((thread) => thread.isFavourite);
+    }
     const q = searchQuery.trim().toLowerCase();
     if (!q) {
-      return threads;
+      return list;
     }
-    return threads.filter((thread) =>
+    return list.filter((thread) =>
       threadCardDisplayTitle(thread).toLowerCase().includes(q),
     );
-  }, [threads, searchQuery]);
+  }, [threads, searchQuery, showFavouritesOnly]);
 
   const pagedThreads = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
@@ -195,7 +208,7 @@ function HomeWorkspace(input: {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, showFavouritesOnly]);
 
   useEffect(() => {
     let cancelled = false;
@@ -210,7 +223,12 @@ function HomeWorkspace(input: {
         ).getJson<ThreadListResponse>("/api/chat/threads?limit=1000");
 
         if (!cancelled) {
-          setThreads(response.data.threads);
+          setThreads(
+            response.data.threads.map((thread) => ({
+              ...thread,
+              isFavourite: thread.isFavourite ?? false,
+            })),
+          );
         }
       } catch (error) {
         if (!cancelled) {
@@ -257,6 +275,40 @@ function HomeWorkspace(input: {
       cancelled = true;
     };
   }, [input.accessToken]);
+
+  async function handleThreadFavouriteToggle(thread: ThreadCard) {
+    if (favouritePendingByThreadId[thread.id]) {
+      return;
+    }
+
+    const next = !thread.isFavourite;
+    const previous = thread.isFavourite;
+
+    setLibraryFavouriteError(null);
+    setThreads((rows) =>
+      rows.map((row) =>
+        row.id === thread.id ? { ...row, isFavourite: next } : row,
+      ),
+    );
+    setFavouritePendingByThreadId((prev) => ({ ...prev, [thread.id]: true }));
+
+    try {
+      await toggleExperienceFavourite(input.accessToken, thread.id, next);
+    } catch (error) {
+      setThreads((rows) =>
+        rows.map((row) =>
+          row.id === thread.id ? { ...row, isFavourite: previous } : row,
+        ),
+      );
+      setLibraryFavouriteError(toErrorMessage(error));
+    } finally {
+      setFavouritePendingByThreadId((prev) => {
+        const nextMap = { ...prev };
+        delete nextMap[thread.id];
+        return nextMap;
+      });
+    }
+  }
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
@@ -421,24 +473,47 @@ function HomeWorkspace(input: {
       <section className="home-creations">
         <div className="home-creations-header">
           <h2>Library</h2>
-          <div className="library-search-shell">
-            <Search
-              className="library-search-icon"
-              size={18}
-              strokeWidth={2}
-              aria-hidden
-            />
-            <input
-              type="search"
-              className="library-search-input"
-              placeholder="Search your creations…"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
+          <div className="library-toolbar">
+            <button
+              type="button"
+              className={`library-favourites-toggle${showFavouritesOnly ? " is-active" : ""}`}
               disabled={loadingThreads || threads.length === 0}
-              aria-label="Search your creations"
-            />
+              onClick={() => setShowFavouritesOnly((value) => !value)}
+              aria-pressed={showFavouritesOnly}
+              aria-label={
+                showFavouritesOnly
+                  ? "Show all creations"
+                  : "Show favourites only"
+              }
+              title={showFavouritesOnly ? "Show all" : "Favourites only"}
+            >
+              <Star size={18} strokeWidth={2} aria-hidden />
+            </button>
+            <div className="library-search-shell">
+              <Search
+                className="library-search-icon"
+                size={18}
+                strokeWidth={2}
+                aria-hidden
+              />
+              <input
+                type="search"
+                className="library-search-input"
+                placeholder="Search your creations…"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                disabled={loadingThreads || threads.length === 0}
+                aria-label="Search your creations"
+              />
+            </div>
           </div>
         </div>
+
+        {libraryFavouriteError ? (
+          <p className="error-banner" role="status">
+            {libraryFavouriteError}
+          </p>
+        ) : null}
 
         {loadingThreads ? (
           <>
@@ -467,7 +542,18 @@ function HomeWorkspace(input: {
         threads.length > 0 &&
         filteredThreads.length === 0 ? (
           <p className="empty-state">
-            No creations match &quot;{searchQuery}&quot;.
+            {showFavouritesOnly && searchQuery.trim().length === 0 ? (
+              <>
+                No favourited creations yet. Star an experience to save it
+                here.
+              </>
+            ) : showFavouritesOnly && searchQuery.trim().length > 0 ? (
+              <>
+                No favourited creations match &quot;{searchQuery.trim()}&quot;.
+              </>
+            ) : (
+              <>No creations match &quot;{searchQuery.trim()}&quot;.</>
+            )}
           </p>
         ) : null}
 
@@ -482,14 +568,45 @@ function HomeWorkspace(input: {
               aria-label="Your creations"
             >
               {pagedThreads.map((thread) => (
-                <button
-                  type="button"
+                <div
                   key={thread.id}
                   className="creation-card"
                   role="listitem"
+                  tabIndex={0}
+                  aria-label={`Open ${threadCardDisplayTitle(thread)}`}
                   onClick={() => router.push(`/chat/${thread.id}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      router.push(`/chat/${thread.id}`);
+                    }
+                  }}
                 >
-                  <div className="creation-thumb" aria-hidden="true">
+                  <div className="creation-thumb">
+                    <button
+                      type="button"
+                      className={`creation-card-star${thread.isFavourite ? " is-favourited" : ""}`}
+                      aria-label={
+                        thread.isFavourite
+                          ? "Remove from favourites"
+                          : "Add to favourites"
+                      }
+                      title={
+                        thread.isFavourite
+                          ? "Remove from favourites"
+                          : "Add to favourites"
+                      }
+                      disabled={
+                        Boolean(favouritePendingByThreadId[thread.id]) ||
+                        thread.sandboxStatus !== "ready"
+                      }
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleThreadFavouriteToggle(thread);
+                      }}
+                    >
+                      <Star size={17} strokeWidth={2} aria-hidden />
+                    </button>
                     {hasThreadPreview(thread) ? (
                       <div className="creation-thumb-stage">
                         <iframe
@@ -521,7 +638,7 @@ function HomeWorkspace(input: {
                       </p>
                     ) : null}
                   </div>
-                </button>
+                </div>
               ))}
             </div>
             {totalPages > 1 ? (

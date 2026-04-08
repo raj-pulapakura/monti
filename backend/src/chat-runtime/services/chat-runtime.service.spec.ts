@@ -68,6 +68,7 @@ describe('ChatRuntimeService', () => {
           experience_css: 'body { color: red; }',
           experience_js: 'console.log("preview");',
           experience_title: 'Hello world',
+          experience_is_favourite: true,
         },
       ]),
     };
@@ -109,6 +110,7 @@ describe('ChatRuntimeService', () => {
           experienceCss: 'body { color: red; }',
           experienceJs: 'console.log("preview");',
           experienceTitle: 'Hello world',
+          isFavourite: true,
         },
       ],
     });

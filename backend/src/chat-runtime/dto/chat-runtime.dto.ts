@@ -60,6 +60,8 @@ export interface ThreadListItemEnvelope {
   experienceJs: string | null;
   /** Display title from the latest experience version (LLM), when available */
   experienceTitle: string | null;
+  /** True when the linked experience is marked favourite by the owner */
+  isFavourite: boolean;
 }
 
 export interface ThreadListPayload {
@@ -174,6 +176,19 @@ export function parseUpdateExperienceTitleRequest(
   };
 }
 
+export interface ToggleExperienceFavouriteRequest {
+  isFavourite: boolean;
+}
+
+export function parseToggleExperienceFavouriteRequest(
+  body: unknown,
+): ToggleExperienceFavouriteRequest {
+  const object = asRecord(body, 'Request body must be a JSON object.');
+  return {
+    isFavourite: asRequiredBoolean(object.isFavourite, 'isFavourite'),
+  };
+}
+
 export function parseRefinementSuggestionsRequest(
   threadId: string,
   query: unknown,
@@ -236,6 +251,14 @@ function asRecord(value: unknown, message: string): Record<string, unknown> {
   }
 
   return value as Record<string, unknown>;
+}
+
+function asRequiredBoolean(value: unknown, fieldName: string): boolean {
+  if (typeof value !== 'boolean') {
+    throw new ValidationError(`${fieldName} must be a boolean.`);
+  }
+
+  return value;
 }
 
 function asRequiredString(value: unknown, fieldName: string): string {

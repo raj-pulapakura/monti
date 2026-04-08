@@ -29,6 +29,7 @@ interface ThreadListRow extends ChatThreadRow {
   experience_css: string | null;
   experience_js: string | null;
   experience_title: string | null;
+  experience_is_favourite: boolean;
 }
 
 @Injectable()
@@ -81,6 +82,51 @@ export class ChatRuntimeRepository {
     }
 
     return { title: updated.title };
+  }
+
+  async toggleFavourite(input: {
+    threadId: string;
+    userId: string;
+    isFavourite: boolean;
+  }): Promise<{ isFavourite: boolean }> {
+    const thread = await this.findThread(input);
+    if (!thread) {
+      throw new ValidationError('Thread not found for user scope.');
+    }
+
+    const { data: sandboxState, error: sandboxError } = await this.client
+      .from('sandbox_states')
+      .select('experience_id')
+      .eq('thread_id', input.threadId)
+      .maybeSingle();
+
+    if (sandboxError) {
+      this.throwQueryError('load sandbox state for favourite update', sandboxError);
+    }
+
+    if (!sandboxState?.experience_id) {
+      throw new ValidationError('No active experience for this thread.');
+    }
+
+    const { data: updated, error: updateError } = await this.client
+      .from('experiences')
+      .update({
+        is_favourite: input.isFavourite,
+      })
+      .eq('id', sandboxState.experience_id)
+      .eq('user_id', input.userId)
+      .select('is_favourite')
+      .maybeSingle();
+
+    if (updateError) {
+      this.throwQueryError('update experience favourite', updateError);
+    }
+
+    if (!updated) {
+      throw new ValidationError('Experience not found for user scope.');
+    }
+
+    return { isFavourite: updated.is_favourite };
   }
 
   async listThreads(input: {
@@ -218,11 +264,11 @@ export class ChatRuntimeRepository {
       });
     }
 
-    const experienceTitlesById = new Map<string, string>();
+    const experienceMetaById = new Map<string, { title: string; isFavourite: boolean }>();
     if (experienceIds.size > 0) {
       const { data: experiences, error: experienceError } = await this.client
         .from('experiences')
-        .select('id,title')
+        .select('id,title,is_favourite')
         .in('id', Array.from(experienceIds))
         .is('archived_at', null);
 
@@ -231,7 +277,10 @@ export class ChatRuntimeRepository {
       }
 
       (experiences ?? []).forEach((row) => {
-        experienceTitlesById.set(row.id, row.title);
+        experienceMetaById.set(row.id, {
+          title: row.title,
+          isFavourite: row.is_favourite,
+        });
       });
     }
 
@@ -245,6 +294,9 @@ export class ChatRuntimeRepository {
       const experienceVersion = resolvedExperienceVersionId
         ? experienceVersionsById.get(resolvedExperienceVersionId)
         : null;
+      const experienceMeta = experienceVersion?.experienceId
+        ? experienceMetaById.get(experienceVersion.experienceId)
+        : undefined;
       return {
         ...thread,
         sandbox_status: sandbox?.status ?? null,
@@ -252,9 +304,8 @@ export class ChatRuntimeRepository {
         experience_html: experienceVersion?.html ?? null,
         experience_css: experienceVersion?.css ?? null,
         experience_js: experienceVersion?.js ?? null,
-        experience_title: experienceVersion?.experienceId
-          ? (experienceTitlesById.get(experienceVersion.experienceId) ?? null)
-          : null,
+        experience_title: experienceMeta?.title ?? null,
+        experience_is_favourite: experienceMeta?.isFavourite ?? false,
       };
     });
   }
@@ -594,6 +645,7 @@ export class ChatRuntimeRepository {
       js: string;
       generationId: string;
       slug: string | null;
+      isFavourite: boolean;
     } | null;
     allVersions: { id: string; versionNumber: number; promptSummary: string }[];
   }> {
@@ -641,7 +693,7 @@ export class ChatRuntimeRepository {
       sandboxState.experience_id
         ? this.client
             .from('experiences')
-            .select('slug,title')
+            .select('slug,title,is_favourite')
             .eq('id', sandboxState.experience_id)
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
@@ -687,6 +739,7 @@ export class ChatRuntimeRepository {
             js: version.js,
             generationId: version.generation_id,
             slug: experience?.slug ?? null,
+            isFavourite: experience?.is_favourite ?? false,
           }
         : null,
       allVersions,

@@ -74,6 +74,7 @@ class InMemoryChatRuntimeRepository {
   private readonly runs = new Map<string, RunRow>();
   private readonly sandboxStates = new Map<string, SandboxStateRow>();
   private readonly idempotency = new Map<string, { messageId: string; runId: string }>();
+  private readonly favouriteByThread = new Map<string, boolean>();
 
   async createThread(input: {
     userId: string;
@@ -119,6 +120,11 @@ class InMemoryChatRuntimeRepository {
       ThreadRow & {
         sandbox_status: 'empty' | 'creating' | 'ready' | 'error' | null;
         sandbox_updated_at: string | null;
+        experience_html: string | null;
+        experience_css: string | null;
+        experience_js: string | null;
+        experience_title: string | null;
+        experience_is_favourite: boolean;
       }
     >
   > {
@@ -132,8 +138,28 @@ class InMemoryChatRuntimeRepository {
           ...thread,
           sandbox_status: sandbox?.status ?? null,
           sandbox_updated_at: sandbox?.updated_at ?? null,
+          experience_html: null,
+          experience_css: null,
+          experience_js: null,
+          experience_title: null,
+          experience_is_favourite: this.favouriteByThread.get(thread.id) ?? false,
         };
       });
+  }
+
+  async toggleFavourite(input: {
+    threadId: string;
+    userId: string;
+    isFavourite: boolean;
+  }): Promise<{ isFavourite: boolean }> {
+    this.findScopedThread(input.threadId, input.userId);
+    const sandbox = this.sandboxStates.get(input.threadId);
+    if (!sandbox?.experience_id) {
+      throw new ValidationError('No active experience for this thread.');
+    }
+
+    this.favouriteByThread.set(input.threadId, input.isFavourite);
+    return { isFavourite: input.isFavourite };
   }
 
   async hydrateThread(input: {

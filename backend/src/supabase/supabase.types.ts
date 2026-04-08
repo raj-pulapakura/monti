@@ -13,6 +13,7 @@ export interface Database {
           created_at: string;
           updated_at: string;
           archived_at: string | null;
+          is_favourite: boolean;
         };
         Insert: {
           id?: string;
@@ -23,6 +24,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           archived_at?: string | null;
+          is_favourite?: boolean;
         };
         Update: {
           id?: string;
@@ -33,6 +35,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           archived_at?: string | null;
+          is_favourite?: boolean;
         };
         Relationships: [];
       };

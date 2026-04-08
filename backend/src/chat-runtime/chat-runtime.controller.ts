@@ -24,6 +24,7 @@ import {
   parseSubmitMessageRequest,
   parseVersionContentRequest,
   parseUpdateExperienceTitleRequest,
+  parseToggleExperienceFavouriteRequest,
 } from './dto/chat-runtime.dto';
 import type { ThreadListPayload } from './dto/chat-runtime.dto';
 import { ChatRuntimeService } from './services/chat-runtime.service';
@@ -188,6 +189,28 @@ export class ChatRuntimeController {
       ok: true,
       data: {
         title: result.title,
+      },
+    };
+  }
+
+  @Patch(':threadId/favourite')
+  async updateExperienceFavourite(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('threadId') threadId: string,
+    @Body() body: unknown,
+  ): Promise<{ ok: true; data: { isFavourite: boolean } }> {
+    const request = parseHydrateThreadRequest(threadId, {});
+    const parsed = parseToggleExperienceFavouriteRequest(body);
+    const result = await this.chatRuntimeService.toggleExperienceFavourite({
+      threadId: request.threadId,
+      userId: user.id,
+      isFavourite: parsed.isFavourite,
+    });
+
+    return {
+      ok: true,
+      data: {
+        isFavourite: result.isFavourite,
       },
     };
   }

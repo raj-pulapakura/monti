@@ -21,7 +21,7 @@ const LLM_RUNTIME_CONFIG = {
       quality: 'claude-3-5-sonnet-latest',
     },
     gemini: {
-      fast: 'gemini-3.1-flash-lite-preview',
+      fast: 'gemini-3-flash-preview',
       quality: 'gemini-3.1-pro-preview',
     },
   },

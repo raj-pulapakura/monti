@@ -161,6 +161,19 @@ export function parseVersionContentRequest(
   return { threadId, versionId };
 }
 
+export interface UpdateExperienceTitleRequest {
+  title: string;
+}
+
+export function parseUpdateExperienceTitleRequest(
+  body: unknown,
+): UpdateExperienceTitleRequest {
+  const object = asRecord(body, 'Request body must be a JSON object.');
+  return {
+    title: asRequiredString(object.title, 'title'),
+  };
+}
+
 export function parseRefinementSuggestionsRequest(
   threadId: string,
   query: unknown,

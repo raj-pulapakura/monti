@@ -3,7 +3,18 @@
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowUp, Check, ChevronLeft, ChevronRight, Expand, Link2, LoaderCircle, Plus, X } from 'lucide-react';
+import {
+  ArrowUp,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Expand,
+  Link2,
+  LoaderCircle,
+  Pencil,
+  Plus,
+  X,
+} from 'lucide-react';
 import {
   API_BASE_URL,
   createAuthenticatedApiClient,
@@ -95,10 +106,16 @@ type VersionMeta = {
 type VersionContentResponse = {
   ok: true;
   data: {
-    title: string;
     html: string;
     css: string;
     js: string;
+  };
+};
+
+type UpdateExperienceTitleResponse = {
+  ok: true;
+  data: {
+    title: string;
   };
 };
 
@@ -167,6 +184,11 @@ export default function ChatThreadPage() {
   const [versionList, setVersionList] = useState<VersionMeta[]>([]);
   const [viewingVersionId, setViewingVersionId] = useState<string | null>(null);
   const [newVersionAvailable, setNewVersionAvailable] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
+  const [titleEditError, setTitleEditError] = useState<string | null>(null);
+  const [titleEditPending, setTitleEditPending] = useState(false);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   function getSupabaseClient() {
     if (supabaseRef.current) {
@@ -207,8 +229,26 @@ export default function ChatThreadPage() {
     setVersionList([]);
     setViewingVersionId(null);
     setNewVersionAvailable(false);
+    setIsEditingTitle(false);
+    setTitleDraft('');
+    setTitleEditError(null);
+    setTitleEditPending(false);
     handoffAttemptedThreadRef.current = null;
   }, [routeThreadId]);
+
+  useEffect(() => {
+    if (!isEditingTitle) {
+      setTitleDraft(activeExperience?.title ?? '');
+      setTitleEditError(null);
+    }
+  }, [activeExperience?.title, isEditingTitle]);
+
+  useEffect(() => {
+    if (isEditingTitle) {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    }
+  }, [isEditingTitle]);
 
   useEffect(() => {
     const supabaseClient = getSupabaseClient();
@@ -357,7 +397,6 @@ export default function ChatThreadPage() {
           prev
             ? {
                 ...prev,
-                title: response.data.title,
                 html: response.data.html,
                 css: response.data.css,
                 js: response.data.js,
@@ -369,6 +408,49 @@ export default function ChatThreadPage() {
         // Version content fetch failed — stay on current view silently
       });
   }, [accessToken, thread?.id, viewingVersionId]);
+
+  async function handleTitleSave() {
+    if (!accessToken || !thread?.id || !activeExperience || titleEditPending) {
+      return;
+    }
+
+    const trimmed = titleDraft.trim();
+    if (trimmed.length === 0) {
+      setTitleEditError('Title must not be empty.');
+      return;
+    }
+
+    setTitleEditError(null);
+    setTitleEditPending(true);
+    const previousTitle = activeExperience.title;
+
+    setActiveExperience((prev) => (prev ? { ...prev, title: trimmed } : prev));
+
+    try {
+      const response = await apiClientFor(accessToken).patchJson<UpdateExperienceTitleResponse>(
+        `/api/chat/threads/${thread.id}/title`,
+        { title: trimmed },
+      );
+      setActiveExperience((prev) =>
+        prev ? { ...prev, title: response.data.title } : prev,
+      );
+      setIsEditingTitle(false);
+    } catch (error) {
+      setActiveExperience((prev) =>
+        prev ? { ...prev, title: previousTitle } : prev,
+      );
+      setTitleDraft(previousTitle);
+      setTitleEditError(toErrorMessage(error));
+    } finally {
+      setTitleEditPending(false);
+    }
+  }
+
+  function handleTitleCancel() {
+    setIsEditingTitle(false);
+    setTitleDraft(activeExperience?.title ?? '');
+    setTitleEditError(null);
+  }
 
   useEffect(() => {
     if (!accessToken || !thread?.id) {
@@ -1056,7 +1138,82 @@ export default function ChatThreadPage() {
         <section className="sandbox-panel">
           <div className="sandbox-header">
             <div className="sandbox-header-copy">
-              <h2>{activeExperience ? activeExperience.title : 'Experience'}</h2>
+              {activeExperience ? (
+                <div
+                  className={
+                    isEditingTitle ? 'sandbox-title-row sandbox-title-row--edit' : 'sandbox-title-row'
+                  }
+                >
+                  {isEditingTitle ? (
+                    <>
+                      <input
+                        ref={titleInputRef}
+                        className="sandbox-title-input"
+                        value={titleDraft}
+                        onChange={(event) => setTitleDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            void handleTitleSave();
+                          }
+                          if (event.key === 'Escape') {
+                            event.preventDefault();
+                            handleTitleCancel();
+                          }
+                        }}
+                        disabled={titleEditPending}
+                        aria-label="Edit experience title"
+                      />
+                      <div className="sandbox-title-edit-actions">
+                        <button
+                          type="button"
+                          className="sandbox-title-icon-action"
+                          onClick={() => void handleTitleSave()}
+                          disabled={titleEditPending || titleDraft.trim().length === 0}
+                          aria-label="Save title"
+                          title="Save title"
+                        >
+                          <Check size={16} strokeWidth={2} />
+                        </button>
+                        <button
+                          type="button"
+                          className="sandbox-title-icon-action"
+                          onClick={() => handleTitleCancel()}
+                          disabled={titleEditPending}
+                          aria-label="Cancel title edit"
+                          title="Cancel"
+                        >
+                          <X size={16} strokeWidth={2} />
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="sandbox-title-heading">{activeExperience.title}</h2>
+                      <button
+                        type="button"
+                        className="sandbox-title-icon-action"
+                        onClick={() => {
+                          setTitleDraft(activeExperience.title);
+                          setTitleEditError(null);
+                          setIsEditingTitle(true);
+                        }}
+                        aria-label="Edit experience title"
+                        title="Edit title"
+                      >
+                        <Pencil size={15} strokeWidth={2} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <h2>Experience</h2>
+              )}
+              {titleEditError ? (
+                <p className="sandbox-header-note is-error" role="status" aria-live="polite">
+                  {titleEditError}
+                </p>
+              ) : null}
               {fullscreenErrorMessage ? (
                 <p className="sandbox-header-note is-error" role="status" aria-live="polite">
                   {fullscreenErrorMessage}

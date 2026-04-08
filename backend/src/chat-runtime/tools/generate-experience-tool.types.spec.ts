@@ -33,7 +33,23 @@ describe('parseGenerateExperienceToolArguments', () => {
     ).toThrow('refinementInstruction must be a string');
   });
 
-  it('parses refine payload when all required fields are present', () => {
+  it('parses refine payload with only refinementInstruction (sandbox supplies prior)', () => {
+    const parsed = parseGenerateExperienceToolArguments({
+      operation: 'refine',
+      prompt: 'Make it simpler',
+      refinementInstruction: 'Use shorter sentences.',
+    });
+
+    expect(parsed).toEqual({
+      operation: 'refine',
+      prompt: 'Make it simpler',
+      format: undefined,
+      audience: undefined,
+      refinementInstruction: 'Use shorter sentences.',
+    });
+  });
+
+  it('parses optional prior fields when the model includes them', () => {
     const parsed = parseGenerateExperienceToolArguments({
       operation: 'refine',
       prompt: 'Make it simpler',

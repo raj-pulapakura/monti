@@ -3,6 +3,7 @@ import {
   parseListThreadsRequest,
   parseRefinementSuggestionsRequest,
   parseStreamEventsRequestWithHeader,
+  parseUpdateExperienceTitleRequest,
 } from './chat-runtime.dto';
 
 describe('parseStreamEventsRequestWithHeader', () => {
@@ -83,5 +84,23 @@ describe('parseListThreadsRequest', () => {
   it('rejects invalid limit values', () => {
     expect(() => parseListThreadsRequest({ limit: 'abc' })).toThrow(ValidationError);
     expect(() => parseListThreadsRequest({ limit: 0 })).toThrow(ValidationError);
+  });
+});
+
+describe('parseUpdateExperienceTitleRequest', () => {
+  it('parses a valid non-empty title', () => {
+    expect(parseUpdateExperienceTitleRequest({ title: 'My Title' })).toEqual({
+      title: 'My Title',
+    });
+  });
+
+  it('rejects missing title', () => {
+    expect(() => parseUpdateExperienceTitleRequest({})).toThrow(ValidationError);
+  });
+
+  it('rejects empty title', () => {
+    expect(() => parseUpdateExperienceTitleRequest({ title: '   ' })).toThrow(
+      ValidationError,
+    );
   });
 });

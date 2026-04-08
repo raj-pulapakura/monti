@@ -30,11 +30,19 @@ export function createAuthenticatedApiClient(accessToken: string) {
         accessToken,
       });
     },
+    patchJson<TResponse>(path: string, body: unknown): Promise<TResponse> {
+      return requestJson<TResponse>({
+        method: 'PATCH',
+        path,
+        body,
+        accessToken,
+      });
+    },
   };
 }
 
 async function requestJson<TResponse>(input: {
-  method: 'GET' | 'POST';
+  method: 'GET' | 'POST' | 'PATCH';
   path: string;
   accessToken: string;
   body?: unknown;
@@ -43,9 +51,14 @@ async function requestJson<TResponse>(input: {
     method: input.method,
     headers: {
       Authorization: `Bearer ${input.accessToken}`,
-      ...(input.method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
+      ...(input.method === 'POST' || input.method === 'PATCH'
+        ? { 'Content-Type': 'application/json' }
+        : {}),
     },
-    body: input.method === 'POST' ? JSON.stringify(input.body ?? {}) : undefined,
+    body:
+      input.method === 'POST' || input.method === 'PATCH'
+        ? JSON.stringify(input.body ?? {})
+        : undefined,
   });
 
   const responseBody = (await response.json().catch(() => null)) as

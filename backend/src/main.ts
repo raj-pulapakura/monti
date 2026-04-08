@@ -8,7 +8,7 @@ async function bootstrap() {
   app.enableCors({
     origin: allowedOrigins.length > 0 ? allowedOrigins : true,
     allowedHeaders: ['Content-Type', 'Authorization', 'Last-Event-ID'],
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   });
   app.useGlobalFilters(new ApiExceptionFilter());
   await app.listen(process.env.PORT ?? 3001, '::');

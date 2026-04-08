@@ -38,6 +38,51 @@ export class ChatRuntimeRepository {
     private readonly client: MontiSupabaseClient,
   ) {}
 
+  async updateExperienceTitle(input: {
+    threadId: string;
+    userId: string;
+    title: string;
+  }): Promise<{ title: string }> {
+    const thread = await this.findThread(input);
+    if (!thread) {
+      throw new ValidationError('Thread not found for user scope.');
+    }
+
+    const { data: sandboxState, error: sandboxError } = await this.client
+      .from('sandbox_states')
+      .select('experience_id')
+      .eq('thread_id', input.threadId)
+      .maybeSingle();
+
+    if (sandboxError) {
+      this.throwQueryError('load sandbox state for title update', sandboxError);
+    }
+
+    if (!sandboxState?.experience_id) {
+      throw new ValidationError('No active experience for this thread.');
+    }
+
+    const { data: updated, error: updateError } = await this.client
+      .from('experiences')
+      .update({
+        title: input.title.trim(),
+      })
+      .eq('id', sandboxState.experience_id)
+      .eq('user_id', input.userId)
+      .select('title')
+      .maybeSingle();
+
+    if (updateError) {
+      this.throwQueryError('update experience title', updateError);
+    }
+
+    if (!updated) {
+      throw new ValidationError('Experience not found for user scope.');
+    }
+
+    return { title: updated.title };
+  }
+
   async listThreads(input: {
     userId: string;
     limit: number;
@@ -141,17 +186,18 @@ export class ChatRuntimeRepository {
     const experienceVersionsById = new Map<
       string,
       {
-        title: string;
+        experienceId: string;
         html: string;
         css: string;
         js: string;
       }
     >();
+    const experienceIds = new Set<string>();
     if (experienceVersionIds.length > 0) {
       const { data: experienceVersions, error: experienceVersionError } =
         await this.client
           .from('experience_versions')
-          .select('id,title,html,css,js')
+          .select('id,experience_id,html,css,js')
           .in('id', experienceVersionIds);
 
       if (experienceVersionError) {
@@ -162,12 +208,30 @@ export class ChatRuntimeRepository {
       }
 
       (experienceVersions ?? []).forEach((row) => {
+        experienceIds.add(row.experience_id);
         experienceVersionsById.set(row.id, {
-          title: row.title,
+          experienceId: row.experience_id,
           html: row.html,
           css: row.css,
           js: row.js,
         });
+      });
+    }
+
+    const experienceTitlesById = new Map<string, string>();
+    if (experienceIds.size > 0) {
+      const { data: experiences, error: experienceError } = await this.client
+        .from('experiences')
+        .select('id,title')
+        .in('id', Array.from(experienceIds))
+        .is('archived_at', null);
+
+      if (experienceError) {
+        this.throwQueryError('list experiences for thread previews', experienceError);
+      }
+
+      (experiences ?? []).forEach((row) => {
+        experienceTitlesById.set(row.id, row.title);
       });
     }
 
@@ -188,7 +252,9 @@ export class ChatRuntimeRepository {
         experience_html: experienceVersion?.html ?? null,
         experience_css: experienceVersion?.css ?? null,
         experience_js: experienceVersion?.js ?? null,
-        experience_title: experienceVersion?.title ?? null,
+        experience_title: experienceVersion?.experienceId
+          ? (experienceTitlesById.get(experienceVersion.experienceId) ?? null)
+          : null,
       };
     });
   }
@@ -569,13 +635,13 @@ export class ChatRuntimeRepository {
     ] = await Promise.all([
       this.client
         .from('experience_versions')
-        .select('title,description,html,css,js,generation_id')
+        .select('description,html,css,js,generation_id')
         .eq('id', sandboxState.experience_version_id)
         .maybeSingle(),
       sandboxState.experience_id
         ? this.client
             .from('experiences')
-            .select('slug')
+            .select('slug,title')
             .eq('id', sandboxState.experience_id)
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
@@ -614,7 +680,7 @@ export class ChatRuntimeRepository {
       sandboxState,
       activeExperience: version
         ? {
-            title: version.title,
+            title: experience?.title ?? '',
             description: version.description,
             html: version.html,
             css: version.css,
@@ -631,7 +697,7 @@ export class ChatRuntimeRepository {
     threadId: string;
     userId: string;
     versionId: string;
-  }): Promise<{ title: string; html: string; css: string; js: string }> {
+  }): Promise<{ html: string; css: string; js: string }> {
     const thread = await this.findThread(input);
     if (!thread) {
       throw new ValidationError('Thread not found for user scope.');
@@ -653,7 +719,7 @@ export class ChatRuntimeRepository {
 
     const { data: version, error: versionError } = await this.client
       .from('experience_versions')
-      .select('title,html,css,js')
+      .select('html,css,js')
       .eq('id', input.versionId)
       .eq('experience_id', sandboxState.experience_id)
       .eq('generation_status', 'succeeded')
@@ -668,7 +734,6 @@ export class ChatRuntimeRepository {
     }
 
     return {
-      title: version.title,
       html: version.html,
       css: version.css,
       js: version.js,

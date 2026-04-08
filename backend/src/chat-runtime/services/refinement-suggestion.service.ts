@@ -61,13 +61,19 @@ export class RefinementSuggestionService {
     // Load experience version context
     const { data: version } = await this.client
       .from('experience_versions')
-      .select('title,description,html')
+      .select('experience_id,description,html')
       .eq('id', input.experienceVersionId)
       .maybeSingle();
 
     if (!version) {
       return [];
     }
+
+    const { data: experience } = await this.client
+      .from('experiences')
+      .select('title')
+      .eq('id', version.experience_id)
+      .maybeSingle();
 
     // Load recent user messages (last 5)
     const { data: messages } = await this.client
@@ -86,7 +92,7 @@ export class RefinementSuggestionService {
     const visibleText = stripHtmlToText(version.html).slice(0, 500);
 
     const prompt = buildPrompt({
-      title: version.title,
+      title: experience?.title ?? 'Experience',
       description: version.description,
       recentUserMessages,
       visibleText,

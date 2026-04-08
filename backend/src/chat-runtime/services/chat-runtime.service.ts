@@ -118,7 +118,7 @@ export class ChatRuntimeService {
     threadId: string;
     userId: string;
     versionId: string;
-  }): Promise<{ title: string; html: string; css: string; js: string }> {
+  }): Promise<{ html: string; css: string; js: string }> {
     assertChatRuntimeEnabled();
     return this.repository.getVersionContent(input);
   }
@@ -129,6 +129,15 @@ export class ChatRuntimeService {
   }): Promise<void> {
     assertChatRuntimeEnabled();
     await this.repository.assertThreadAccess(input);
+  }
+
+  async updateExperienceTitle(input: {
+    threadId: string;
+    userId: string;
+    title: string;
+  }): Promise<{ title: string }> {
+    assertChatRuntimeEnabled();
+    return this.repository.updateExperienceTitle(input);
   }
 
   async submitMessage(input: {

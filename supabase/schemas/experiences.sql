@@ -40,7 +40,6 @@ create table if not exists public.experience_versions (
   provider text not null check (provider in ('openai', 'anthropic', 'gemini')),
   model text not null,
   max_tokens int not null check (max_tokens > 0),
-  title text not null,
   description text not null,
   html text not null,
   css text not null,

@@ -2,6 +2,48 @@ import { ValidationError } from '../../common/errors/app-error';
 import { ChatRuntimeRepository } from './chat-runtime.repository';
 
 describe('ChatRuntimeRepository', () => {
+  function createClientForTitleUpdate(options: {
+    thread: Record<string, unknown> | null;
+    sandboxState: Record<string, unknown> | null;
+    updatedExperience: Record<string, unknown> | null;
+  }) {
+    const chatThreadsQuery = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(async () => ({ data: options.thread, error: null })),
+    };
+
+    const sandboxQuery = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(async () => ({
+        data: options.sandboxState,
+        error: null,
+      })),
+    };
+
+    const experiencesQuery = {
+      update: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(async () => ({
+        data: options.updatedExperience,
+        error: null,
+      })),
+    };
+
+    const client = {
+      from: jest.fn((table: string) => {
+        if (table === 'chat_threads') return chatThreadsQuery;
+        if (table === 'sandbox_states') return sandboxQuery;
+        if (table === 'experiences') return experiencesQuery;
+        throw new Error(`Unexpected table: ${table}`);
+      }),
+    };
+
+    return { client, chatThreadsQuery, sandboxQuery, experiencesQuery };
+  }
+
   function createClientForThreadLookup(options: {
     thread: Record<string, unknown> | null;
   }) {
@@ -113,6 +155,60 @@ describe('ChatRuntimeRepository', () => {
       selected_model: 'gemini-3.1-flash-lite-preview',
     });
     expect(eq).toHaveBeenCalledWith('id', 'tool-1');
+  });
+
+  it('updates the experience title for the thread sandbox experience', async () => {
+    const mock = createClientForTitleUpdate({
+      thread: {
+        id: '0b2ec6af-2775-42d0-b0f8-e8d6f4ea3f95',
+        user_id: 'd4197995-f1cf-4d06-8fdf-28d625087445',
+      },
+      sandboxState: {
+        experience_id: 'exp-1',
+      },
+      updatedExperience: {
+        title: 'New title',
+      },
+    });
+    const repository = new ChatRuntimeRepository(mock.client as never);
+
+    await expect(
+      repository.updateExperienceTitle({
+        threadId: '0b2ec6af-2775-42d0-b0f8-e8d6f4ea3f95',
+        userId: 'd4197995-f1cf-4d06-8fdf-28d625087445',
+        title: ' New title ',
+      }),
+    ).resolves.toEqual({ title: 'New title' });
+
+    expect(mock.client.from).toHaveBeenCalledWith('chat_threads');
+    expect(mock.client.from).toHaveBeenCalledWith('sandbox_states');
+    expect(mock.client.from).toHaveBeenCalledWith('experiences');
+
+    expect(mock.experiencesQuery.update).toHaveBeenCalledWith({
+      title: 'New title',
+    });
+  });
+
+  it('rejects title updates when no active experience exists', async () => {
+    const mock = createClientForTitleUpdate({
+      thread: {
+        id: '0b2ec6af-2775-42d0-b0f8-e8d6f4ea3f95',
+        user_id: 'd4197995-f1cf-4d06-8fdf-28d625087445',
+      },
+      sandboxState: {
+        experience_id: null,
+      },
+      updatedExperience: null,
+    });
+    const repository = new ChatRuntimeRepository(mock.client as never);
+
+    await expect(
+      repository.updateExperienceTitle({
+        threadId: '0b2ec6af-2775-42d0-b0f8-e8d6f4ea3f95',
+        userId: 'd4197995-f1cf-4d06-8fdf-28d625087445',
+        title: 'New title',
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
   });
 
   it('persists assistant-run conversation token totals on completion', async () => {

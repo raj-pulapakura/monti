@@ -28,7 +28,7 @@ export class ExperiencePlayRepository {
 
     const { data: experience, error: expError } = await this.client
       .from('experiences')
-      .select('id,latest_version_id')
+      .select('id,latest_version_id,title')
       .eq('slug', trimmed)
       .is('archived_at', null)
       .maybeSingle();
@@ -43,7 +43,7 @@ export class ExperiencePlayRepository {
 
     let versionQuery = this.client
       .from('experience_versions')
-      .select('title,html,css,js')
+      .select('html,css,js')
       .eq('generation_status', 'succeeded');
 
     if (versionNumber !== undefined) {
@@ -68,7 +68,7 @@ export class ExperiencePlayRepository {
     }
 
     return {
-      title: version.title,
+      title: experience.title,
       html: version.html,
       css: version.css,
       js: version.js,

@@ -3,9 +3,16 @@ import { ValidationError } from '../../common/errors/app-error';
 
 function createVersion(overrides: Record<string, unknown> = {}) {
   return {
-    title: 'Fractions Quiz',
+    experience_id: 'exp-1',
     description: 'An interactive quiz about fractions for middle schoolers.',
     html: '<h1>Fractions Quiz</h1><p>Question 1: What is 1/2 + 1/4?</p>',
+    ...overrides,
+  };
+}
+
+function createExperience(overrides: Record<string, unknown> = {}) {
+  return {
+    title: 'Fractions Quiz',
     ...overrides,
   };
 }
@@ -13,6 +20,7 @@ function createVersion(overrides: Record<string, unknown> = {}) {
 function makeClientStub(overrides: {
   thread?: unknown;
   version?: unknown;
+  experience?: unknown;
   messages?: unknown[];
 } = {}) {
   const fromMap: Record<string, unknown> = {};
@@ -30,9 +38,12 @@ function makeClientStub(overrides: {
 
   const threadData = 'thread' in overrides ? overrides.thread : { id: 'thread-1' };
   const versionData = 'version' in overrides ? overrides.version : createVersion();
+  const experienceData =
+    'experience' in overrides ? overrides.experience : createExperience();
 
   fromMap['chat_threads'] = buildChain(threadData);
   fromMap['experience_versions'] = buildChain(versionData);
+  fromMap['experiences'] = buildChain(experienceData);
   fromMap['chat_messages'] = {
     select: () => fromMap['chat_messages'],
     eq: () => fromMap['chat_messages'],

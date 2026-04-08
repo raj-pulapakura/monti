@@ -3,7 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { AppError } from '../../common/errors/app-error';
 import { SUPABASE_CLIENT } from '../../supabase/supabase.constants';
 import type { MontiSupabaseClient } from '../../supabase/supabase.types';
-import type { AudienceLevel, ExperienceFormat, GeneratedExperiencePayload } from '../../experience/dto/experience.dto';
+import type { AudienceLevel, ExperienceFormat } from '../../experience/dto/experience.dto';
 import type { ProviderKind, QualityMode } from '../../llm/llm.types';
 
 interface CreateVersionInput {
@@ -21,7 +21,10 @@ interface CreateVersionInput {
   maxTokens: number;
   tokensIn: number | null;
   tokensOut: number | null;
-  experience: GeneratedExperiencePayload;
+  description: string;
+  html: string;
+  css: string;
+  js: string;
   latencyMs: number;
 }
 
@@ -185,11 +188,10 @@ export class ExperiencePersistenceRepository {
         max_tokens: input.maxTokens,
         tokens_in: input.tokensIn,
         tokens_out: input.tokensOut,
-        title: input.experience.title,
-        description: input.experience.description,
-        html: input.experience.html,
-        css: input.experience.css,
-        js: input.experience.js,
+        description: input.description,
+        html: input.html,
+        css: input.css,
+        js: input.js,
         generation_status: 'succeeded',
         latency_ms: input.latencyMs,
       })

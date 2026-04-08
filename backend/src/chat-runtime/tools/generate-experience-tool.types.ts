@@ -80,18 +80,35 @@ export function parseGenerateExperienceToolArguments(
     'refinementInstruction',
   );
 
-  return {
+  // Refine uses the thread sandbox as the source of truth for prior HTML/CSS/JS
+  // and generation id (see GenerateExperienceToolService.execute). The model
+  // typically cannot supply priorExperience/priorGenerationId (tool results are
+  // not re-fed into the LLM), so these stay optional.
+  const out: GenerateExperienceToolArguments = {
     operation,
     prompt,
     format,
     audience,
     refinementInstruction,
   };
+
+  if (input.priorGenerationId !== undefined && input.priorGenerationId !== null) {
+    out.priorGenerationId = asRequiredString(
+      input.priorGenerationId,
+      'priorGenerationId',
+    );
+  }
+
+  if (input.priorExperience !== undefined && input.priorExperience !== null) {
+    out.priorExperience = parsePriorExperience(input.priorExperience);
+  }
+
+  return out;
 }
 
 function parsePriorExperience(value: unknown): GeneratedExperiencePayload {
   if (value === undefined || value === null) {
-    throw new ValidationError('priorExperience is required for refine operation.');
+    throw new ValidationError('priorExperience must be an object when provided.');
   }
 
   if (typeof value !== 'object' || Array.isArray(value)) {

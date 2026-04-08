@@ -58,7 +58,6 @@ export interface Database {
           provider: 'openai' | 'anthropic' | 'gemini';
           model: string;
           max_tokens: number;
-          title: string;
           description: string;
           html: string;
           css: string;
@@ -92,7 +91,6 @@ export interface Database {
           provider: 'openai' | 'anthropic' | 'gemini';
           model: string;
           max_tokens: number;
-          title: string;
           description: string;
           html: string;
           css: string;

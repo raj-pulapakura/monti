@@ -4,6 +4,7 @@ import {
   Get,
   Headers,
   MessageEvent,
+  Patch,
   Param,
   Post,
   Query,
@@ -22,6 +23,7 @@ import {
   parseStreamEventsRequestWithHeader,
   parseSubmitMessageRequest,
   parseVersionContentRequest,
+  parseUpdateExperienceTitleRequest,
 } from './dto/chat-runtime.dto';
 import type { ThreadListPayload } from './dto/chat-runtime.dto';
 import { ChatRuntimeService } from './services/chat-runtime.service';
@@ -165,6 +167,28 @@ export class ChatRuntimeController {
     return {
       ok: true,
       data: payload,
+    };
+  }
+
+  @Patch(':threadId/title')
+  async updateExperienceTitle(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('threadId') threadId: string,
+    @Body() body: unknown,
+  ): Promise<{ ok: true; data: { title: string } }> {
+    const request = parseHydrateThreadRequest(threadId, {});
+    const parsed = parseUpdateExperienceTitleRequest(body);
+    const result = await this.chatRuntimeService.updateExperienceTitle({
+      threadId: request.threadId,
+      userId: user.id,
+      title: parsed.title,
+    });
+
+    return {
+      ok: true,
+      data: {
+        title: result.title,
+      },
     };
   }
 

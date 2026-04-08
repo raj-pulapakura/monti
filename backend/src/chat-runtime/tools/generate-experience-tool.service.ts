@@ -40,7 +40,9 @@ export class GenerateExperienceToolService {
       audience: input.arguments.audience,
       conversationContext: input.arguments.conversationContext,
       refinementInstruction: input.arguments.refinementInstruction,
-      hasPriorExperience: input.arguments.priorExperience !== undefined,
+      hasPriorExperience:
+        input.arguments.operation === 'refine' ||
+        input.arguments.priorExperience !== undefined,
       requestedQualityMode: input.requestedQualityMode,
     });
 

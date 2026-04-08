@@ -42,8 +42,8 @@ describe('ExperiencePlayRepository', () => {
   describe('findBySlug — no version number (latest)', () => {
     it('returns experience content for a valid slug', async () => {
       const client = makeClient(
-        { data: { id: 'exp-1', latest_version_id: 'ver-1' }, error: null },
-        { data: { title: 'Quiz', html: '<p>', css: 'body{}', js: 'var x=1' }, error: null },
+        { data: { id: 'exp-1', latest_version_id: 'ver-1', title: 'Quiz' }, error: null },
+        { data: { html: '<p>', css: 'body{}', js: 'var x=1' }, error: null },
       );
       const repo = new ExperiencePlayRepository(client as never);
       const result = await repo.findBySlug('my-quiz-abc123');
@@ -61,7 +61,7 @@ describe('ExperiencePlayRepository', () => {
 
     it('returns null when experience has no latest_version_id', async () => {
       const client = makeClient(
-        { data: { id: 'exp-1', latest_version_id: null }, error: null },
+        { data: { id: 'exp-1', latest_version_id: null, title: 'Quiz' }, error: null },
         { data: null, error: null },
       );
       const repo = new ExperiencePlayRepository(client as never);
@@ -78,12 +78,12 @@ describe('ExperiencePlayRepository', () => {
   describe('findBySlug — with version number', () => {
     it('returns content for the specified version number', async () => {
       const client = makeClient(
-        { data: { id: 'exp-1', latest_version_id: 'ver-3' }, error: null },
-        { data: { title: 'Quiz v2', html: '<div>', css: 'h1{}', js: '' }, error: null },
+        { data: { id: 'exp-1', latest_version_id: 'ver-3', title: 'Quiz' }, error: null },
+        { data: { html: '<div>', css: 'h1{}', js: '' }, error: null },
       );
       const repo = new ExperiencePlayRepository(client as never);
       const result = await repo.findBySlug('my-quiz-abc123', 2);
-      expect(result).toEqual({ title: 'Quiz v2', html: '<div>', css: 'h1{}', js: '' });
+      expect(result).toEqual({ title: 'Quiz', html: '<div>', css: 'h1{}', js: '' });
     });
 
     it('returns null when the requested version number does not exist', async () => {
@@ -106,13 +106,16 @@ describe('ExperiencePlayRepository', () => {
 
     it('queries by experience_id and version_number when versionNumber is provided', async () => {
       const versionBuilder = makeQueryBuilder({
-        data: { title: 'T', html: '', css: '', js: '' },
+        data: { html: '', css: '', js: '' },
         error: null,
       });
       const client = {
         from: jest.fn((table: string) => {
           if (table === 'experiences') {
-            return makeQueryBuilder({ data: { id: 'exp-1', latest_version_id: 'ver-3' }, error: null });
+            return makeQueryBuilder({
+              data: { id: 'exp-1', latest_version_id: 'ver-3', title: 'T' },
+              error: null,
+            });
           }
           return versionBuilder;
         }),
@@ -127,13 +130,16 @@ describe('ExperiencePlayRepository', () => {
 
     it('does not query by latest_version_id when versionNumber is provided', async () => {
       const versionBuilder = makeQueryBuilder({
-        data: { title: 'T', html: '', css: '', js: '' },
+        data: { html: '', css: '', js: '' },
         error: null,
       });
       const client = {
         from: jest.fn((table: string) => {
           if (table === 'experiences') {
-            return makeQueryBuilder({ data: { id: 'exp-1', latest_version_id: 'ver-3' }, error: null });
+            return makeQueryBuilder({
+              data: { id: 'exp-1', latest_version_id: 'ver-3', title: 'T' },
+              error: null,
+            });
           }
           return versionBuilder;
         }),

@@ -121,7 +121,10 @@ export class ExperiencePersistenceService {
       maxTokens: input.maxTokens,
       tokensIn: toUsageCounts(input.successfulAttemptUsage).tokensIn,
       tokensOut: toUsageCounts(input.successfulAttemptUsage).tokensOut,
-      experience: input.experience,
+      description: input.experience.description,
+      html: input.experience.html,
+      css: input.experience.css,
+      js: input.experience.js,
       latencyMs: input.latencyMs,
     });
 
@@ -170,7 +173,10 @@ export class ExperiencePersistenceService {
       maxTokens: input.maxTokens,
       tokensIn: toUsageCounts(input.successfulAttemptUsage).tokensIn,
       tokensOut: toUsageCounts(input.successfulAttemptUsage).tokensOut,
-      experience: input.experience,
+      description: input.experience.description,
+      html: input.experience.html,
+      css: input.experience.css,
+      js: input.experience.js,
       latencyMs: input.latencyMs,
     });
 

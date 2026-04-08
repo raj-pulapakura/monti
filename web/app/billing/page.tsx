@@ -176,29 +176,28 @@ export default function BillingPage() {
   if (viewState === 'auth-loading' || viewState === 'loading') {
     return (
       <main className="pricing-shell">
-        <section className="pricing-hero">
-          <p className="landing-kicker">Billing</p>
-          <h1>Loading your billing workspace...</h1>
-        </section>
-        <section className="pricing-grid" aria-hidden="true">
-          <article className="pricing-plan">
+        <h1 className="billing-heading">Billing</h1>
+        <div className="billing-card" aria-hidden="true">
+          <div className="billing-plan-row">
             <span className="pricing-cta-skeleton" />
-          </article>
-          <article className="pricing-plan">
-            <span className="pricing-cta-skeleton" />
-          </article>
-        </section>
+          </div>
+          <hr className="billing-divider" />
+          <div className="billing-stats">
+            <div className="billing-stat is-primary">
+              <span className="pricing-cta-skeleton" />
+            </div>
+            <div className="billing-stat">
+              <span className="pricing-cta-skeleton" />
+            </div>
+          </div>
+        </div>
       </main>
     );
   }
 
   return (
     <main className="pricing-shell">
-      <section className="pricing-hero">
-        <p className="landing-kicker">Billing</p>
-        <h1>Manage your plan and credits</h1>
-        <p>Track available credits, view current costs, and take billing actions in one place.</p>
-      </section>
+      <h1 className="billing-heading">Billing</h1>
 
       {viewState === 'error' ? (
         <section className="pricing-explainer">
@@ -211,23 +210,70 @@ export default function BillingPage() {
       ) : null}
 
       {billingData ? (
-        <section className="pricing-grid" aria-label="Billing details">
-          <article className="pricing-plan">
+        <div className="billing-card" aria-label="Billing details">
+          <div className="billing-plan-row">
             <h2>{billingData.plan === 'paid' ? 'Paid plan' : 'Free plan'}</h2>
-            <p className="pricing-plan-price">
+            <span>
               {billingData.plan === 'paid'
                 ? `Period ends ${formatDate(billingData.paidPeriodEndsAt)}`
                 : `Refreshes ${formatDate(billingData.nextIncludedRefreshAt)}`}
-            </p>
+            </span>
+          </div>
+
+          <hr className="billing-divider" />
+
+          <div className="billing-stats">
+            <div className="billing-stat is-primary">
+              <span className="billing-stat-value">
+                {billingData.includedCreditsAvailable ?? 0}
+              </span>
+              <span className="billing-stat-label">Included available</span>
+            </div>
+            <div className="billing-stat">
+              <span className="billing-stat-value">
+                {billingData.topupCreditsAvailable ?? 0}
+              </span>
+              <span className="billing-stat-label">Top-up available</span>
+            </div>
+            {billingData.reservedCreditsTotal != null && billingData.reservedCreditsTotal > 0 ? (
+              <div className="billing-stat">
+                <span className="billing-stat-value">
+                  {billingData.reservedCreditsTotal}
+                </span>
+                <span className="billing-stat-label">Reserved in use</span>
+              </div>
+            ) : null}
+          </div>
+
+          <hr className="billing-divider" />
+
+          <div className="billing-rate-row">
+            <span>Fast mode uses {billingData.costs.fastCredits ?? '—'} credits</span>
+            <span>Quality mode uses {billingData.costs.qualityCredits ?? '—'} credits</span>
+          </div>
+
+          <hr className="billing-divider" />
+
+          <div className="billing-actions">
             {billingData.plan === 'paid' ? (
-              <button
-                type="button"
-                className="landing-secondary"
-                onClick={() => void openPortal('manage')}
-                disabled={busyAction !== null}
-              >
-                {busyAction === 'manage' ? 'Opening portal...' : 'Manage subscription'}
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="landing-primary"
+                  onClick={() => void openCheckout('topup')}
+                  disabled={busyAction !== null}
+                >
+                  {busyAction === 'topup' ? 'Opening checkout...' : 'Buy top-up pack'}
+                </button>
+                <button
+                  type="button"
+                  className="landing-secondary"
+                  onClick={() => void openPortal('manage')}
+                  disabled={busyAction !== null}
+                >
+                  {busyAction === 'manage' ? 'Opening portal...' : 'Manage subscription'}
+                </button>
+              </>
             ) : (
               <button
                 type="button"
@@ -238,36 +284,16 @@ export default function BillingPage() {
                 {busyAction === 'upgrade' ? 'Opening checkout...' : 'Upgrade to paid plan'}
               </button>
             )}
-          </article>
-
-          <article className="pricing-plan">
-            <h2>Credits</h2>
-            <ul>
-              <li>Included available: {billingData.includedCreditsAvailable ?? 0}</li>
-              <li>Top-up available: {billingData.topupCreditsAvailable ?? 0}</li>
-              <li>Fast mode cost: {billingData.costs.fastCredits ?? '—'} credits</li>
-              <li>Quality mode cost: {billingData.costs.qualityCredits ?? '—'} credits</li>
-            </ul>
-            {billingData.plan === 'paid' ? (
-              <button
-                type="button"
-                className="landing-primary"
-                onClick={() => void openCheckout('topup')}
-                disabled={busyAction !== null}
-              >
-                {busyAction === 'topup' ? 'Opening checkout...' : 'Buy top-up pack'}
-              </button>
-            ) : null}
             <button
               type="button"
-              className="landing-secondary"
+              className="billing-text-link"
               onClick={() => void openPortal('invoice')}
               disabled={busyAction !== null}
             >
-              {busyAction === 'invoice' ? 'Opening invoice history...' : 'Invoice history'}
+              {busyAction === 'invoice' ? 'Opening...' : 'Invoice history →'}
             </button>
-          </article>
-        </section>
+          </div>
+        </div>
       ) : null}
 
       {errorMessage ? <p className="error-banner">{errorMessage}</p> : null}

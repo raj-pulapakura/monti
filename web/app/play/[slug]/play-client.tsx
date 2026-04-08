@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/api/authenticated-api-client';
 
 interface PublicExperience {
@@ -29,7 +29,9 @@ function buildDocument(experience: PublicExperience): string {
 
 export function PlayClient() {
   const params = useParams<{ slug: string }>();
+  const searchParams = useSearchParams();
   const slug = params.slug;
+  const v = searchParams.get('v');
 
   const [experience, setExperience] = useState<PublicExperience | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'not-found' | 'error'>('loading');
@@ -37,7 +39,11 @@ export function PlayClient() {
   useEffect(() => {
     if (!slug) return;
 
-    void fetch(`${API_BASE_URL}/api/play/${encodeURIComponent(slug)}`)
+    const url = v
+      ? `${API_BASE_URL}/api/play/${encodeURIComponent(slug)}?v=${encodeURIComponent(v)}`
+      : `${API_BASE_URL}/api/play/${encodeURIComponent(slug)}`;
+
+    void fetch(url)
       .then(async (response) => {
         if (response.status === 404) {
           setStatus('not-found');
@@ -52,7 +58,7 @@ export function PlayClient() {
         setStatus('ready');
       })
       .catch(() => setStatus('error'));
-  }, [slug]);
+  }, [slug, v]);
 
   if (status === 'not-found') {
     return (

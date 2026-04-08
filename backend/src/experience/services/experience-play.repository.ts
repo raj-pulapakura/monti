@@ -17,7 +17,10 @@ export class ExperiencePlayRepository {
     private readonly client: MontiSupabaseClient,
   ) {}
 
-  async findBySlug(slug: string): Promise<PublicExperience | null> {
+  async findBySlug(
+    slug: string,
+    versionNumber?: number,
+  ): Promise<PublicExperience | null> {
     const trimmed = slug.trim();
     if (!trimmed) {
       throw new ValidationError('Slug must not be empty.');
@@ -25,7 +28,7 @@ export class ExperiencePlayRepository {
 
     const { data: experience, error: expError } = await this.client
       .from('experiences')
-      .select('latest_version_id')
+      .select('id,latest_version_id')
       .eq('slug', trimmed)
       .is('archived_at', null)
       .maybeSingle();
@@ -34,15 +37,27 @@ export class ExperiencePlayRepository {
       this.throwQueryError('find experience by slug', expError);
     }
 
-    if (!experience || !experience.latest_version_id) {
+    if (!experience) {
       return null;
     }
 
-    const { data: version, error: versionError } = await this.client
+    let versionQuery = this.client
       .from('experience_versions')
       .select('title,html,css,js')
-      .eq('id', experience.latest_version_id)
-      .maybeSingle();
+      .eq('generation_status', 'succeeded');
+
+    if (versionNumber !== undefined) {
+      versionQuery = versionQuery
+        .eq('experience_id', experience.id)
+        .eq('version_number', versionNumber);
+    } else {
+      if (!experience.latest_version_id) {
+        return null;
+      }
+      versionQuery = versionQuery.eq('id', experience.latest_version_id);
+    }
+
+    const { data: version, error: versionError } = await versionQuery.maybeSingle();
 
     if (versionError) {
       this.throwQueryError('load experience version for play', versionError);

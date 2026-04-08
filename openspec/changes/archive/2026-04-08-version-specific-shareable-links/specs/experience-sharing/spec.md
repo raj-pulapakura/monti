@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Public experience access by slug
 The system SHALL serve the content of a generated experience to any unauthenticated requestor given a valid slug, and optionally a version number. When no version number is supplied the system returns the latest version; when a version number is supplied it returns that specific version.
@@ -31,36 +31,6 @@ The system SHALL serve the content of a generated experience to any unauthentica
 - **WHEN** a GET request is made to `/api/play/:slug` for an experience that exists but has no `latest_version_id` and no `v` param
 - **THEN** the system returns HTTP 404
 
-### Requirement: Public play page renders experience without authentication
-The system SHALL render a public page at `/play/[slug]` that displays the sandboxed experience iframe to any user without requiring sign-in.
-
-#### Scenario: Valid slug renders experience
-- **WHEN** a user navigates to `/play/<slug>` in a browser
-- **THEN** the page server-renders the experience in a sandboxed iframe with `allow-scripts` and displays a minimal Monti branding footer
-
-#### Scenario: Invalid slug shows not-found page
-- **WHEN** a user navigates to `/play/<slug>` and the backend returns 404
-- **THEN** the page renders the Next.js not-found response
-
-#### Scenario: Play page is accessible without authentication
-- **WHEN** an unauthenticated user navigates to `/play/<slug>`
-- **THEN** the page loads without redirecting to sign-in
-
-### Requirement: Public play page resolves versioned URL
-The system SHALL render the correct version of an experience when the `/play/[slug]` page is loaded with a `?v=N` query parameter.
-
-#### Scenario: Play page with version param renders that version
-- **WHEN** a user navigates to `/play/<slug>?v=2`
-- **THEN** the page fetches `/api/play/<slug>?v=2` and renders the content of version 2 in the sandboxed iframe
-
-#### Scenario: Play page without version param renders latest
-- **WHEN** a user navigates to `/play/<slug>` with no `v` param
-- **THEN** the page fetches `/api/play/<slug>` and renders the latest version (unchanged behavior)
-
-#### Scenario: Play page with invalid version shows not-found
-- **WHEN** a user navigates to `/play/<slug>?v=99` and version 99 does not exist
-- **THEN** the page renders the not-found state
-
 ### Requirement: Copy shareable link from sandbox panel
 The system SHALL provide a copy-link affordance in the sandbox panel that writes the public play URL to the clipboard. When the user is viewing a non-latest version the URL SHALL encode the viewed version number as a `?v=N` query param. When the user is on the latest version the URL SHALL be unversioned.
 
@@ -87,3 +57,20 @@ The system SHALL provide a copy-link affordance in the sandbox panel that writes
 #### Scenario: Copy link button is hidden when slug is absent
 - **WHEN** the active experience in the sandbox panel has a null slug
 - **THEN** no copy-link button is shown
+
+## ADDED Requirements
+
+### Requirement: Public play page resolves versioned URL
+The system SHALL render the correct version of an experience when the `/play/[slug]` page is loaded with a `?v=N` query parameter.
+
+#### Scenario: Play page with version param renders that version
+- **WHEN** a user navigates to `/play/<slug>?v=2`
+- **THEN** the page fetches `/api/play/<slug>?v=2` and renders the content of version 2 in the sandboxed iframe
+
+#### Scenario: Play page without version param renders latest
+- **WHEN** a user navigates to `/play/<slug>` with no `v` param
+- **THEN** the page fetches `/api/play/<slug>` and renders the latest version (unchanged behavior)
+
+#### Scenario: Play page with invalid version shows not-found
+- **WHEN** a user navigates to `/play/<slug>?v=99` and version 99 does not exist
+- **THEN** the page renders the not-found state

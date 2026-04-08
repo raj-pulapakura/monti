@@ -5,12 +5,12 @@ const API_INTERNAL_URL = (
   process.env.API_INTERNAL_URL ?? 'http://localhost:3001'
 ).replace(/\/+$/, '');
 
-async function fetchExperienceTitle(slug: string): Promise<string | null> {
+async function fetchExperienceTitle(slug: string, v?: string): Promise<string | null> {
   try {
-    const response = await fetch(
-      `${API_INTERNAL_URL}/api/play/${encodeURIComponent(slug)}`,
-      { cache: 'no-store' },
-    );
+    const url = v
+      ? `${API_INTERNAL_URL}/api/play/${encodeURIComponent(slug)}?v=${encodeURIComponent(v)}`
+      : `${API_INTERNAL_URL}/api/play/${encodeURIComponent(slug)}`;
+    const response = await fetch(url, { cache: 'no-store' });
     if (!response.ok) return null;
     const body = (await response.json()) as { ok: true; data: { title: string } };
     return body.data.title;
@@ -21,11 +21,14 @@ async function fetchExperienceTitle(slug: string): Promise<string | null> {
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ v?: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const title = await fetchExperienceTitle(slug);
+  const { v } = await searchParams;
+  const title = await fetchExperienceTitle(slug, v);
   return {
     title: title ? `${title} — Monti` : 'Experience — Monti',
   };

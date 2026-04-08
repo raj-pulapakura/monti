@@ -289,6 +289,8 @@ export default function ChatThreadPage() {
     : versionList.findIndex((v) => v.id === activeExperienceVersionId);
   const viewingVersionNumber =
     viewingVersionIndex >= 0 ? versionList[viewingVersionIndex].versionNumber : null;
+  const latestVersionId = versionList[versionList.length - 1]?.id ?? null;
+  const isViewingLatest = viewingVersionId === null || viewingVersionId === latestVersionId;
 
   useEffect(() => {
     if (!accessToken || !thread?.id || !activeExperienceVersionId) {
@@ -845,7 +847,11 @@ export default function ChatThreadPage() {
       return;
     }
 
-    const url = `${window.location.origin}/play/${activeExperience.slug}`;
+    const base = `${window.location.origin}/play/${activeExperience.slug}`;
+    const url =
+      !isViewingLatest && viewingVersionNumber !== null
+        ? `${base}?v=${viewingVersionNumber}`
+        : base;
     await navigator.clipboard.writeText(url);
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
@@ -1100,8 +1106,20 @@ export default function ChatThreadPage() {
                   type="button"
                   className="sandbox-control-button"
                   onClick={() => void handleCopyLink()}
-                  aria-label={linkCopied ? 'Link copied' : 'Copy shareable link'}
-                  title={linkCopied ? 'Link copied!' : 'Copy shareable link'}
+                  aria-label={
+                    linkCopied
+                      ? 'Link copied'
+                      : !isViewingLatest && viewingVersionNumber !== null
+                        ? `Copy link to v${viewingVersionNumber}`
+                        : 'Copy link'
+                  }
+                  title={
+                    linkCopied
+                      ? 'Link copied!'
+                      : !isViewingLatest && viewingVersionNumber !== null
+                        ? `Copy link to v${viewingVersionNumber}`
+                        : 'Copy link'
+                  }
                 >
                   {linkCopied ? (
                     <Check size={17} strokeWidth={2.2} />

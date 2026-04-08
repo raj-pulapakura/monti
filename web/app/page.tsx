@@ -343,7 +343,7 @@ function HomeWorkspace(input: {
       <FloatingProfileControls onSignOut={input.onSignOut} />
       <header className="home-header">
         <div>
-          <h1 className="display-script home-hero-heading">
+          <h1 className="home-hero-heading">
             What will you create today?
           </h1>
         </div>

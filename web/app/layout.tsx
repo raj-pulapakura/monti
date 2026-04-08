@@ -1,19 +1,12 @@
 import type { Metadata } from 'next';
-import { Cormorant_Garamond, Manrope } from 'next/font/google';
+import { DM_Sans } from 'next/font/google';
 import './globals.css';
 
-const sans = Manrope({
+const sans = DM_Sans({
   subsets: ['latin'],
   variable: '--font-sans',
   display: 'swap',
-});
-
-const display = Cormorant_Garamond({
-  subsets: ['latin'],
-  variable: '--font-display',
-  weight: ['500', '600', '700'],
   style: ['normal', 'italic'],
-  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -29,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${sans.variable} ${display.variable} antialiased`}>{children}</body>
+      <body className={`${sans.variable} antialiased`}>{children}</body>
     </html>
   );
 }

@@ -105,7 +105,6 @@ button:disabled {
 }
 
 .display-script {
-  font-family: var(--font-display), "Cormorant Garamond", Georgia, serif;
   font-weight: 600;
   font-style: italic;
   letter-spacing: 0.005em;

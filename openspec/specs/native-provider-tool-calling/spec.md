@@ -73,3 +73,17 @@ The canonical tool-turn response MUST include normalized usage telemetry for the
 - **WHEN** a provider-native conversation turn completes without exposing token usage
 - **THEN** the canonical tool-turn response includes usage telemetry marked unavailable with no fabricated token counts
 
+### Requirement: generate_experience tool schema omits format and audience
+
+The tool definition for `generate_experience` exposed to the conversation model SHALL NOT declare `format` or `audience` parameters. The model SHALL express any desired pacing, style, or interaction shape in natural language within the prompt.
+
+#### Scenario: Tool registry lists no format parameter
+
+- **WHEN** the runtime registers or serializes tool definitions for the conversation provider
+- **THEN** the `generate_experience` schema does not include a `format` property
+
+#### Scenario: Tool registry lists no audience parameter
+
+- **WHEN** the runtime registers or serializes tool definitions for the conversation provider
+- **THEN** the `generate_experience` schema does not include an `audience` property
+

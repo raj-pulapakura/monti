@@ -17,8 +17,6 @@ import { ExperiencePersistenceService } from '../../persistence/services/experie
 import { SafetyGuardService } from '../../safety/safety-guard.service';
 import { PayloadValidationService } from '../../validation/payload-validation.service';
 import type {
-  AudienceLevel,
-  ExperienceFormat,
   ExperienceResponsePayload,
   GenerateExperienceRequest,
   RefineExperienceRequest,
@@ -47,8 +45,6 @@ export class ExperienceOrchestratorService {
       prompt,
       sourcePrompt: request.prompt,
       userId: request.userId,
-      format: request.format,
-      audience: request.audience,
       qualityMode: request.qualityMode,
       provider: request.provider,
       system: request.system,
@@ -82,8 +78,6 @@ export class ExperienceOrchestratorService {
     prompt: string;
     sourcePrompt: string;
     userId: string;
-    format?: ExperienceFormat;
-    audience?: AudienceLevel;
     refinementInstruction?: string;
     parentGenerationId?: string;
     qualityMode: 'fast' | 'quality';
@@ -174,8 +168,6 @@ export class ExperienceOrchestratorService {
           prompt: input.sourcePrompt,
           refinementInstruction: input.refinementInstruction,
           parentGenerationId: input.parentGenerationId,
-          format: input.format,
-          audience: input.audience,
           qualityMode: input.qualityMode,
           provider: llmResult.provider,
           model: llmResult.model,

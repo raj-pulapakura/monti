@@ -3,12 +3,10 @@ import { PromptBuilderService } from './prompt-builder.service';
 describe('PromptBuilderService', () => {
   const service = new PromptBuilderService();
 
-  it('builds a generation prompt with Monti philosophy, quality bar, and target guidance', () => {
+  it('builds a generation prompt with Monti philosophy, quality bar, and topic only', () => {
     const prompt = service.buildGenerationPrompt({
       userId: 'user-1',
       prompt: 'Teach Bayes theorem through an interactive diagnostic simulator',
-      format: 'game',
-      audience: 'university',
       qualityMode: 'quality',
     });
 
@@ -30,40 +28,29 @@ describe('PromptBuilderService', () => {
       '- For complex domains, narrow the scope to one teachable slice and make that slice interactive.',
     );
     expect(prompt).toContain('Anti-patterns to avoid:');
-    expect(prompt).toContain('Format guidance for game:');
-    expect(prompt).toContain(
-      '- The game loop should directly express the concept being taught rather than feeling pasted on.',
-    );
-    expect(prompt).toContain('Learner profile guidance for university:');
-    expect(prompt).toContain(
-      '- Treat the learner as capable of formal reasoning, domain terminology, and disciplined exploration.',
-    );
     expect(prompt).toContain('Output contract:');
     expect(prompt).toContain('- Use no external network requests.');
     expect(prompt).toContain(
       '- Topic request: Teach Bayes theorem through an interactive diagnostic simulator',
     );
-    expect(prompt).toContain('- Format: game');
-    expect(prompt).toContain('- Learner profile: university');
+    expect(prompt).not.toContain('Learner profile');
+    expect(prompt).not.toContain('Format guidance');
+    expect(prompt).not.toContain('Format selection guidance');
+    expect(prompt).not.toContain('- Format:');
   });
 
-  it('builds generation prompts with auto-select and general-learner guidance when unset', () => {
+  it('omits format from the prompt when format is unset', () => {
     const prompt = service.buildGenerationPrompt({
       userId: 'user-1',
       prompt: 'Help me understand fractions',
       qualityMode: 'fast',
     });
 
-    expect(prompt).toContain('Format selection guidance:');
-    expect(prompt).toContain(
-      '- Choose game when experimentation, strategy, or system dynamics are the best way to learn the concept.',
-    );
-    expect(prompt).toContain('Learner profile guidance for general learner:');
-    expect(prompt).toContain(
-      '- Use clear, concise language that is approachable without feeling childish.',
-    );
-    expect(prompt).toContain('- Format: auto-select the best fit');
-    expect(prompt).toContain('- Learner profile: general learner');
+    expect(prompt).toContain('- Topic request: Help me understand fractions');
+    expect(prompt).not.toContain('Learner profile');
+    expect(prompt).not.toContain('Format guidance');
+    expect(prompt).not.toContain('Format selection guidance');
+    expect(prompt).not.toContain('- Format:');
   });
 
   it('builds a refinement prompt that preserves philosophy and adds anti-regression guidance', () => {

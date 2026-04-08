@@ -222,8 +222,6 @@ describe('ExperienceOrchestratorService', () => {
       userId: 'test-client',
       prompt: 'Build a quiz',
       qualityMode: 'fast',
-      format: 'quiz',
-      audience: 'elementary',
     });
 
     expect(result.experience.title).toBe('Valid payload');

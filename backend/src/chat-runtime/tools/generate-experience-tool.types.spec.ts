@@ -19,8 +19,6 @@ describe('parseGenerateExperienceToolArguments', () => {
     expect(parsed).toEqual({
       operation: 'generate',
       prompt: 'Build a solar system explainer',
-      format: undefined,
-      audience: undefined,
     });
   });
 
@@ -43,8 +41,6 @@ describe('parseGenerateExperienceToolArguments', () => {
     expect(parsed).toEqual({
       operation: 'refine',
       prompt: 'Make it simpler',
-      format: undefined,
-      audience: undefined,
       refinementInstruction: 'Use shorter sentences.',
     });
   });
@@ -69,18 +65,17 @@ describe('parseGenerateExperienceToolArguments', () => {
     expect(parsed.priorExperience?.title).toBe('Solar System');
   });
 
-  it('accepts expanded learner audiences for generate operations', () => {
+  it('does not surface removed format or audience tool fields on generate', () => {
     const parsed = parseGenerateExperienceToolArguments({
       operation: 'generate',
       prompt: 'Build a statistics simulator',
+      format: 'game',
       audience: 'university',
     });
 
     expect(parsed).toEqual({
       operation: 'generate',
       prompt: 'Build a statistics simulator',
-      format: undefined,
-      audience: 'university',
     });
   });
 });

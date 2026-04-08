@@ -1,19 +1,6 @@
 import { ValidationError } from '../../common/errors/app-error';
 import type { ProviderKind, QualityMode } from '../../llm/llm.types';
 
-export const EXPERIENCE_FORMATS = ['quiz', 'game', 'explainer'] as const;
-export type ExperienceFormat = (typeof EXPERIENCE_FORMATS)[number];
-
-export const AUDIENCE_LEVELS = [
-  'young-kids',
-  'elementary',
-  'middle-school',
-  'high-school',
-  'university',
-  'adult',
-] as const;
-export type AudienceLevel = (typeof AUDIENCE_LEVELS)[number];
-
 export interface GeneratedExperiencePayload {
   title: string;
   description: string;
@@ -25,8 +12,6 @@ export interface GeneratedExperiencePayload {
 export interface GenerateExperienceRequest {
   userId: string;
   prompt: string;
-  format?: ExperienceFormat;
-  audience?: AudienceLevel;
   qualityMode: QualityMode;
   provider?: ProviderKind;
   system?: string;
@@ -73,29 +58,6 @@ interface ParseSharedOptions {
   system?: string;
   temperature?: number;
   maxTokens?: number;
-}
-
-export function parseGenerateExperienceRequest(body: unknown): GenerateExperienceRequest {
-  const object = asRecord(body, 'Request body must be a JSON object.');
-  const prompt = asRequiredString(object.prompt, 'prompt');
-
-  const format =
-    object.format === undefined
-      ? undefined
-      : asOneOf(object.format, EXPERIENCE_FORMATS, 'format');
-  const audience =
-    object.audience === undefined
-      ? undefined
-      : asOneOf(object.audience, AUDIENCE_LEVELS, 'audience');
-
-  const shared = parseSharedOptions(object);
-
-  return {
-    prompt,
-    format,
-    audience,
-    ...shared,
-  };
 }
 
 export function parseRefineExperienceRequest(body: unknown): RefineExperienceRequest {

@@ -49,8 +49,6 @@ describe('MVP Smoke Flow (e2e)', () => {
     const generateResponse = await orchestrator.generate({
       userId: '00000000-0000-4000-8000-000000000001',
       prompt: 'Teach me about photosynthesis with a mini quiz.',
-      format: 'quiz',
-      audience: 'middle-school',
       qualityMode: 'fast',
     });
 

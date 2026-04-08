@@ -4,10 +4,6 @@ import {
   ProviderResponseError,
   ProviderUnavailableError,
 } from '../common/errors/app-error';
-import type {
-  AudienceLevel,
-  ExperienceFormat,
-} from '../experience/dto/experience.dto';
 import { LlmConfigService } from './llm-config.service';
 import { unavailableUsage, type LlmUsageTelemetry } from './llm-usage';
 import type { ProviderKind } from './llm.types';
@@ -66,8 +62,6 @@ export interface LlmRoutingRequest {
   requestId?: string;
   operation: 'generate' | 'refine';
   prompt: string;
-  format?: ExperienceFormat;
-  audience?: AudienceLevel;
   conversationContext?: string;
   refinementInstruction?: string;
   hasPriorExperience?: boolean;
@@ -345,11 +339,11 @@ function buildRouterSystemPrompt(): string {
     '- Default to fast when uncertain.',
     '- Choose quality only when there is clear evidence it will materially improve the result.',
     '- Topic complexity alone is not enough to justify quality.',
-    '- Older or more advanced audiences do not automatically imply quality.',
+    '- Advanced or university-level topics named in the prompt alone do not automatically imply quality.',
     '- Refinement requests are not automatically quality; only upgrade when the requested changes are substantial or tightly constrained.',
     '- Prefer fast for ordinary generate requests, lightly constrained prompts, and narrow interactive slices of advanced subjects.',
     'Examples:',
-    '- Generate a draggable fractions model for an elementary learner -> fast',
+    '- Generate a draggable fractions model described as for younger learners -> fast',
     '- Generate a university-level Bayes theorem simulator that teaches false positives, priors, and tradeoffs -> quality',
     '- Refine an experience to shorten copy and improve button labels -> fast',
     '- Refine an experience to redesign the interaction loop, pacing, and mobile usability while preserving the concept -> quality',
@@ -362,8 +356,6 @@ function buildRouterUserInput(input: LlmRoutingRequest): string {
     'Request summary:',
     `- operation: ${input.operation}`,
     `- prompt: ${input.prompt}`,
-    `- format: ${input.format ?? 'unspecified'}`,
-    `- audience: ${input.audience ?? 'unspecified'}`,
     `- has_conversation_context: ${input.conversationContext?.trim() ? 'yes' : 'no'}`,
     `- refinement_instruction: ${input.refinementInstruction?.trim() ?? 'none'}`,
     `- prior_experience_available: ${input.hasPriorExperience ? 'yes' : 'no'}`,

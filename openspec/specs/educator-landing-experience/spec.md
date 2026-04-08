@@ -12,11 +12,11 @@ The marketing landing page SHALL display a hero section with a headline, subline
 - **THEN** it includes a designated area for a product visual (screen recording or screenshot of the creation flow), which displays a placeholder until the final asset is supplied
 
 ### Requirement: Showcase real Monti experience outputs in a dedicated section
-The landing page SHALL include a "Show, don't tell" section that displays 2-3 curated example experiences with topic labels, audience-level tags, and visual previews. This section SHALL demonstrate the concrete output of Monti to visitors who have never seen the product.
+The landing page SHALL include a "Show, don't tell" section that displays 2-3 curated example experiences with topic labels, short descriptive copy (who it is for and what kind of interaction it is), and visual previews. This section SHALL demonstrate the concrete output of Monti to visitors who have never seen the product.
 
 #### Scenario: Visitor sees example experience cards
 - **WHEN** a visitor scrolls to the showcase section
-- **THEN** the page displays 2-3 example cards, each showing a topic label (e.g. "Photosynthesis"), an audience tag (e.g. "Middle School"), a format tag (e.g. "Game"), and a visual preview area
+- **THEN** the page displays 2-3 example cards, each showing a topic label (e.g. "Photosynthesis"), brief copy that signals learner level and interaction style (e.g. "Middle school · game-like practice"), and a visual preview area
 
 #### Scenario: Showcase uses placeholders when assets are not yet supplied
 - **WHEN** final experience assets have not been provided

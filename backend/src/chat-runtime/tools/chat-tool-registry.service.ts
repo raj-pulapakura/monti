@@ -26,21 +26,6 @@ const GENERATE_EXPERIENCE_TOOL_DEFINITION: CanonicalToolDefinition = {
       prompt: {
         type: 'string',
       },
-      format: {
-        type: 'string',
-        enum: ['quiz', 'game', 'explainer'],
-      },
-      audience: {
-        type: 'string',
-        enum: [
-          'young-kids',
-          'elementary',
-          'middle-school',
-          'high-school',
-          'university',
-          'adult',
-        ],
-      },
       refinementInstruction: {
         type: 'string',
         description: 'Required when operation=refine. Describe what to change.',

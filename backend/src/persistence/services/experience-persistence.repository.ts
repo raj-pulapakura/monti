@@ -3,7 +3,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import { AppError } from '../../common/errors/app-error';
 import { SUPABASE_CLIENT } from '../../supabase/supabase.constants';
 import type { MontiSupabaseClient } from '../../supabase/supabase.types';
-import type { AudienceLevel, ExperienceFormat } from '../../experience/dto/experience.dto';
 import type { ProviderKind, QualityMode } from '../../llm/llm.types';
 
 interface CreateVersionInput {
@@ -13,8 +12,6 @@ interface CreateVersionInput {
   versionNumber: number;
   operation: 'generate' | 'refine';
   promptSummary: string;
-  format?: ExperienceFormat;
-  audience?: AudienceLevel;
   qualityMode: QualityMode;
   provider: ProviderKind;
   model: string;
@@ -180,8 +177,6 @@ export class ExperiencePersistenceRepository {
         version_number: input.versionNumber,
         operation: input.operation,
         prompt_summary: input.promptSummary,
-        format: input.format ?? null,
-        audience: input.audience ?? null,
         quality_mode: input.qualityMode,
         provider: input.provider,
         model: input.model,

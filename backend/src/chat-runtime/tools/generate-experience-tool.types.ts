@@ -1,8 +1,4 @@
-import type {
-  AudienceLevel,
-  ExperienceFormat,
-  GeneratedExperiencePayload,
-} from '../../experience/dto/experience.dto';
+import type { GeneratedExperiencePayload } from '../../experience/dto/experience.dto';
 import type { ProviderKind } from '../../llm/llm.types';
 import { ValidationError } from '../../common/errors/app-error';
 
@@ -12,8 +8,6 @@ export interface GenerateExperienceToolArguments {
   operation: GenerateExperienceToolOperation;
   prompt: string;
   conversationContext?: string;
-  format?: ExperienceFormat;
-  audience?: AudienceLevel;
   refinementInstruction?: string;
   priorGenerationId?: string;
   priorExperience?: GeneratedExperiencePayload;
@@ -49,29 +43,10 @@ export function parseGenerateExperienceToolArguments(
         ? 'generate'
         : 'generate';
   const prompt = asRequiredString(input.prompt, 'prompt');
-  const format = asOptionalEnum(
-    input.format,
-    ['quiz', 'game', 'explainer'] as const,
-    'format',
-  );
-  const audience = asOptionalEnum(
-    input.audience,
-    [
-      'young-kids',
-      'elementary',
-      'middle-school',
-      'high-school',
-      'university',
-      'adult',
-    ] as const,
-    'audience',
-  );
   if (operation === 'generate') {
     return {
       operation,
       prompt,
-      format,
-      audience,
     };
   }
 
@@ -87,8 +62,6 @@ export function parseGenerateExperienceToolArguments(
   const out: GenerateExperienceToolArguments = {
     operation,
     prompt,
-    format,
-    audience,
     refinementInstruction,
   };
 
@@ -140,20 +113,4 @@ function asRequiredString(value: unknown, fieldName: string): string {
   }
 
   return trimmed;
-}
-
-function asOptionalEnum<T extends readonly string[]>(
-  value: unknown,
-  options: T,
-  fieldName: string,
-): T[number] | undefined {
-  if (value === undefined || value === null) {
-    return undefined;
-  }
-
-  if (typeof value !== 'string' || !options.includes(value)) {
-    throw new ValidationError(`${fieldName} must be one of: ${options.join(', ')}.`);
-  }
-
-  return value as T[number];
 }

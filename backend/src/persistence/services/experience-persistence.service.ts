@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ValidationError } from '../../common/errors/app-error';
-import type {
-  AudienceLevel,
-  ExperienceFormat,
-  GeneratedExperiencePayload,
-} from '../../experience/dto/experience.dto';
+import type { GeneratedExperiencePayload } from '../../experience/dto/experience.dto';
 import type { LlmUsageTelemetry } from '../../llm/llm-usage';
 import { toUsageCounts } from '../../llm/llm-usage';
 import type { ProviderKind, QualityMode } from '../../llm/llm.types';
@@ -17,8 +13,6 @@ interface PersistSuccessInput {
   prompt: string;
   refinementInstruction?: string;
   parentGenerationId?: string;
-  format?: ExperienceFormat;
-  audience?: AudienceLevel;
   qualityMode: QualityMode;
   provider: ProviderKind;
   model: string;
@@ -113,8 +107,6 @@ export class ExperiencePersistenceService {
       versionNumber: 1,
       operation: 'generate',
       promptSummary: summarizePrompt(input.prompt),
-      format: input.format,
-      audience: input.audience,
       qualityMode: input.qualityMode,
       provider: input.provider,
       model: input.model,
@@ -165,8 +157,6 @@ export class ExperiencePersistenceService {
       versionNumber: parentVersion.versionNumber + 1,
       operation: 'refine',
       promptSummary,
-      format: undefined,
-      audience: undefined,
       qualityMode: input.qualityMode,
       provider: input.provider,
       model: input.model,

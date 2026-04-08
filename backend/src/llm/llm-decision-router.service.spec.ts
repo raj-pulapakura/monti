@@ -99,8 +99,6 @@ describe('LlmDecisionRouterService', () => {
       requestId: 'run-3',
       operation: 'refine',
       prompt: 'Improve the simulator for mobile and clarify the feedback states',
-      format: 'game',
-      audience: 'university',
       conversationContext:
         'USER: make it feel more rigorous\nASSISTANT: I can refine the interaction loop.',
       refinementInstruction: 'Tighten the pacing and preserve the core concept.',
@@ -135,8 +133,6 @@ describe('LlmDecisionRouterService', () => {
     const userText = body.input[1].content[0].text as string;
     expect(userText).toContain('Request summary:');
     expect(userText).toContain('- operation: refine');
-    expect(userText).toContain('- format: game');
-    expect(userText).toContain('- audience: university');
     expect(userText).toContain('- has_conversation_context: yes');
     expect(userText).toContain(
       '- refinement_instruction: Tighten the pacing and preserve the core concept.',

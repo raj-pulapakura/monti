@@ -94,8 +94,6 @@ describe('GenerateExperienceToolService', () => {
         prompt: 'Build a solar system game',
         conversationContext:
           'USER: teach planets\nASSISTANT: I can generate an experience.',
-        format: undefined,
-        audience: undefined,
         refinementInstruction: undefined,
         hasPriorExperience: false,
       }),

@@ -4,10 +4,10 @@
 TBD - created by archiving change mvp-generative-learning-loop. Update Purpose after archive.
 ## Requirements
 ### Requirement: Generate interactive learning experience from prompt
-The system SHALL accept generation intent from `generate_experience` tool arguments and relevant conversation context, return a structured payload with non-empty `title`, `description`, `html`, `css`, and `js`, and persist the successful result as a versioned artifact.
+The system SHALL accept generation intent from `generate_experience` tool arguments and relevant conversation context. Generation intent SHALL consist of the topic prompt and operational fields required by the runtime (e.g. operation, refinement instruction when refining); it SHALL NOT include structured `format` or `audience` selectors. The system SHALL return a structured payload with non-empty `title`, `description`, `html`, `css`, and `js`, and persist the successful result as a versioned artifact.
 
 #### Scenario: Successful generation from tool invocation
-- **WHEN** the conversation loop invokes `generate_experience` with prompt intent and optional selectors
+- **WHEN** the conversation loop invokes `generate_experience` with prompt intent and optional conversation context
 - **THEN** the generation engine returns a successful payload containing `title`, `description`, `html`, `css`, and `js`
 
 #### Scenario: Successful generation persists artifact

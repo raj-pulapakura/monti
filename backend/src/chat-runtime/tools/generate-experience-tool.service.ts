@@ -36,8 +36,6 @@ export class GenerateExperienceToolService {
       runId: input.runId,
       operation: input.arguments.operation,
       prompt: input.arguments.prompt,
-      format: input.arguments.format,
-      audience: input.arguments.audience,
       conversationContext: input.arguments.conversationContext,
       refinementInstruction: input.arguments.refinementInstruction,
       hasPriorExperience:
@@ -92,8 +90,6 @@ export class GenerateExperienceToolService {
         payload = await this.orchestrator.generate({
           userId: input.userId,
           prompt: generationPrompt,
-          format: input.arguments.format,
-          audience: input.arguments.audience,
           qualityMode: route.tier,
           provider: route.selectedProvider,
         });
@@ -204,8 +200,6 @@ export class GenerateExperienceToolService {
     runId: string;
     operation: 'generate' | 'refine';
     prompt: string;
-    format?: GenerateExperienceToolArguments['format'];
-    audience?: GenerateExperienceToolArguments['audience'];
     conversationContext?: string;
     refinementInstruction?: string;
     hasPriorExperience?: boolean;
@@ -241,8 +235,6 @@ export class GenerateExperienceToolService {
       requestId: input.runId,
       operation: input.operation,
       prompt: input.prompt,
-      format: input.format,
-      audience: input.audience,
       conversationContext: input.conversationContext,
       refinementInstruction: input.refinementInstruction,
       hasPriorExperience: input.hasPriorExperience,

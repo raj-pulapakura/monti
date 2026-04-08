@@ -103,7 +103,7 @@ export class RefinementSuggestionService {
         prompt,
         system: SUGGESTION_SYSTEM_PROMPT,
         qualityMode: 'fast',
-        maxTokens: 400,
+        maxTokens: 2000,
         temperature: 0.4,
         responseSchema: SUGGESTION_RESPONSE_SCHEMA,
       });

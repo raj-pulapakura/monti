@@ -3,28 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/api/authenticated-api-client';
+import { buildSrcdoc } from '@/lib/preview';
 
 interface PublicExperience {
   title: string;
   html: string;
   css: string;
   js: string;
-}
-
-function buildDocument(experience: PublicExperience): string {
-  const sanitizedJs = experience.js.replace(/<\/script/gi, '<\\/script');
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>${experience.css}</style>
-  </head>
-  <body>
-    ${experience.html}
-    <script>${sanitizedJs}</script>
-  </body>
-</html>`;
 }
 
 export function PlayClient() {
@@ -97,7 +82,7 @@ export function PlayClient() {
     >
       <iframe
         title={experience.title}
-        srcDoc={buildDocument(experience)}
+        srcDoc={buildSrcdoc(experience.html, experience.css, experience.js)}
         sandbox="allow-scripts"
         style={{
           flex: 1,

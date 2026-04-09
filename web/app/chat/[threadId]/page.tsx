@@ -5,27 +5,19 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { toggleExperienceFavourite } from '@/lib/chat/experience-favourite';
 import {
-  ArrowUp,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Expand,
-  Link2,
-  LoaderCircle,
-  Pencil,
-  Plus,
-  Star,
-  X,
-} from 'lucide-react';
-import {
   API_BASE_URL,
   createAuthenticatedApiClient,
 } from '@/lib/api/authenticated-api-client';
 import type { BillingMeResponse } from '@/lib/api/billing-me';
 import { consumeHomePromptHandoff } from '@/lib/chat/prompt-handoff';
-import { GenerationModeDropdown } from '@/app/components/generation-mode-segmented-control';
 import type { GenerationMode } from '@/lib/chat/generation-mode';
+// X is still used for the fullscreen close button
+import { X } from 'lucide-react';
+import { useSupabaseClient } from '@/app/hooks/use-supabase-client';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { toErrorMessage } from '@/lib/errors';
+import { buildSrcdoc } from '@/lib/preview';
+import type { RedirectResponse } from '@/lib/api/types';
 import {
   isPreviewFullscreenSupported,
   isPreviewStageFullscreen,
@@ -45,6 +37,11 @@ import {
   type ToolInvocation,
 } from '../../runtime-state';
 import { FloatingProfileControls } from '../../components/floating-profile-controls';
+import { ChatComposer } from './components/chat-composer';
+import { SuggestionChips } from './components/suggestion-chips';
+import { SandboxHeader } from './components/sandbox-header';
+import { ConversationTimeline } from './components/conversation-timeline';
+import { BillingGate } from './components/billing-gate';
 
 type RefinementSuggestion = {
   label: string;
@@ -132,13 +129,6 @@ type SandboxPreviewResponse = {
 };
 
 type StreamConnectionState = 'idle' | 'connecting' | 'open' | 'reconnecting';
-type RedirectResponse = {
-  ok: true;
-  data: {
-    url?: string;
-    checkoutUrl?: string;
-  };
-};
 
 type ConversationTimelineItem =
   | {
@@ -159,9 +149,7 @@ export default function ChatThreadPage() {
   const routeThreadId = resolveRouteThreadId(params.threadId);
   const threadIdIsValid = isUuidLike(routeThreadId);
   const router = useRouter();
-  const supabaseRef = useRef<ReturnType<typeof createSupabaseBrowserClient> | null>(
-    null,
-  );
+  const getSupabaseClient = useSupabaseClient();
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [thread, setThread] = useState<ThreadEnvelope | null>(null);
   const [runtimeState, setRuntimeState] = useState<RuntimeState>(INITIAL_RUNTIME_STATE);
@@ -194,24 +182,6 @@ export default function ChatThreadPage() {
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const [favouriteTogglePending, setFavouriteTogglePending] = useState(false);
   const [favouriteActionError, setFavouriteActionError] = useState<string | null>(null);
-
-  function getSupabaseClient() {
-    if (supabaseRef.current) {
-      return supabaseRef.current;
-    }
-
-    try {
-      supabaseRef.current = createSupabaseBrowserClient();
-      return supabaseRef.current;
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : 'Supabase authentication is not configured.',
-      );
-      return null;
-    }
-  }
 
   useEffect(() => {
     latestEventIdRef.current = runtimeState.latestEventId;
@@ -256,8 +226,9 @@ export default function ChatThreadPage() {
   }, [isEditingTitle]);
 
   useEffect(() => {
-    const supabaseClient = getSupabaseClient();
+    const { client: supabaseClient, error: clientError } = getSupabaseClient();
     if (!supabaseClient) {
+      setErrorMessage(clientError ?? 'Supabase authentication is not configured.');
       return;
     }
 
@@ -304,7 +275,7 @@ export default function ChatThreadPage() {
     let cancelled = false;
     setBillingLoaded(false);
 
-    void apiClientFor(accessToken)
+    void createAuthenticatedApiClient(accessToken)
       .getJson<BillingMeResponse>('/api/billing/me')
       .then((response) => {
         if (cancelled) {
@@ -349,7 +320,7 @@ export default function ChatThreadPage() {
     const versionId = activeExperienceVersionId;
     latestSuggestionVersionRef.current = versionId;
 
-    void apiClientFor(accessToken)
+    void createAuthenticatedApiClient(accessToken)
       .getJson<RefinementSuggestionsResponse>(
         `/api/chat/threads/${thread.id}/refinement-suggestions?experienceVersionId=${versionId}`,
       )
@@ -390,7 +361,7 @@ export default function ChatThreadPage() {
 
     const targetVersionId = viewingVersionId;
 
-    void apiClientFor(accessToken)
+    void createAuthenticatedApiClient(accessToken)
       .getJson<VersionContentResponse>(
         `/api/chat/threads/${thread.id}/experience-versions/${targetVersionId}`,
       )
@@ -432,7 +403,7 @@ export default function ChatThreadPage() {
     setActiveExperience((prev) => (prev ? { ...prev, title: trimmed } : prev));
 
     try {
-      const response = await apiClientFor(accessToken).patchJson<UpdateExperienceTitleResponse>(
+      const response = await createAuthenticatedApiClient(accessToken).patchJson<UpdateExperienceTitleResponse>(
         `/api/chat/threads/${thread.id}/title`,
         { title: trimmed },
       );
@@ -625,7 +596,7 @@ export default function ChatThreadPage() {
       async onopen(response) {
         if (response.status === 401 || response.status === 403) {
           setErrorMessage('Your session expired. Please sign in again.');
-          const supabaseClient = getSupabaseClient();
+          const { client: supabaseClient } = getSupabaseClient();
           if (supabaseClient) {
             await supabaseClient.auth.signOut();
           }
@@ -695,20 +666,7 @@ export default function ChatThreadPage() {
       return '';
     }
 
-    const sanitizedJs = activeExperience.js.replace(/<\/script/gi, '<\\/script');
-
-    return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>${activeExperience.css}</style>
-  </head>
-  <body>
-    ${activeExperience.html}
-    <script>${sanitizedJs}</script>
-  </body>
-</html>`;
+    return buildSrcdoc(activeExperience.html, activeExperience.css, activeExperience.js);
   }, [activeExperience]);
 
   async function syncSession(
@@ -752,7 +710,7 @@ export default function ChatThreadPage() {
   }
 
   async function refreshSandboxPreview(threadId: string, token: string) {
-    const response = await apiClientFor(token).getJson<SandboxPreviewResponse>(
+    const response = await createAuthenticatedApiClient(token).getJson<SandboxPreviewResponse>(
       `/api/chat/threads/${threadId}/sandbox`,
     );
 
@@ -871,7 +829,7 @@ export default function ChatThreadPage() {
         activeToolInvocation: null,
       }));
 
-      const response = await apiClientFor(input.token).postJson<SubmitMessageResponse>(
+      const response = await createAuthenticatedApiClient(input.token).postJson<SubmitMessageResponse>(
         `/api/chat/threads/${input.activeThread.id}/messages`,
         {
           content: trimmed,
@@ -914,7 +872,7 @@ export default function ChatThreadPage() {
   }
 
   async function handleSignOut() {
-    const supabaseClient = getSupabaseClient();
+    const { client: supabaseClient } = getSupabaseClient();
     if (!supabaseClient) {
       return;
     }
@@ -986,7 +944,7 @@ export default function ChatThreadPage() {
     setBillingActionPending(true);
     setErrorMessage(null);
     try {
-      const response = await apiClientFor(accessToken).postJson<RedirectResponse>(
+      const response = await createAuthenticatedApiClient(accessToken).postJson<RedirectResponse>(
         '/api/billing/checkout/topup',
         {},
       );
@@ -1027,34 +985,11 @@ export default function ChatThreadPage() {
                 Share your goal and Monti will draft the first creation.
               </p>
             ) : (
-              <>
-                {conversationTimeline.map((item) =>
-                  item.kind === 'message' ? (
-                    <article
-                      key={item.key}
-                      className={`message-row ${item.message.role === 'user' ? 'message-user' : 'message-assistant'}`}
-                    >
-                      <p className="message-content">{item.message.content}</p>
-                    </article>
-                  ) : (
-                    <article key={item.key} className="message-row message-assistant">
-                      <p className="message-content">
-                        {item.content}
-                        {runtimeState.activeRun?.status === 'failed' ? null : (
-                          <span className="draft-cursor" aria-hidden="true" />
-                        )}
-                      </p>
-                    </article>
-                  ),
-                )}
-                {showChatBuildIndicator ? (
-                  <article className="message-row message-assistant message-status">
-                    <p className="chat-build-indicator" role="status" aria-live="polite">
-                      <span className="chat-build-indicator-text">Building experience...</span>
-                    </p>
-                  </article>
-                ) : null}
-              </>
+              <ConversationTimeline
+                items={conversationTimeline}
+                activeRunStatus={runtimeState.activeRun?.status ?? null}
+                showBuildIndicator={showChatBuildIndicator}
+              />
             )}
           </div>
 
@@ -1064,98 +999,32 @@ export default function ChatThreadPage() {
             </p>
           ) : null}
 
-          {suggestions.length > 0 ? (
-            <div className="prompt-pill-row" aria-label="Suggested refinements">
-              {suggestions.map((suggestion) => (
-                <button
-                  key={suggestion.label}
-                  type="button"
-                  className="prompt-pill"
-                  disabled={submitPending || !thread?.id || !threadIdIsValid}
-                  onClick={() => setComposerText(suggestion.prompt)}
-                >
-                  <Plus size={12} strokeWidth={2.5} aria-hidden="true" />
-                  {suggestion.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
+          <SuggestionChips
+            suggestions={suggestions}
+            disabled={submitPending || !thread?.id || !threadIdIsValid}
+            onSelect={(prompt) => setComposerText(prompt)}
+          />
 
-          <form onSubmit={handleSubmit} className="composer-row">
-            <div className="composer-input-shell">
-              <input
-                value={composerText}
-                onChange={(event) => setComposerText(event.target.value)}
-                placeholder={
-                  generationInFlight
-                    ? 'Wait for the current reply to finish...'
-                    : 'Send a message...'
-                }
-                disabled={submitPending || !thread?.id || !threadIdIsValid}
-              />
-              <div className="composer-actions">
-                {billingData?.billingEnabled && typeof costForMode === 'number' ? (
-                  <span className="composer-credit-cost" aria-live="polite">
-                    {costForMode} cr
-                  </span>
-                ) : null}
-                <GenerationModeDropdown
-                  value={generationMode}
-                  onChange={setGenerationMode}
-                  disabled={submitPending || !thread?.id || !threadIdIsValid}
-                />
-                <button
-                  type="submit"
-                  className={`home-create-submit ${submitPending || generationInFlight ? 'is-busy' : ''}`}
-                  disabled={
-                    !accessToken ||
-                    submitPending ||
-                    generationInFlight ||
-                    softGateActive ||
-                    composerText.trim().length === 0 ||
-                    !thread?.id ||
-                    !threadIdIsValid
-                  }
-                  aria-label={
-                    submitPending
-                      ? 'Sending prompt'
-                      : generationInFlight
-                        ? 'Reply in progress'
-                        : 'Send prompt'
-                  }
-                >
-                  {submitPending || generationInFlight ? (
-                    <LoaderCircle size={18} strokeWidth={2.3} className="composer-spinner" />
-                  ) : (
-                    <ArrowUp size={20} strokeWidth={2.4} />
-                  )}
-                </button>
-              </div>
-            </div>
-          </form>
+          <ChatComposer
+            value={composerText}
+            onChange={setComposerText}
+            onSubmit={handleSubmit}
+            generationMode={generationMode}
+            onGenerationModeChange={setGenerationMode}
+            generationInFlight={generationInFlight}
+            submitPending={submitPending}
+            disabled={!accessToken || submitPending || generationInFlight || !thread?.id || !threadIdIsValid}
+            softGateActive={softGateActive}
+            creditCost={costForMode}
+            billingEnabled={Boolean(billingData?.billingEnabled)}
+          />
 
-          {softGateActive ? (
-            <p className="stream-notice" role="status" aria-live="polite">
-              {billingData?.plan === 'paid' ? (
-                <>
-                  You do not have enough credits for this mode.
-                  <button
-                    type="button"
-                    className="inline-link-button"
-                    onClick={() => void handleBuyTopup()}
-                    disabled={billingActionPending}
-                  >
-                    {billingActionPending ? ' Opening checkout...' : ' Buy top-up'}
-                  </button>
-                  .
-                </>
-              ) : (
-                <>
-                  You do not have enough credits for this mode.{' '}
-                  <a href="/billing">Upgrade in billing</a>.
-                </>
-              )}
-            </p>
+          {softGateActive && billingData ? (
+            <BillingGate
+              plan={billingData.plan}
+              billingActionPending={billingActionPending}
+              onBuyTopup={() => void handleBuyTopup()}
+            />
           ) : null}
 
           {getRetryComposerValue(runtimeState.activeRun, runtimeState.messages) ? (
@@ -1176,193 +1045,42 @@ export default function ChatThreadPage() {
         </section>
 
         <section className="sandbox-panel">
-          <div className="sandbox-header">
-            <div className="sandbox-header-copy">
-              {activeExperience ? (
-                <div
-                  className={
-                    isEditingTitle ? 'sandbox-title-row sandbox-title-row--edit' : 'sandbox-title-row'
-                  }
-                >
-                  {isEditingTitle ? (
-                    <>
-                      <input
-                        ref={titleInputRef}
-                        className="sandbox-title-input"
-                        value={titleDraft}
-                        onChange={(event) => setTitleDraft(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault();
-                            void handleTitleSave();
-                          }
-                          if (event.key === 'Escape') {
-                            event.preventDefault();
-                            handleTitleCancel();
-                          }
-                        }}
-                        disabled={titleEditPending}
-                        aria-label="Edit experience title"
-                      />
-                      <div className="sandbox-title-edit-actions">
-                        <button
-                          type="button"
-                          className="sandbox-title-icon-action"
-                          onClick={() => void handleTitleSave()}
-                          disabled={titleEditPending || titleDraft.trim().length === 0}
-                          aria-label="Save title"
-                          title="Save title"
-                        >
-                          <Check size={16} strokeWidth={2} />
-                        </button>
-                        <button
-                          type="button"
-                          className="sandbox-title-icon-action"
-                          onClick={() => handleTitleCancel()}
-                          disabled={titleEditPending}
-                          aria-label="Cancel title edit"
-                          title="Cancel"
-                        >
-                          <X size={16} strokeWidth={2} />
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <h2 className="sandbox-title-heading">{activeExperience.title}</h2>
-                      <button
-                        type="button"
-                        className="sandbox-title-icon-action"
-                        onClick={() => {
-                          setTitleDraft(activeExperience.title);
-                          setTitleEditError(null);
-                          setIsEditingTitle(true);
-                        }}
-                        aria-label="Edit experience title"
-                        title="Edit title"
-                      >
-                        <Pencil size={15} strokeWidth={2} />
-                      </button>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <h2>Experience</h2>
-              )}
-              {titleEditError ? (
-                <p className="sandbox-header-note is-error" role="status" aria-live="polite">
-                  {titleEditError}
-                </p>
-              ) : null}
-              {fullscreenErrorMessage ? (
-                <p className="sandbox-header-note is-error" role="status" aria-live="polite">
-                  {fullscreenErrorMessage}
-                </p>
-              ) : null}
-              {favouriteActionError ? (
-                <p className="sandbox-header-note is-error" role="status" aria-live="polite">
-                  {favouriteActionError}
-                </p>
-              ) : null}
-            </div>
-            <div className="sandbox-header-actions">
-              {versionList.length > 1 && viewingVersionNumber !== null ? (
-                <div
-                  className="sandbox-version-nav"
-                  aria-label="Version navigation"
-                  title={versionList[viewingVersionIndex]?.promptSummary ?? ''}
-                >
-                  <button
-                    type="button"
-                    className="sandbox-version-chevron"
-                    disabled={viewingVersionIndex <= 0}
-                    onClick={() => {
-                      if (viewingVersionIndex > 0) {
-                        setViewingVersionId(versionList[viewingVersionIndex - 1].id);
-                      }
-                    }}
-                    aria-label="Previous version"
-                  >
-                    <ChevronLeft size={13} strokeWidth={2.5} />
-                  </button>
-                  <span className="sandbox-version-label">
-                    v{viewingVersionNumber} <span className="sandbox-version-total">/ {versionList.length}</span>
-                  </span>
-                  <button
-                    type="button"
-                    className="sandbox-version-chevron"
-                    disabled={viewingVersionIndex >= versionList.length - 1}
-                    onClick={() => {
-                      if (viewingVersionIndex < versionList.length - 1) {
-                        setViewingVersionId(versionList[viewingVersionIndex + 1].id);
-                      }
-                    }}
-                    aria-label="Next version"
-                  >
-                    <ChevronRight size={13} strokeWidth={2.5} />
-                  </button>
-                </div>
-              ) : null}
-              {activeExperience ? (
-                <button
-                  type="button"
-                  className={`sandbox-control-button${activeExperience.isFavourite ? ' is-favourited-star' : ''}`}
-                  onClick={() => void handleSandboxFavouriteToggle()}
-                  disabled={favouriteTogglePending}
-                  aria-label={
-                    activeExperience.isFavourite
-                      ? 'Remove from favourites'
-                      : 'Add to favourites'
-                  }
-                  title={
-                    activeExperience.isFavourite
-                      ? 'Remove from favourites'
-                      : 'Add to favourites'
-                  }
-                >
-                  <Star size={17} strokeWidth={2.2} />
-                </button>
-              ) : null}
-              {activeExperience?.slug ? (
-                <button
-                  type="button"
-                  className="sandbox-control-button"
-                  onClick={() => void handleCopyLink()}
-                  aria-label={
-                    linkCopied
-                      ? 'Link copied'
-                      : !isViewingLatest && viewingVersionNumber !== null
-                        ? `Copy link to v${viewingVersionNumber}`
-                        : 'Copy link'
-                  }
-                  title={
-                    linkCopied
-                      ? 'Link copied!'
-                      : !isViewingLatest && viewingVersionNumber !== null
-                        ? `Copy link to v${viewingVersionNumber}`
-                        : 'Copy link'
-                  }
-                >
-                  {linkCopied ? (
-                    <Check size={17} strokeWidth={2.2} />
-                  ) : (
-                    <Link2 size={17} strokeWidth={2.2} />
-                  )}
-                </button>
-              ) : null}
-              {activeExperience ? (
-                <button
-                  type="button"
-                  className="sandbox-control-button"
-                  onClick={() => void handleEnterPreviewFullscreen()}
-                  aria-label="View experience fullscreen"
-                  title="View experience fullscreen"
-                >
-                  <Expand size={17} strokeWidth={2.2} />
-                </button>
-              ) : null}
-            </div>
-          </div>
+          <SandboxHeader
+            activeExperience={activeExperience}
+            versionList={versionList}
+            viewingVersionIndex={viewingVersionIndex}
+            viewingVersionNumber={viewingVersionNumber}
+            isEditingTitle={isEditingTitle}
+            titleDraft={titleDraft}
+            titleEditPending={titleEditPending}
+            titleEditError={titleEditError}
+            fullscreenErrorMessage={fullscreenErrorMessage}
+            favouriteActionError={favouriteActionError}
+            favouriteTogglePending={favouriteTogglePending}
+            linkCopied={linkCopied}
+            isViewingLatest={isViewingLatest}
+            onTitleDraftChange={setTitleDraft}
+            onTitleSave={() => void handleTitleSave()}
+            onTitleCancel={handleTitleCancel}
+            onEditTitleStart={() => {
+              setTitleDraft(activeExperience?.title ?? '');
+              setTitleEditError(null);
+              setIsEditingTitle(true);
+            }}
+            onVersionPrev={() => {
+              if (viewingVersionIndex > 0) {
+                setViewingVersionId(versionList[viewingVersionIndex - 1].id);
+              }
+            }}
+            onVersionNext={() => {
+              if (viewingVersionIndex < versionList.length - 1) {
+                setViewingVersionId(versionList[viewingVersionIndex + 1].id);
+              }
+            }}
+            onFavouriteToggle={() => void handleSandboxFavouriteToggle()}
+            onCopyLink={() => void handleCopyLink()}
+            onEnterFullscreen={() => void handleEnterPreviewFullscreen()}
+          />
 
           {newVersionAvailable ? (
             <button
@@ -1556,7 +1274,7 @@ async function fetchThreadHydration(
   threadId: string,
   token: string,
 ): Promise<ThreadHydrationResponse['data']> {
-  const response = await apiClientFor(token).getJson<ThreadHydrationResponse>(
+  const response = await createAuthenticatedApiClient(token).getJson<ThreadHydrationResponse>(
     `/api/chat/threads/${threadId}`,
   );
   return response.data;
@@ -1576,14 +1294,5 @@ function isUuidLike(value: string): boolean {
   );
 }
 
-function apiClientFor(accessToken: string) {
-  return createAuthenticatedApiClient(accessToken);
-}
 
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
 
-  return 'We hit a snag while drafting. Please try again.';
-}

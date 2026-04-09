@@ -1865,6 +1865,10 @@ button:disabled {
 }
 
 .prompt-pill {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
   border-radius: var(--radius-pill);
   border: 1px solid #e2c2a8;
   background: #fff4e8;
@@ -1873,6 +1877,10 @@ button:disabled {
   line-height: 1;
   padding: 0.34rem 0.58rem;
   font-weight: 600;
+}
+
+.prompt-pill svg {
+  flex-shrink: 0;
 }
 
 .prompt-pill:hover:not(:disabled) {

@@ -1,11 +1,12 @@
 'use client';
 
 import { ChevronDown, Gem, Sparkles, Zap } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import {
   GENERATION_MODE_OPTIONS,
   type GenerationMode,
 } from '@/lib/chat/generation-mode';
+import { useDropdownMenu } from '@/app/hooks/use-dropdown-menu';
 
 const ICONS = {
   auto: Sparkles,
@@ -18,8 +19,7 @@ export function GenerationModeDropdown(input: {
   onChange: (value: GenerationMode) => void;
   disabled?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
+  const { open, setOpen, menuRef } = useDropdownMenu();
 
   const selected = useMemo(
     () =>
@@ -28,28 +28,6 @@ export function GenerationModeDropdown(input: {
     [input.value],
   );
   const SelectedIcon = ICONS[selected.value];
-
-  useEffect(() => {
-    function handlePointerDown(event: MouseEvent) {
-      if (!menuRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleEscape);
-
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, []);
 
   return (
     <div className="generation-mode-dropdown" ref={menuRef}>

@@ -2,36 +2,13 @@
 
 import Link from 'next/link';
 import { ChevronDown, CreditCard, Home, LogOut, UserRound } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useDropdownMenu } from '@/app/hooks/use-dropdown-menu';
 
 export function FloatingProfileControls(input: {
   onSignOut: () => void;
   homeHref?: string;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    function handlePointerDown(event: MouseEvent) {
-      if (!menuRef.current?.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setMenuOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleEscape);
-
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, []);
+  const { open: menuOpen, setOpen: setMenuOpen, menuRef } = useDropdownMenu();
 
   return (
     <>

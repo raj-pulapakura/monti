@@ -1,31 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createAuthenticatedApiClient } from '@/lib/api/authenticated-api-client';
 import type { BillingMeResponse } from '@/lib/api/billing-me';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { useSupabaseClient } from '@/app/hooks/use-supabase-client';
+import { AuthLayout } from '@/app/components/auth-layout';
 
 type SuccessState = 'polling' | 'confirmed' | 'pending';
 
 export default function CheckoutSuccessPage() {
-  const supabaseRef = useRef<ReturnType<typeof createSupabaseBrowserClient> | null>(null);
+  const getSupabaseClient = useSupabaseClient();
   const [state, setState] = useState<SuccessState>('polling');
   const [remainingCredits, setRemainingCredits] = useState<number | null>(null);
   const [planName, setPlanName] = useState<'free' | 'paid'>('free');
-
-  function getSupabaseClient() {
-    if (supabaseRef.current) {
-      return supabaseRef.current;
-    }
-
-    try {
-      supabaseRef.current = createSupabaseBrowserClient();
-      return supabaseRef.current;
-    } catch {
-      return null;
-    }
-  }
 
   useEffect(() => {
     let stopped = false;
@@ -58,7 +46,7 @@ export default function CheckoutSuccessPage() {
     }
 
     async function startPolling() {
-      const supabase = getSupabaseClient();
+      const { client: supabase } = getSupabaseClient();
       const session = supabase ? await supabase.auth.getSession() : null;
       const accessToken = session?.data.session?.access_token ?? null;
       if (!accessToken) {
@@ -95,38 +83,32 @@ export default function CheckoutSuccessPage() {
   }, []);
 
   return (
-    <main className="auth-shell checkout-shell">
-      <section className="auth-card checkout-card">
-        {state === 'polling' ? (
-          <>
-            <h1>Finalizing your plan</h1>
-            <div className="loading-spinner" aria-hidden="true" />
-            <p className="auth-copy">We are confirming your subscription and credits now.</p>
-          </>
-        ) : null}
-
-        {state === 'confirmed' ? (
-          <>
-            <h1>You are on the {planName} plan</h1>
-            <p className="auth-success">
-              Subscription active. Remaining included credits: {remainingCredits ?? 0}.
-            </p>
-          </>
-        ) : null}
-
-        {state === 'pending' ? (
-          <>
-            <h1>Subscription activation in progress</h1>
-            <p className="auth-copy">
-              Your subscription is activating - credits will be available shortly.
-            </p>
-          </>
-        ) : null}
-
-        <Link href="/" className="landing-secondary">
-          Go to workspace
-        </Link>
-      </section>
-    </main>
+    <AuthLayout
+      title={
+        state === 'polling'
+          ? 'Finalizing your plan'
+          : state === 'confirmed'
+            ? `You are on the ${planName} plan`
+            : 'Subscription activation in progress'
+      }
+      shellClassName="checkout-shell"
+      cardClassName="checkout-card"
+      success={state === 'confirmed' ? `Subscription active. Remaining included credits: ${remainingCredits ?? 0}.` : undefined}
+    >
+      {state === 'polling' ? (
+        <>
+          <div className="loading-spinner" aria-hidden="true" />
+          <p className="auth-copy">We are confirming your subscription and credits now.</p>
+        </>
+      ) : null}
+      {state === 'pending' ? (
+        <p className="auth-copy">
+          Your subscription is activating - credits will be available shortly.
+        </p>
+      ) : null}
+      <Link href="/" className="landing-secondary">
+        Go to workspace
+      </Link>
+    </AuthLayout>
   );
 }

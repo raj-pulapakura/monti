@@ -9,10 +9,13 @@ import {
   generationModeMenuLabel,
   type GenerationMode,
 } from "@/lib/chat/generation-mode";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useSupabaseClient } from "./hooks/use-supabase-client";
+import { toErrorMessage } from "@/lib/errors";
 import { FloatingProfileControls } from "./components/floating-profile-controls";
 import { GenerationModeDropdown } from "./components/generation-mode-segmented-control";
 import { MarketingLanding } from "./components/marketing-landing";
+import { BillingStrip } from "./components/billing-strip";
+import { CreationCard } from "./components/creation-card";
 import {
   examplePromptChipLabel,
   pickHomeExamplePrompts,
@@ -65,29 +68,14 @@ const PAGE_SIZE = 12;
 
 export default function RootPage() {
   const router = useRouter();
-  const supabaseRef = useRef<ReturnType<
-    typeof createSupabaseBrowserClient
-  > | null>(null);
+  const getSupabaseClient = useSupabaseClient();
   const [mode, setMode] = useState<RootMode>("loading");
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  function getSupabaseClient() {
-    if (supabaseRef.current) {
-      return supabaseRef.current;
-    }
-
-    try {
-      supabaseRef.current = createSupabaseBrowserClient();
-      return supabaseRef.current;
-    } catch {
-      return null;
-    }
-  }
-
   useEffect(() => {
-    const supabaseClient = getSupabaseClient();
+    const { client: supabaseClient } = getSupabaseClient();
     if (!supabaseClient) {
       return;
     }
@@ -120,7 +108,7 @@ export default function RootPage() {
   }, []);
 
   async function handleSignOut() {
-    const supabaseClient = getSupabaseClient();
+    const { client: supabaseClient } = getSupabaseClient();
     if (!supabaseClient) {
       return;
     }
@@ -195,7 +183,9 @@ function HomeWorkspace(input: {
       return list;
     }
     return list.filter((thread) =>
-      threadCardDisplayTitle(thread).toLowerCase().includes(q),
+      (thread.experienceTitle?.trim() || thread.title?.trim() || "")
+        .toLowerCase()
+        .includes(q),
     );
   }, [threads, searchQuery, showFavouritesOnly]);
 
@@ -218,7 +208,7 @@ function HomeWorkspace(input: {
       setThreadsError(null);
 
       try {
-        const response = await apiClientFor(
+        const response = await createAuthenticatedApiClient(
           input.accessToken,
         ).getJson<ThreadListResponse>("/api/chat/threads?limit=1000");
 
@@ -254,7 +244,7 @@ function HomeWorkspace(input: {
     async function loadBilling() {
       setBillingLoadState("loading");
       try {
-        const response = await apiClientFor(
+        const response = await createAuthenticatedApiClient(
           input.accessToken,
         ).getJson<BillingMeResponse>("/api/billing/me");
         if (!cancelled) {
@@ -325,7 +315,7 @@ function HomeWorkspace(input: {
     setCreateError(null);
 
     try {
-      const response = await apiClientFor(
+      const response = await createAuthenticatedApiClient(
         input.accessToken,
       ).postJson<ThreadCreateResponse>("/api/chat/threads", {});
 
@@ -356,39 +346,7 @@ function HomeWorkspace(input: {
       ) : null}
 
       {billingSummary?.billingEnabled && billingLoadState !== "error" ? (
-        <section className="home-billing-strip" aria-label="Credits and plan">
-          <p className="home-billing-strip-text">
-            <span className="home-billing-plan">
-              {billingSummary.plan === "paid" ? "Paid" : "Free"} plan
-            </span>
-            <span className="home-billing-sep" aria-hidden="true">
-              ·
-            </span>
-            <span>
-              {billingSummary.includedCreditsAvailable ?? 0} included credits
-              left
-            </span>
-            {typeof billingSummary.topupCreditsAvailable === "number" &&
-            billingSummary.topupCreditsAvailable > 0 ? (
-              <>
-                <span className="home-billing-sep" aria-hidden="true">
-                  ·
-                </span>
-                <span>
-                  {billingSummary.topupCreditsAvailable} top-up credits
-                  available
-                </span>
-              </>
-            ) : null}
-            <span className="home-billing-sep" aria-hidden="true">
-              ·
-            </span>
-            <span>
-              Fast {billingSummary.costs.fastCredits ?? "—"} · Quality{" "}
-              {billingSummary.costs.qualityCredits ?? "—"} credits
-            </span>
-          </p>
-        </section>
+        <BillingStrip billingData={billingSummary} />
       ) : null}
 
       <form className="home-create-form" onSubmit={handleCreate}>
@@ -568,77 +526,13 @@ function HomeWorkspace(input: {
               aria-label="Your creations"
             >
               {pagedThreads.map((thread) => (
-                <div
+                <CreationCard
                   key={thread.id}
-                  className="creation-card"
-                  role="listitem"
-                  tabIndex={0}
-                  aria-label={`Open ${threadCardDisplayTitle(thread)}`}
-                  onClick={() => router.push(`/chat/${thread.id}`)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      router.push(`/chat/${thread.id}`);
-                    }
-                  }}
-                >
-                  <div className="creation-thumb">
-                    <button
-                      type="button"
-                      className={`creation-card-star${thread.isFavourite ? " is-favourited" : ""}`}
-                      aria-label={
-                        thread.isFavourite
-                          ? "Remove from favourites"
-                          : "Add to favourites"
-                      }
-                      title={
-                        thread.isFavourite
-                          ? "Remove from favourites"
-                          : "Add to favourites"
-                      }
-                      disabled={
-                        Boolean(favouritePendingByThreadId[thread.id]) ||
-                        thread.sandboxStatus !== "ready"
-                      }
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void handleThreadFavouriteToggle(thread);
-                      }}
-                    >
-                      <Star size={17} strokeWidth={2} aria-hidden />
-                    </button>
-                    {hasThreadPreview(thread) ? (
-                      <div className="creation-thumb-stage">
-                        <iframe
-                          className="creation-thumb-frame"
-                          srcDoc={buildSrcdoc(
-                            thread.experienceHtml,
-                            thread.experienceCss,
-                            thread.experienceJs,
-                          )}
-                          sandbox="allow-scripts"
-                          loading="lazy"
-                          tabIndex={-1}
-                          title=""
-                        />
-                      </div>
-                    ) : (
-                      <div className="creation-thumb-empty">
-                        <span>No preview yet</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="creation-card-footer">
-                    <p className="creation-subtitle">
-                      {threadCardDisplayTitle(thread)}
-                    </p>
-                    {threadCardSecondaryTitle(thread) ? (
-                      <p className="creation-subtitle-secondary">
-                        {threadCardSecondaryTitle(thread)}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
+                  thread={thread}
+                  favouritePending={Boolean(favouritePendingByThreadId[thread.id])}
+                  onOpen={() => router.push(`/chat/${thread.id}`)}
+                  onFavouriteToggle={() => void handleThreadFavouriteToggle(thread)}
+                />
               ))}
             </div>
             {totalPages > 1 ? (
@@ -671,71 +565,4 @@ function HomeWorkspace(input: {
       {createError ? <p className="error-banner">{createError}</p> : null}
     </main>
   );
-}
-
-function apiClientFor(accessToken: string) {
-  return createAuthenticatedApiClient(accessToken);
-}
-
-/** Prefer LLM experience title; fall back to thread title (often first-line prompt). */
-function threadCardDisplayTitle(thread: ThreadCard): string {
-  const fromExperience = thread.experienceTitle?.trim();
-  if (fromExperience) {
-    return fromExperience;
-  }
-  const fromThread = thread.title?.trim();
-  if (fromThread) {
-    return fromThread;
-  }
-  return "Untitled creation";
-}
-
-/** When the headline is the experience title, show thread prompt as a muted second line. */
-function threadCardSecondaryTitle(thread: ThreadCard): string | null {
-  const exp = thread.experienceTitle?.trim();
-  const raw = thread.title?.trim();
-  if (!exp || !raw || raw === exp) {
-    return null;
-  }
-  return raw;
-}
-
-function hasThreadPreview(thread: ThreadCard): thread is ThreadCard & {
-  experienceHtml: string;
-  experienceCss: string;
-  experienceJs: string;
-} {
-  return (
-    typeof thread.experienceHtml === "string" &&
-    typeof thread.experienceCss === "string" &&
-    typeof thread.experienceJs === "string"
-  );
-}
-
-function buildSrcdoc(html: string, css: string, js: string): string {
-  const safeHtml = typeof html === "string" ? html : "";
-  const safeCss = typeof css === "string" ? css : "";
-  const safeJs = typeof js === "string" ? js : "";
-  const sanitizedJs = safeJs.replace(/<\/script/gi, "<\\/script");
-
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>${safeCss}</style>
-  </head>
-  <body>
-    ${safeHtml}
-    <script>${sanitizedJs}</script>
-  </body>
-</html>`;
-}
-
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return "We hit a snag while updating your creation. Please try again.";
 }

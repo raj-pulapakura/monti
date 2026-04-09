@@ -1,47 +1,27 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createAuthenticatedApiClient } from '@/lib/api/authenticated-api-client';
 import type { BillingMeResponse } from '@/lib/api/billing-me';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
-
-type RedirectResponse = {
-  ok: true;
-  data: {
-    url?: string;
-    checkoutUrl?: string;
-    portalUrl?: string;
-  };
-};
+import { useSupabaseClient } from '@/app/hooks/use-supabase-client';
+import { toErrorMessage } from '@/lib/errors';
+import type { RedirectResponse } from '@/lib/api/types';
 
 type BillingViewState = 'auth-loading' | 'loading' | 'ready' | 'error';
 
 export default function BillingPage() {
   const router = useRouter();
-  const supabaseRef = useRef<ReturnType<typeof createSupabaseBrowserClient> | null>(null);
+  const getSupabaseClient = useSupabaseClient();
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [billingData, setBillingData] = useState<BillingMeResponse['data'] | null>(null);
   const [viewState, setViewState] = useState<BillingViewState>('auth-loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<'upgrade' | 'manage' | 'topup' | 'invoice' | null>(null);
 
-  function getSupabaseClient() {
-    if (supabaseRef.current) {
-      return supabaseRef.current;
-    }
-
-    try {
-      supabaseRef.current = createSupabaseBrowserClient();
-      return supabaseRef.current;
-    } catch {
-      return null;
-    }
-  }
-
   useEffect(() => {
     let cancelled = false;
-    const supabase = getSupabaseClient();
+    const { client: supabase } = getSupabaseClient();
     if (!supabase) {
       router.replace('/auth/sign-in?next=/billing');
       return;
@@ -318,10 +298,3 @@ function formatDate(value: string | null): string {
   });
 }
 
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return 'We hit a snag. Please try again.';
-}

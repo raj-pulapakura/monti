@@ -1,45 +1,25 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createAuthenticatedApiClient } from '@/lib/api/authenticated-api-client';
 import type { BillingMeResponse } from '@/lib/api/billing-me';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { useSupabaseClient } from '@/app/hooks/use-supabase-client';
+import { toErrorMessage } from '@/lib/errors';
+import type { RedirectResponse } from '@/lib/api/types';
 
 type PricingState = 'loading' | 'signed-out' | 'free' | 'paid';
 
-type RedirectResponse = {
-  ok: true;
-  data: {
-    url?: string;
-    checkoutUrl?: string;
-    portalUrl?: string;
-  };
-};
-
 export default function PricingPage() {
-  const supabaseRef = useRef<ReturnType<typeof createSupabaseBrowserClient> | null>(null);
+  const getSupabaseClient = useSupabaseClient();
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [state, setState] = useState<PricingState>('loading');
   const [busyAction, setBusyAction] = useState<'upgrade' | 'portal' | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  function getSupabaseClient() {
-    if (supabaseRef.current) {
-      return supabaseRef.current;
-    }
-
-    try {
-      supabaseRef.current = createSupabaseBrowserClient();
-      return supabaseRef.current;
-    } catch {
-      return null;
-    }
-  }
-
   useEffect(() => {
     let cancelled = false;
-    const supabase = getSupabaseClient();
+    const { client: supabase } = getSupabaseClient();
     if (!supabase) {
       setState('signed-out');
       return;
@@ -238,10 +218,3 @@ export default function PricingPage() {
   );
 }
 
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return 'We hit a snag. Please try again.';
-}

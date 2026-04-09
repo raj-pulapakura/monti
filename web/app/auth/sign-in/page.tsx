@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, Suspense, useRef, useState } from 'react';
+import { FormEvent, Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { Provider } from '@supabase/supabase-js';
@@ -9,7 +9,9 @@ import {
   signInWithOAuthProvider,
 } from '@/lib/auth/auth-flow';
 import { resolveSafeNextPath } from '@/lib/auth/next-path';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { useSupabaseClient } from '@/app/hooks/use-supabase-client';
+import { AuthLayout } from '@/app/components/auth-layout';
+import { OAuthButtons } from '@/app/components/oauth-buttons';
 
 export default function SignInPage() {
   return (
@@ -21,19 +23,14 @@ export default function SignInPage() {
 
 function SignInFallback() {
   return (
-    <main className="auth-shell">
-      <section className="auth-card">
-        <h1>Welcome back</h1>
-        <p className="auth-copy">Preparing your sign-in options...</p>
-      </section>
-    </main>
+    <AuthLayout title="Welcome back" subtitle="Preparing your sign-in options..." />
   );
 }
 
 function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabaseRef = useRef<ReturnType<typeof createSupabaseBrowserClient> | null>(null);
+  const getSupabaseClient = useSupabaseClient();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -42,24 +39,6 @@ function SignInForm() {
   const nextPath = resolveSafeNextPath(searchParams.get('next'));
   const incomingError = searchParams.get('error');
   const displayedError = errorMessage ?? incomingError;
-
-  function getSupabaseClient() {
-    if (supabaseRef.current) {
-      return supabaseRef.current;
-    }
-
-    try {
-      supabaseRef.current = createSupabaseBrowserClient();
-      return supabaseRef.current;
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : 'Sign-in is not configured in this environment.',
-      );
-      return null;
-    }
-  }
 
   async function handlePasswordSignIn(event: FormEvent) {
     event.preventDefault();
@@ -70,8 +49,9 @@ function SignInForm() {
     setSubmitting(true);
     setErrorMessage(null);
 
-    const supabase = getSupabaseClient();
+    const { client: supabase, error: clientError } = getSupabaseClient();
     if (!supabase) {
+      setErrorMessage(clientError ?? 'Sign-in is not configured in this environment.');
       setSubmitting(false);
       return;
     }
@@ -98,8 +78,9 @@ function SignInForm() {
     setSubmitting(true);
     setErrorMessage(null);
 
-    const supabase = getSupabaseClient();
+    const { client: supabase, error: clientError } = getSupabaseClient();
     if (!supabase) {
+      setErrorMessage(clientError ?? 'Sign-in is not configured in this environment.');
       setSubmitting(false);
       return;
     }
@@ -118,56 +99,41 @@ function SignInForm() {
   }
 
   return (
-    <main className="auth-shell">
-      <section className="auth-card">
-        <h1>
-          Welcome back, <span className="display-script">creator</span>
-        </h1>
-        <p className="auth-copy">Sign in to continue.</p>
-
-        <div className="auth-oauth-list">
-          <button type="button" onClick={() => void handleOAuth('google')} disabled={submitting}>
-            Continue with Google
-          </button>
-          <button type="button" onClick={() => void handleOAuth('azure')} disabled={submitting}>
-            Continue with Microsoft
-          </button>
-          <button type="button" onClick={() => void handleOAuth('apple')} disabled={submitting}>
-            Continue with Apple
-          </button>
-        </div>
-
-        <form onSubmit={handlePasswordSignIn} className="auth-form">
-          <label>
-            Email
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </label>
-          <label>
-            Password
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-          </label>
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Signing you in...' : 'Sign in'}
-          </button>
-        </form>
-
-        {displayedError ? <p className="auth-error">{displayedError}</p> : null}
-
-        <div className="auth-links">
+    <AuthLayout
+      title={<>Welcome back, <span className="display-script">creator</span></>}
+      subtitle="Sign in to continue."
+      error={displayedError}
+      links={
+        <>
           <Link href="/auth/sign-up">Create account</Link>
           <Link href="/auth/forgot-password">Forgot password?</Link>
-        </div>
-      </section>
-    </main>
+        </>
+      }
+    >
+      <OAuthButtons onOAuth={(p) => void handleOAuth(p)} disabled={submitting} />
+      <form onSubmit={handlePasswordSignIn} className="auth-form">
+        <label>
+          Email
+          <input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+        </label>
+        <label>
+          Password
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+          />
+        </label>
+        <button type="submit" disabled={submitting}>
+          {submitting ? 'Signing you in...' : 'Sign in'}
+        </button>
+      </form>
+    </AuthLayout>
   );
 }

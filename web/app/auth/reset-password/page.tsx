@@ -1,38 +1,19 @@
 'use client';
 
-import { FormEvent, useRef, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { useSupabaseClient } from '@/app/hooks/use-supabase-client';
+import { AuthLayout } from '@/app/components/auth-layout';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const supabaseRef = useRef<ReturnType<typeof createSupabaseBrowserClient> | null>(
-    null,
-  );
+  const getSupabaseClient = useSupabaseClient();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  function getSupabaseClient() {
-    if (supabaseRef.current) {
-      return supabaseRef.current;
-    }
-
-    try {
-      supabaseRef.current = createSupabaseBrowserClient();
-      return supabaseRef.current;
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : 'Password reset is not configured in this environment.',
-      );
-      return null;
-    }
-  }
 
   async function handleResetPassword(event: FormEvent) {
     event.preventDefault();
@@ -56,8 +37,9 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    const supabase = getSupabaseClient();
+    const { client: supabase, error: clientError } = getSupabaseClient();
     if (!supabase) {
+      setErrorMessage(clientError ?? 'Password reset is not configured in this environment.');
       setSubmitting(false);
       return;
     }
@@ -80,44 +62,38 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="auth-shell">
-      <section className="auth-card">
-        <h1>Choose a new password</h1>
-        <p className="auth-copy">Set a fresh password to continue.</p>
-
-        <form onSubmit={handleResetPassword} className="auth-form">
-          <label>
-            New password
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              minLength={8}
-            />
-          </label>
-          <label>
-            Confirm new password
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              required
-              minLength={8}
-            />
-          </label>
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Saving new password...' : 'Update password'}
-          </button>
-        </form>
-
-        {errorMessage ? <p className="auth-error">{errorMessage}</p> : null}
-        {successMessage ? <p className="auth-success">{successMessage}</p> : null}
-
-        <div className="auth-links">
-          <Link href="/auth/sign-in">Back to sign in</Link>
-        </div>
-      </section>
-    </main>
+    <AuthLayout
+      title="Choose a new password"
+      subtitle="Set a fresh password to continue."
+      error={errorMessage}
+      success={successMessage}
+      links={<Link href="/auth/sign-in">Back to sign in</Link>}
+    >
+      <form onSubmit={handleResetPassword} className="auth-form">
+        <label>
+          New password
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            minLength={8}
+          />
+        </label>
+        <label>
+          Confirm new password
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            required
+            minLength={8}
+          />
+        </label>
+        <button type="submit" disabled={submitting}>
+          {submitting ? 'Saving new password...' : 'Update password'}
+        </button>
+      </form>
+    </AuthLayout>
   );
 }

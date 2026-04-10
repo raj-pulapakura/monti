@@ -378,7 +378,7 @@ function HomeWorkspace(input: {
       <header className="home-header">
         <div>
           <h1 className="home-hero-heading">
-            What will you create today?
+            Create a new learning experience
           </h1>
         </div>
       </header>
@@ -486,11 +486,11 @@ function HomeWorkspace(input: {
               <input
                 type="search"
                 className="library-search-input"
-                placeholder="Search your creations…"
+                placeholder="Search your experiences..."
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 disabled={loadingThreads || threads.length === 0}
-                aria-label="Search your creations"
+                aria-label="Search your experiences"
               />
             </div>
           </div>
@@ -509,7 +509,6 @@ function HomeWorkspace(input: {
               <div className="skeleton-card" />
               <div className="skeleton-card" />
             </div>
-            <p className="empty-state">Gathering your recent creations...</p>
           </>
         ) : null}
 

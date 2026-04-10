@@ -12,14 +12,14 @@ describe('resolveAuthRouteRedirect', () => {
     expect(redirect).toBeNull();
   });
 
-  it('redirects /auth to /auth/sign-in', () => {
+  it('redirects /auth to /sign-in', () => {
     const redirect = resolveAuthRouteRedirect({
       pathname: '/auth',
       search: '',
       hasUser: false,
     });
 
-    expect(redirect).toBe('/auth/sign-in');
+    expect(redirect).toBe('/sign-in');
   });
 
   it('redirects unauthenticated protected route requests to sign-in', () => {
@@ -29,12 +29,12 @@ describe('resolveAuthRouteRedirect', () => {
       hasUser: false,
     });
 
-    expect(redirect).toBe('/auth/sign-in?next=%2Fchat%2Fabc123%3Ftab%3Drecent');
+    expect(redirect).toBe('/sign-in?next=%2Fchat%2Fabc123%3Ftab%3Drecent');
   });
 
   it('redirects authenticated auth-entry visits to /', () => {
     const redirect = resolveAuthRouteRedirect({
-      pathname: '/auth/sign-in',
+      pathname: '/sign-in',
       search: '',
       hasUser: true,
     });
@@ -44,7 +44,7 @@ describe('resolveAuthRouteRedirect', () => {
 
   it('returns null when no redirect is required', () => {
     const redirect = resolveAuthRouteRedirect({
-      pathname: '/auth/sign-up',
+      pathname: '/sign-up',
       search: '',
       hasUser: false,
     });

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 export function AuthLayout(input: {
@@ -17,14 +18,19 @@ export function AuthLayout(input: {
 
   return (
     <main className={shellClass}>
-      <section className={cardClass}>
-        <h1>{input.title}</h1>
-        {input.subtitle ? <p className="auth-copy">{input.subtitle}</p> : null}
-        {input.children}
-        {input.error ? <p className="auth-error">{input.error}</p> : null}
-        {input.success ? <p className="auth-success">{input.success}</p> : null}
-        {input.links ? <div className="auth-links">{input.links}</div> : null}
-      </section>
+      <header className="auth-header">
+        <Link href="/" className="auth-wordmark">Monti</Link>
+      </header>
+      <div className="auth-wrapper">
+        <section className={cardClass}>
+          <h1>{input.title}</h1>
+          {input.subtitle ? <p className="auth-copy">{input.subtitle}</p> : null}
+          {input.children}
+          {input.error ? <p className="auth-error">{input.error}</p> : null}
+          {input.success ? <p className="auth-success">{input.success}</p> : null}
+          {input.links ? <div className="auth-links">{input.links}</div> : null}
+        </section>
+      </div>
     </main>
   );
 }

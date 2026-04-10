@@ -23,7 +23,7 @@ export default function BillingPage() {
     let cancelled = false;
     const { client: supabase } = getSupabaseClient();
     if (!supabase) {
-      router.replace('/auth/sign-in?next=/billing');
+      router.replace('/sign-in?next=/billing');
       return;
     }
     const supabaseClient = supabase;
@@ -36,13 +36,13 @@ export default function BillingPage() {
       }
 
       if (error) {
-        router.replace('/auth/sign-in?next=/billing');
+        router.replace('/sign-in?next=/billing');
         return;
       }
 
       const token = data.session?.access_token ?? null;
       if (!token) {
-        router.replace('/auth/sign-in?next=/billing');
+        router.replace('/sign-in?next=/billing');
         return;
       }
 
@@ -76,7 +76,7 @@ export default function BillingPage() {
       const token = session?.access_token ?? null;
       setAccessToken(token);
       if (!token) {
-        router.replace('/auth/sign-in?next=/billing');
+        router.replace('/sign-in?next=/billing');
         return;
       }
       void loadBillingSummary(token);

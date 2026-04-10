@@ -57,7 +57,7 @@ export default function ResetPasswordPage() {
 
     setSuccessMessage('Password updated. Redirecting to sign in...');
     setTimeout(() => {
-      router.replace('/auth/sign-in');
+      router.replace('/sign-in');
     }, 800);
   }
 
@@ -67,7 +67,7 @@ export default function ResetPasswordPage() {
       subtitle="Set a fresh password to continue."
       error={errorMessage}
       success={successMessage}
-      links={<Link href="/auth/sign-in">Back to sign in</Link>}
+      links={<Link href="/sign-in">Back to sign in</Link>}
     >
       <form onSubmit={handleResetPassword} className="auth-form">
         <label>

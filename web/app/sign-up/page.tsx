@@ -122,11 +122,10 @@ function SignUpForm() {
 
   return (
     <AuthLayout
-      title={<>Create your <span className="display-script">Monti</span> account</>}
-      subtitle="Start drafting learning experiences in your private workspace."
+      title={<>Create your account</>}
       error={errorMessage}
       success={successMessage}
-      links={<Link href="/auth/sign-in">Already have an account? Sign in</Link>}
+      links={<Link href="/sign-in">Already have an account? Sign in</Link>}
     >
       <OAuthButtons onOAuth={(p) => void handleOAuth(p)} disabled={submitting} />
       <form onSubmit={handleSignUp} className="auth-form">

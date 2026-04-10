@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   const supabase = await createSupabaseRouteHandlerClient();
 
   if (!supabase) {
-    const redirectUrl = new URL('/auth/sign-in', requestOrigin);
+    const redirectUrl = new URL('/sign-in', requestOrigin);
     redirectUrl.searchParams.set('error', 'Supabase auth is not configured.');
     return NextResponse.redirect(redirectUrl);
   }
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
-      const redirectUrl = new URL('/auth/sign-in', requestOrigin);
+      const redirectUrl = new URL('/sign-in', requestOrigin);
       redirectUrl.searchParams.set('error', error.message);
       return NextResponse.redirect(redirectUrl);
     }

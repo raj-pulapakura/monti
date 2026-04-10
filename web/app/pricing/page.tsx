@@ -154,7 +154,7 @@ export default function PricingPage() {
           {state === 'loading' ? (
             <span className="pricing-cta-skeleton" aria-hidden="true" />
           ) : (
-            <Link href="/auth/sign-up" className="landing-secondary">
+            <Link href="/sign-up" className="landing-secondary">
               Get started free
             </Link>
           )}
@@ -175,7 +175,7 @@ export default function PricingPage() {
           ) : null}
 
           {state === 'signed-out' ? (
-            <Link href="/auth/sign-up?next=/checkout/start" className="landing-primary">
+            <Link href="/sign-up?next=/checkout/start" className="landing-primary">
               Choose paid plan
             </Link>
           ) : null}

@@ -14,6 +14,16 @@ export function MarketingLanding(input: {
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
+    // Assign stagger indices so CSS transition-delay calc(var(--i) * Xms) works
+    for (const group of [
+      shell.querySelectorAll('.landing-showcase-card'),
+      shell.querySelectorAll('.landing-final-cta-inner > *'),
+    ]) {
+      group.forEach((el, i) => {
+        (el as HTMLElement).style.setProperty('--i', String(i));
+      });
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -23,14 +33,17 @@ export function MarketingLanding(input: {
           }
         }
       },
-      { threshold: 0.12 },
+      { threshold: 0.1 },
     );
 
-    const sections = shell.querySelectorAll(
-      '.landing-showcase, .landing-steps, .landing-final-cta',
-    );
-    for (const section of sections) {
-      observer.observe(section);
+    // Section-level targets (showcase cards + CTA trigger off the section)
+    for (const el of shell.querySelectorAll('.landing-showcase, .landing-final-cta')) {
+      observer.observe(el);
+    }
+
+    // Each step observed individually — they're tall, sequential elements
+    for (const step of shell.querySelectorAll('.landing-step')) {
+      observer.observe(step);
     }
 
     return () => observer.disconnect();
@@ -46,10 +59,10 @@ export function MarketingLanding(input: {
           <Link href="/pricing" className="landing-header-link">
             Pricing
           </Link>
-          <Link href="/auth/sign-in" className="landing-header-link">
+          <Link href="/sign-in" className="landing-header-link">
             Sign in
           </Link>
-          <Link href="/auth/sign-up" className="landing-header-cta">
+          <Link href="/sign-up" className="landing-header-cta">
             Get started
           </Link>
         </nav>
@@ -59,16 +72,16 @@ export function MarketingLanding(input: {
       <section className="landing-hero">
         <div className="landing-hero-content">
           <h1>
-            Make learning something they{' '}
-            <span className="display-script">do.</span>
+            Turn lessons into{' '}
+            <span className="display-script">experiences.</span>
           </h1>
           {/* <p className="landing-for">For teachers, tutors &amp; parents</p> */}
           <p className="landing-subline">
-            Monti turns lesson ideas into interactive experience
+            Monti turns lesson ideas into interactive experiences
             you can share with anyone.
           </p>
           <div className="landing-actions">
-            <Link href="/auth/sign-up" className="landing-primary">
+            <Link href="/sign-up" className="landing-primary">
               Get started free
             </Link>
             {/* <a href="#showcase" className="landing-secondary">
@@ -125,9 +138,7 @@ export function MarketingLanding(input: {
               <span className="landing-step-number">1</span>
               <h3>Describe your idea</h3>
               <p>
-                Start with a rough prompt. &ldquo;Teach fractions to 4th
-                graders&rdquo; is enough. Pick a format — quiz, game, or
-                explainer — or let Monti choose.
+                Start with a lesson objective. Make it a game, explainer or any format.
               </p>
             </div>
             <div className="landing-placeholder landing-placeholder-short">
@@ -139,7 +150,7 @@ export function MarketingLanding(input: {
               <span className="landing-step-number">2</span>
               <h3>Refine in conversation</h3>
               <p>
-                Monti generates a live preview. Chat to adjust difficulty, tone,
+                Monti generates an interactive experience. Chat to adjust difficulty, tone,
                 or focus. See changes instantly.
               </p>
             </div>
@@ -152,8 +163,7 @@ export function MarketingLanding(input: {
               <span className="landing-step-number">3</span>
               <h3>Share with learners</h3>
               <p>
-                Your experience is ready. Send a link, embed it, or keep it in
-                your library for next time.
+                Your experience is ready. Present with full-screen mode, or share a link via a safe, accessible URL.
               </p>
             </div>
             <div className="landing-placeholder landing-placeholder-short">
@@ -169,7 +179,7 @@ export function MarketingLanding(input: {
           <h2>Your next lesson is a conversation away.</h2>
           <p className="landing-final-cta-sub">Free to start. No credit card required.</p>
           <div className="landing-actions landing-actions-center">
-            <Link href="/auth/sign-up" className="landing-primary landing-primary-lg">
+            <Link href="/sign-up" className="landing-primary landing-primary-lg">
               Get started free
             </Link>
           </div>
@@ -181,7 +191,7 @@ export function MarketingLanding(input: {
         <span>© {new Date().getFullYear()} Monti</span>
         <nav className="landing-footer-nav" aria-label="Footer navigation">
           <Link href="/pricing">Pricing</Link>
-          <Link href="/auth/sign-in">Sign in</Link>
+          <Link href="/sign-in">Sign in</Link>
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
         </nav>

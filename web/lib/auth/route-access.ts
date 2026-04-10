@@ -1,8 +1,8 @@
 import { resolveSafeNextPath } from './next-path';
 
 const AUTH_ENTRY_ROUTES = new Set([
-  '/auth/sign-in',
-  '/auth/sign-up',
+  '/sign-in',
+  '/sign-up',
   '/auth/forgot-password',
 ]);
 
@@ -13,12 +13,12 @@ export function resolveAuthRouteRedirect(input: {
 }): string | null {
   const { pathname, search, hasUser } = input;
   if (pathname === '/auth') {
-    return '/auth/sign-in';
+    return '/sign-in';
   }
 
   if (pathname.startsWith('/chat') && !hasUser) {
     const nextPath = resolveSafeNextPath(`${pathname}${search}`);
-    return `/auth/sign-in?next=${encodeURIComponent(nextPath)}`;
+    return `/sign-in?next=${encodeURIComponent(nextPath)}`;
   }
 
   if (AUTH_ENTRY_ROUTES.has(pathname) && hasUser) {

@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
       subtitle="Enter your email and we will send a reset link."
       error={errorMessage}
       success={successMessage}
-      links={<Link href="/auth/sign-in">Back to sign in</Link>}
+      links={<Link href="/sign-in">Back to sign in</Link>}
     >
       <form onSubmit={handleForgotPassword} className="auth-form">
         <label>

@@ -93,7 +93,7 @@ describe('auth flow e2e coverage', () => {
       hasUser: true,
     });
 
-    expect(unauthenticatedRedirect).toBe('/auth/sign-in?next=%2Fchat%2Fthread-1');
+    expect(unauthenticatedRedirect).toBe('/sign-in?next=%2Fchat%2Fthread-1');
     expect(authenticatedRedirect).toBeNull();
     expect(
       buildOAuthRedirectUrl({

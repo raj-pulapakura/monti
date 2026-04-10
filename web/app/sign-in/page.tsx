@@ -100,12 +100,11 @@ function SignInForm() {
 
   return (
     <AuthLayout
-      title={<>Welcome back, <span className="display-script">creator</span></>}
-      subtitle="Sign in to continue."
+      title={<>Sign in</>}
       error={displayedError}
       links={
         <>
-          <Link href="/auth/sign-up">Create account</Link>
+          <Link href="/sign-up">Create account</Link>
           <Link href="/auth/forgot-password">Forgot password?</Link>
         </>
       }

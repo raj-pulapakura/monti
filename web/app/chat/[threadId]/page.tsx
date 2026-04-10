@@ -240,7 +240,7 @@ export default function ChatThreadPage() {
       if (!token) {
         setThread(null);
         setRuntimeState(INITIAL_RUNTIME_STATE);
-        router.replace('/auth/sign-in');
+        router.replace('/sign-in');
       }
     });
 
@@ -682,7 +682,7 @@ export default function ChatThreadPage() {
     setAccessToken(token);
 
     if (!token) {
-      router.replace('/auth/sign-in');
+      router.replace('/sign-in');
     }
   }
 

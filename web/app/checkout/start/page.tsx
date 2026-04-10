@@ -25,7 +25,7 @@ export default function CheckoutStartPage() {
   useEffect(() => {
     const { client: supabase } = getSupabaseClient();
     if (!supabase) {
-      router.replace('/auth/sign-in?next=/checkout/start');
+      router.replace('/sign-in?next=/checkout/start');
       return;
     }
     const supabaseClient = supabase;
@@ -38,7 +38,7 @@ export default function CheckoutStartPage() {
 
       const { data, error } = await supabaseClient.auth.getSession();
       if (error || !data.session?.access_token) {
-        router.replace('/auth/sign-in?next=/checkout/start');
+        router.replace('/sign-in?next=/checkout/start');
         return;
       }
 

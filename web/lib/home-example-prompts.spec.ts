@@ -13,9 +13,20 @@ describe("pickHomeExamplePrompts", () => {
       now: new Date("2026-03-15T12:00:00.000Z"),
     });
     const poolPrompts = new Set(EXAMPLE_PROMPT_POOL.map((p) => p.prompt));
+    const poolShortPrompts = new Set(EXAMPLE_PROMPT_POOL.map((p) => p.shortPrompt));
     expect(poolPrompts.has(a.prompt)).toBe(true);
     expect(poolPrompts.has(b.prompt)).toBe(true);
     expect(poolPrompts.has(c.prompt)).toBe(true);
+    expect(poolShortPrompts.has(a.shortPrompt)).toBe(true);
+    expect(poolShortPrompts.has(b.shortPrompt)).toBe(true);
+    expect(poolShortPrompts.has(c.shortPrompt)).toBe(true);
+  });
+
+  it("stores a dedicated short prompt label for every example", () => {
+    for (const prompt of EXAMPLE_PROMPT_POOL) {
+      expect(prompt.shortPrompt.trim().length).toBeGreaterThan(0);
+      expect(prompt.prompt.trim().length).toBeGreaterThan(prompt.shortPrompt.trim().length);
+    }
   });
 
   it("is stable for the same user and UTC day", () => {

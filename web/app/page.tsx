@@ -1,14 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createAuthenticatedApiClient } from "@/lib/api/authenticated-api-client";
 import type { BillingMeResponse } from "@/lib/api/billing-me";
 import { writeHomePromptHandoff } from "@/lib/chat/prompt-handoff";
-import {
-  generationModeMenuLabel,
-  type GenerationMode,
-} from "@/lib/chat/generation-mode";
+import type { GenerationMode } from "@/lib/chat/generation-mode";
 import { useSupabaseClient } from "./hooks/use-supabase-client";
 import { toErrorMessage } from "@/lib/errors";
 import { FloatingProfileControls } from "./components/floating-profile-controls";
@@ -17,7 +15,6 @@ import { MarketingLanding } from "./components/marketing-landing";
 import { BillingStrip } from "./components/billing-strip";
 import { CreationCard } from "./components/creation-card";
 import {
-  examplePromptChipLabel,
   pickHomeExamplePrompts,
 } from "@/lib/home-example-prompts";
 import { toggleExperienceFavourite } from "@/lib/chat/experience-favourite";
@@ -330,6 +327,9 @@ function HomeWorkspace(input: {
 
   return (
     <main className="home-shell">
+      <Link href="/" className="landing-header-logo floating-wordmark">
+        Monti
+      </Link>
       <FloatingProfileControls onSignOut={input.onSignOut} />
       <header className="home-header">
         <div>
@@ -397,31 +397,16 @@ function HomeWorkspace(input: {
               className="home-example-prompt-chip"
               disabled={creating}
               title={item.prompt}
-              aria-label={`Fill create field with example (${generationModeMenuLabel(item.generationMode)} mode): ${item.prompt}`}
+              aria-label={`Use example prompt: ${item.prompt}`}
               onClick={() => {
                 setPrompt(item.prompt);
-                setGenerationMode(item.generationMode);
                 queueMicrotask(() => {
                   createInputRef.current?.focus();
                 });
               }}
             >
-              <span
-                className="home-example-prompt-chip-emoji"
-                aria-hidden="true"
-              >
-                {item.emoji}
-              </span>
-              <span className="home-example-prompt-chip-text-col">
-                <span className="home-example-prompt-chip-label">
-                  {examplePromptChipLabel(item.prompt)}
-                </span>
-                <span
-                  className="home-example-prompt-chip-mode"
-                  data-mode={item.generationMode}
-                >
-                  {generationModeMenuLabel(item.generationMode)}
-                </span>
+              <span className="home-example-prompt-chip-label">
+                {item.shortPrompt}
               </span>
             </button>
           ))}

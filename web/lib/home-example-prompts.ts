@@ -13,6 +13,7 @@ import type { GenerationMode } from "@/lib/chat/generation-mode";
 export type HomeExamplePrompt = {
   /** Decorative; not read by the button’s `aria-label` (prompt text is). */
   readonly emoji: string;
+  readonly shortPrompt: string;
   readonly prompt: string;
   readonly generationMode: GenerationMode;
 };
@@ -35,72 +36,84 @@ export function utcCalendarDateKey(d: Date): string {
 export const EXAMPLE_PROMPT_POOL: readonly HomeExamplePrompt[] = [
   {
     emoji: "🪐",
+    shortPrompt: "Interactive solar system visualizer",
     generationMode: "quality",
     prompt:
       "Build a beautiful interactive solar system visualizer—orbits you can scrub or follow, minimal labels, gorgeous planetary illustration and lighting. For teaching scale and motion in a planetarium-style way.",
   },
   {
     emoji: "🧬",
+    shortPrompt: "Interactive animal cell explorer",
     generationMode: "quality",
     prompt:
       "Build a stunning interactive animal cell explorer: tap organelles for a short highlight, painterly visuals, almost no paragraphs on screen. High school biology, projection-friendly.",
   },
   {
     emoji: "🌍",
+    shortPrompt: "Plate boundaries world map",
     generationMode: "auto",
     prompt:
       "Interactive world map of plate boundaries—drag time or a slider to see ridges, trenches, and mountain belts emerge with restrained labels. Middle school earth science, visual-first.",
   },
   {
     emoji: "📐",
+    shortPrompt: "Clean interactive unit circle",
     generationMode: "fast",
     prompt:
       "Clean unit circle: draggable angle, sine and cosine as live segment lengths on the axes—sparse notation, high contrast, minimal chrome. For trig introduction on a projector.",
   },
   {
     emoji: "⚛️",
+    shortPrompt: "Bohr-style atom builder",
     generationMode: "auto",
     prompt:
       "Bohr-style atom builder: place electrons in shells with gentle feedback when a shell is wrong—soft gradients, tiny captions only. Middle school chemistry, one screen.",
   },
   {
     emoji: "❤️",
+    shortPrompt: "Heart and lungs flow diagram",
     generationMode: "quality",
     prompt:
       "A single looping diagram of heart and lungs—blood shifts hue with oxygen, flow animates in a calm loop, almost no wall of text. Upper elementary or middle school circulation.",
   },
   {
     emoji: "🌊",
+    shortPrompt: "Two-source ripple tank",
     generationMode: "fast",
     prompt:
       "Two-source ripple tank: drag spacing and phase, watch constructive and destructive interference—dark water, bright crests, minimal UI copy. Wave unit, quick to grasp.",
   },
   {
     emoji: "📈",
+    shortPrompt: "Supply and demand graph",
     generationMode: "auto",
     prompt:
       "Elegant supply and demand: draggable curves, equilibrium clears with a clear marker and optional quantity readout—microeconomics intro, almost no essay text on the page.",
   },
   {
     emoji: "🦕",
+    shortPrompt: "Deep-time Earth timeline",
     generationMode: "quality",
     prompt:
       "Scrollable deep-time timeline from Earth’s formation to now—illustrated eras, zoomable bands, era names only where needed. Earth history for secondary students, museum-poster energy.",
   },
   {
     emoji: "🔺",
+    shortPrompt: "Interactive Pythagorean proof",
     generationMode: "fast",
     prompt:
       "Interactive Pythagorean proof: rearrange colored tiles on a square to show a² + b² = c²—one satisfying ‘click’ moment, geometry class, almost no words.",
   },
   {
     emoji: "🌤️",
+    shortPrompt: "Atmosphere layers explorer",
     generationMode: "auto",
     prompt:
       "Vertical slice through atmosphere layers—scroll to move altitude, temperature as color, sparse labels (troposphere through exosphere). Weather or climate intro, calm infographic style.",
   },
   {
     emoji: "🌙",
+    shortPrompt: "Moon-phase geometry dial",
     generationMode: "fast",
     prompt:
       "Moon-phase dial with Sun–Earth–Moon geometry and a lit hemisphere you rotate—starry backdrop, minimal captions. Middle school space science, beautiful and immediate.",
@@ -126,13 +139,4 @@ export function pickHomeExamplePrompts(input: {
     pool[(start + 1) % n]!,
     pool[(start + 2) % n]!,
   ];
-}
-
-/** Short label for chip UI; full prompt still applied on click. */
-export function examplePromptChipLabel(full: string, maxChars = 72): string {
-  const t = full.trim();
-  if (t.length <= maxChars) {
-    return t;
-  }
-  return `${t.slice(0, maxChars - 1).trimEnd()}…`;
 }

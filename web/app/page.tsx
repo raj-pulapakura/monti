@@ -61,7 +61,7 @@ type ThreadCreateResponse = {
 
 type RootMode = "loading" | "marketing" | "home";
 
-const PAGE_SIZE = 12;
+const LIBRARY_BATCH_SIZE = 12;
 
 export default function RootPage() {
   const router = useRouter();
@@ -137,6 +137,7 @@ function HomeWorkspace(input: {
 }) {
   const router = useRouter();
   const createInputRef = useRef<HTMLInputElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [prompt, setPrompt] = useState("");
   const [threads, setThreads] = useState<ThreadCard[]>([]);
   const [loadingThreads, setLoadingThreads] = useState(true);
@@ -145,7 +146,8 @@ function HomeWorkspace(input: {
   const [createError, setCreateError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showFavouritesOnly, setShowFavouritesOnly] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [visibleCount, setVisibleCount] = useState(LIBRARY_BATCH_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [favouritePendingByThreadId, setFavouritePendingByThreadId] = useState<
     Record<string, boolean>
   >({});
@@ -186,16 +188,58 @@ function HomeWorkspace(input: {
     );
   }, [threads, searchQuery, showFavouritesOnly]);
 
-  const pagedThreads = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return filteredThreads.slice(start, start + PAGE_SIZE);
-  }, [filteredThreads, currentPage]);
-
-  const totalPages = Math.ceil(filteredThreads.length / PAGE_SIZE);
+  const visibleThreads = useMemo(
+    () => filteredThreads.slice(0, visibleCount),
+    [filteredThreads, visibleCount],
+  );
+  const hasMoreVisibleThreads = visibleThreads.length < filteredThreads.length;
 
   useEffect(() => {
-    setCurrentPage(1);
+    setVisibleCount(LIBRARY_BATCH_SIZE);
+    setIsLoadingMore(false);
   }, [searchQuery, showFavouritesOnly]);
+
+  useEffect(() => {
+    if (!isLoadingMore) {
+      return;
+    }
+
+    setIsLoadingMore(false);
+  }, [isLoadingMore, visibleThreads.length]);
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || loadingThreads || !hasMoreVisibleThreads) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (!entry?.isIntersecting) {
+          return;
+        }
+
+        setVisibleCount((current) => {
+          if (current >= filteredThreads.length) {
+            return current;
+          }
+
+          setIsLoadingMore(true);
+          return Math.min(current + LIBRARY_BATCH_SIZE, filteredThreads.length);
+        });
+      },
+      {
+        rootMargin: "240px 0px",
+      },
+    );
+
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [filteredThreads.length, hasMoreVisibleThreads, loadingThreads]);
 
   useEffect(() => {
     let cancelled = false;
@@ -510,7 +554,7 @@ function HomeWorkspace(input: {
               role="list"
               aria-label="Your creations"
             >
-              {pagedThreads.map((thread) => (
+              {visibleThreads.map((thread) => (
                 <CreationCard
                   key={thread.id}
                   thread={thread}
@@ -520,27 +564,16 @@ function HomeWorkspace(input: {
                 />
               ))}
             </div>
-            {totalPages > 1 ? (
-              <div className="library-pagination">
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </button>
-                <span className="library-pagination-label">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(totalPages, p + 1))
-                  }
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </button>
+            {hasMoreVisibleThreads ? (
+              <div
+                ref={loadMoreRef}
+                className="library-infinite-status"
+                role="status"
+                aria-live="polite"
+              >
+                {isLoadingMore
+                  ? "Loading more creations..."
+                  : "More creations will appear as you scroll."}
               </div>
             ) : null}
           </>

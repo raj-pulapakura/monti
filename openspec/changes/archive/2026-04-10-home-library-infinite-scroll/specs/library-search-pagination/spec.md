@@ -1,10 +1,25 @@
-# library-search-pagination Specification
+## ADDED Requirements
 
-## Purpose
+### Requirement: Incrementally reveal the filtered creation library during scrolling
+The library section SHALL initially render the first 12 cards of the filtered result set and SHALL automatically reveal additional 12-card batches when the user scrolls near the end of the currently rendered grid. Infinite scrolling SHALL always operate on the filtered result set, not the raw thread list.
 
-Client-side text filtering and infinite scrolling over the authenticated user’s creation cards on the home workspace library grid, without server-side search or paging.
+#### Scenario: Filtered results span multiple batches
+- **WHEN** the filtered thread list contains more than 12 items
+- **THEN** the grid shows the first 12 items and renders a bottom status/sentinel area so additional cards can be revealed automatically
 
-## Requirements
+#### Scenario: User reaches the end of the rendered grid
+- **WHEN** an authenticated user scrolls to the end of the currently rendered filtered results and additional filtered cards remain
+- **THEN** the system appends the next 12 cards to the grid automatically
+
+#### Scenario: All filtered results have been revealed
+- **WHEN** the rendered grid already includes every item in the filtered result set
+- **THEN** the system does not reveal any further cards and does not render manual pagination controls
+
+#### Scenario: Filtered results fit within the initial batch
+- **WHEN** the filtered thread list contains 12 or fewer items
+- **THEN** the grid renders all filtered cards without any pagination controls
+
+## MODIFIED Requirements
 
 ### Requirement: Filter library cards by text search over display title
 The library section SHALL provide a text input that filters the visible creation cards client-side. Filtering SHALL match against each card's display title (preferring `experienceTitle`, falling back to `thread.title`) using a case-insensitive substring match. The full thread list (up to the fetched limit) is always available for filtering regardless of the currently rendered batch. When the favourites filter is also active, text search SHALL apply only within the favourited subset (AND logic). Any search-query change SHALL reset the rendered library feed to its initial 12-card batch for the new filtered result set.
@@ -29,21 +44,8 @@ The library section SHALL provide a text input that filters the visible creation
 - **WHEN** an authenticated user has no threads
 - **THEN** the search input is rendered but disabled, so the layout remains stable
 
-### Requirement: Incrementally reveal the filtered creation library during scrolling
-The library section SHALL initially render the first 12 cards of the filtered result set and SHALL automatically reveal additional 12-card batches when the user scrolls near the end of the currently rendered grid. Infinite scrolling SHALL always operate on the filtered result set, not the raw thread list.
+## REMOVED Requirements
 
-#### Scenario: Filtered results span multiple batches
-- **WHEN** the filtered thread list contains more than 12 items
-- **THEN** the grid shows the first 12 items and renders a bottom status/sentinel area so additional cards can be revealed automatically
-
-#### Scenario: User reaches the end of the rendered grid
-- **WHEN** an authenticated user scrolls to the end of the currently rendered filtered results and additional filtered cards remain
-- **THEN** the system appends the next 12 cards to the grid automatically
-
-#### Scenario: All filtered results have been revealed
-- **WHEN** the rendered grid already includes every item in the filtered result set
-- **THEN** the system does not reveal any further cards and does not render manual pagination controls
-
-#### Scenario: Filtered results fit within the initial batch
-- **WHEN** the filtered thread list contains 12 or fewer items
-- **THEN** the grid renders all filtered cards without any pagination controls
+### Requirement: Paginate the filtered creation library
+**Reason**: The filtered library is moving from explicit page navigation to automatic infinite scrolling.
+**Migration**: Remove page-number state, page indicator text, and `Previous` / `Next` controls, and replace them with first-batch rendering plus scroll-triggered batch growth.

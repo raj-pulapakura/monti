@@ -1782,44 +1782,20 @@ button:disabled {
     0 6px 18px rgba(62, 35, 20, 0.08);
 }
 
-.library-pagination {
+.library-infinite-status {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.75rem 1.1rem;
-  padding: 0.35rem 0 0;
-}
-
-.library-pagination-label {
+  min-height: 2.75rem;
+  margin-top: 0.25rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(156, 126, 104, 0.24);
+  background:
+    linear-gradient(180deg, rgba(255, 251, 246, 0.92), rgba(249, 241, 231, 0.88));
   color: #8a7a6e;
   font-size: 0.88rem;
   font-weight: 500;
-}
-
-.library-pagination button {
-  min-width: 5.5rem;
-  padding: 0.45rem 0.85rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border-strong);
-  background: var(--surface-soft);
-  color: #7a4127;
-  font-size: 0.88rem;
-  font-weight: 600;
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    opacity 0.18s ease;
-}
-
-.library-pagination button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: var(--elevation-1);
-}
-
-.library-pagination button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 .creation-card {

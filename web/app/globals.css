@@ -435,35 +435,96 @@ button:disabled {
 
 .pricing-plan {
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: linear-gradient(180deg, var(--surface-elevated), #f8efdf);
-  padding: 0.95rem;
+  padding: 2rem 2rem 2.25rem;
   display: grid;
-  gap: 0.65rem;
+  gap: 0;
+  align-content: start;
 }
 
 .pricing-plan h2 {
   color: var(--content-strong);
-  font-size: 1.06rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.3rem;
+}
+
+.pricing-plan-tagline {
+  color: var(--content-muted);
+  font-size: 0.88rem;
+  margin-bottom: 1.5rem;
 }
 
 .pricing-plan ul {
   margin: 0;
-  padding-left: 1.15rem;
+  padding: 0;
+  list-style: none;
   display: grid;
-  gap: 0.38rem;
-  color: var(--content-muted);
+  gap: 0.6rem;
+  color: var(--content-default);
+}
+
+.pricing-plan ul li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.pricing-plan ul li::before {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Ccircle cx='8' cy='8' r='7.5' stroke='%23cfa98a'/%3E%3Cpath d='M4.5 8.25l2.25 2.25 4.75-5' stroke='%23bc5127' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
 }
 
 .pricing-plan-price {
-  color: #7f4023;
-  font-weight: 700;
+  color: var(--content-strong);
+  font-weight: 800;
+  font-size: 2.6rem;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.pricing-plan-price span {
   font-size: 1rem;
+  font-weight: 500;
+  color: var(--content-muted);
+  letter-spacing: 0;
+}
+
+.pricing-plan-price-block {
+  margin-bottom: 1.5rem;
+}
+
+.pricing-plan-divider {
+  height: 1px;
+  background: var(--border-soft);
+  margin: 1.5rem 0;
+}
+
+.pricing-plan .landing-primary,
+.pricing-plan .landing-secondary {
+  text-align: center;
 }
 
 .pricing-plan.is-featured {
   border-color: rgba(167, 70, 33, 0.42);
-  background: linear-gradient(160deg, #fff3e5, #f8e0cb);
+  background: linear-gradient(160deg, #fff5ec, #f8e2cc);
+  box-shadow: var(--elevation-1);
+}
+
+.pricing-plan.is-featured .pricing-plan-price {
+  color: #7f3a18;
 }
 
 /* ── Landing page ── */
@@ -962,42 +1023,46 @@ button:disabled {
 }
 
 .pricing-shell {
-  max-width: 1080px;
+  max-width: 1140px;
   margin: 0 auto;
-  padding: 1.25rem;
+  padding: clamp(2rem, 5vw, 4rem) clamp(1.25rem, 4vw, 3rem);
   display: grid;
-  gap: 1rem;
+  gap: 3rem;
 }
 
-.pricing-hero {
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--elevation-1);
-  background:
-    radial-gradient(
-      circle at 88% 20%,
-      rgba(217, 106, 57, 0.18),
-      transparent 40%
-    ),
-    linear-gradient(170deg, var(--surface-elevated), var(--surface-muted));
-  padding: clamp(1.2rem, 5vw, 2rem);
+.pricing-header {
+  text-align: center;
   display: grid;
-  gap: 0.7rem;
+  gap: 0.75rem;
+  padding: clamp(1.5rem, 4vw, 3rem) 0 0;
+  justify-items: center;
 }
 
-.pricing-hero h1 {
+.pricing-wordmark {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.pricing-header h1 {
   color: var(--content-strong);
-  font-size: clamp(1.5rem, 4vw, 2.3rem);
+  font-size: clamp(2.2rem, 5vw, 3.5rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
 }
 
-.pricing-hero p {
+.pricing-header p {
   color: var(--content-muted);
+  font-size: clamp(0.95rem, 2vw, 1.1rem);
+  max-width: 46ch;
+  margin: 0 auto;
 }
 
 .pricing-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
+  gap: 1.25rem;
+  align-items: stretch;
 }
 
 .pricing-cta-skeleton {
@@ -1016,26 +1081,72 @@ button:disabled {
   animation: shimmer 1.7s linear infinite;
 }
 
-.pricing-explainer {
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  background: var(--surface-elevated);
-  padding: 0.95rem;
+.pricing-faq {
+  padding-top: 1rem;
   display: grid;
-  gap: 0.55rem;
+  gap: 2.5rem;
+  justify-items: center;
+  text-align: center;
 }
 
-.pricing-explainer h2 {
+.pricing-faq-heading {
   color: var(--content-strong);
-  font-size: 1.06rem;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
-.pricing-explainer ul {
-  margin: 0;
-  padding-left: 1.1rem;
-  color: var(--content-muted);
+.pricing-faq-list {
   display: grid;
-  gap: 0.35rem;
+  gap: 0;
+  margin: 0;
+  width: 100%;
+  max-width: 680px;
+  text-align: left;
+}
+
+.pricing-faq-item {
+  border-top: 1px solid var(--border-soft);
+}
+
+.pricing-faq-item:last-child {
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.pricing-faq-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--content-strong);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.pricing-faq-trigger:hover {
+  color: var(--brand-500);
+}
+
+.pricing-faq-icon {
+  font-size: 1.2rem;
+  font-weight: 300;
+  color: var(--content-muted);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.pricing-faq-answer {
+  margin: 0;
+  padding: 0 0 1.25rem;
+  color: var(--content-muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
 }
 
 /* ── Billing dashboard ── */
@@ -2789,6 +2900,7 @@ button:disabled {
   .pricing-grid {
     grid-template-columns: 1fr;
   }
+
 
   .billing-stats {
     grid-template-columns: 1fr 1fr;

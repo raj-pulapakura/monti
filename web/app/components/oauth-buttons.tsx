@@ -11,12 +11,6 @@ export function OAuthButtons(input: {
       <button type="button" onClick={() => input.onOAuth('google')} disabled={input.disabled}>
         Continue with Google
       </button>
-      <button type="button" onClick={() => input.onOAuth('azure')} disabled={input.disabled}>
-        Continue with Microsoft
-      </button>
-      <button type="button" onClick={() => input.onOAuth('apple')} disabled={input.disabled}>
-        Continue with Apple
-      </button>
     </div>
   );
 }

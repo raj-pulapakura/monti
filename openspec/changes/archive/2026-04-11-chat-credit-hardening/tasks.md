@@ -27,4 +27,4 @@
 - [x] 4.1 Write unit tests for the credit pre-check logic: sufficient balance allows submission, insufficient rejects, enforcement-disabled skips the check, fetch failure fails open
 - [x] 4.2 Write unit tests for auto-mode downgrade: auto + insufficient quality + sufficient fast → fast; auto + insufficient fast → INSUFFICIENT_CREDITS; auto + sufficient quality → quality
 - [x] 4.3 Write unit tests for the user-ID throttler guard
-- [ ] 4.4 Manually verify the UI soft-gate: disable button updates when mode is switched; correct CTA shown for free vs. paid user; warning clears when balance is sufficient
+- [x] 4.4 Manually verify the UI soft-gate: disable button updates when mode is switched; correct CTA shown for free vs. paid user; warning clears when balance is sufficient

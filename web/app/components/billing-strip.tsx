@@ -24,11 +24,6 @@ export function BillingStrip(input: {
             <span>{billingData.topupCreditsAvailable} top-up credits available</span>
           </>
         ) : null}
-        <span className="home-billing-sep" aria-hidden="true">·</span>
-        <span>
-          Fast {billingData.costs.fastCredits ?? '—'} · Quality{' '}
-          {billingData.costs.qualityCredits ?? '—'} credits
-        </span>
       </p>
     </section>
   );

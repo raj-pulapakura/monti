@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createAuthenticatedApiClient } from "@/lib/api/authenticated-api-client";
 import type { BillingMeResponse } from "@/lib/api/billing-me";
+import type { RedirectResponse } from "@/lib/api/types";
 import { writeHomePromptHandoff } from "@/lib/chat/prompt-handoff";
 import type { GenerationMode } from "@/lib/chat/generation-mode";
 import { useSupabaseClient } from "./hooks/use-supabase-client";
@@ -13,6 +14,8 @@ import { FloatingProfileControls } from "./components/floating-profile-controls"
 import { GenerationModeDropdown } from "./components/generation-mode-segmented-control";
 import { MarketingLanding } from "./components/marketing-landing";
 import { BillingStrip } from "./components/billing-strip";
+import { BillingGate } from "./components/billing-gate";
+import { isBalanceSufficientForMode } from "@/lib/billing/is-balance-sufficient-for-mode";
 import { CreationCard } from "./components/creation-card";
 import {
   pickHomeExamplePrompts,
@@ -158,9 +161,9 @@ function HomeWorkspace(input: {
   const [billingSummary, setBillingSummary] = useState<
     BillingMeResponse["data"] | null
   >(null);
-  const [billingLoadState, setBillingLoadState] = useState<
-    "idle" | "loading" | "error"
-  >("idle");
+  const [billingLoaded, setBillingLoaded] = useState(false);
+  const [billingLoadError, setBillingLoadError] = useState(false);
+  const [billingActionPending, setBillingActionPending] = useState(false);
 
   const utcDayKey = new Date().toISOString().slice(0, 10);
   const exampleStarters = useMemo(
@@ -283,19 +286,24 @@ function HomeWorkspace(input: {
     let cancelled = false;
 
     async function loadBilling() {
-      setBillingLoadState("loading");
+      setBillingLoaded(false);
+      setBillingLoadError(false);
       try {
         const response = await createAuthenticatedApiClient(
           input.accessToken,
         ).getJson<BillingMeResponse>("/api/billing/me");
         if (!cancelled) {
           setBillingSummary(response.data);
-          setBillingLoadState("idle");
+          setBillingLoadError(false);
         }
       } catch {
         if (!cancelled) {
           setBillingSummary(null);
-          setBillingLoadState("error");
+          setBillingLoadError(true);
+        }
+      } finally {
+        if (!cancelled) {
+          setBillingLoaded(true);
         }
       }
     }
@@ -306,6 +314,37 @@ function HomeWorkspace(input: {
       cancelled = true;
     };
   }, [input.accessToken]);
+
+  const balanceSufficient =
+    billingSummary === null || !billingLoaded
+      ? true
+      : isBalanceSufficientForMode(billingSummary, generationMode);
+
+  const softGateActive =
+    billingLoaded &&
+    Boolean(billingSummary?.billingEnabled) &&
+    !balanceSufficient;
+
+  async function handleBuyTopup() {
+    if (billingActionPending) {
+      return;
+    }
+    setBillingActionPending(true);
+    setCreateError(null);
+    try {
+      const response = await createAuthenticatedApiClient(
+        input.accessToken,
+      ).postJson<RedirectResponse>("/api/billing/checkout/topup", {});
+      const destination = response.data.checkoutUrl ?? response.data.url;
+      if (!destination) {
+        throw new Error("No checkout URL returned by the server.");
+      }
+      window.location.href = destination;
+    } catch (error) {
+      setBillingActionPending(false);
+      setCreateError(toErrorMessage(error));
+    }
+  }
 
   async function handleThreadFavouriteToggle(thread: ThreadCard) {
     if (favouritePendingByThreadId[thread.id]) {
@@ -343,7 +382,7 @@ function HomeWorkspace(input: {
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
-    if (creating) {
+    if (creating || softGateActive) {
       return;
     }
 
@@ -383,13 +422,13 @@ function HomeWorkspace(input: {
         </div>
       </header>
 
-      {billingLoadState === "error" ? (
+      {billingLoadError ? (
         <p className="home-billing-muted" role="status">
           Billing summary unavailable.
         </p>
       ) : null}
 
-      {billingSummary?.billingEnabled && billingLoadState !== "error" ? (
+      {billingSummary?.billingEnabled && billingLoaded && !billingLoadError ? (
         <BillingStrip billingData={billingSummary} />
       ) : null}
 
@@ -401,18 +440,28 @@ function HomeWorkspace(input: {
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               placeholder="A fractions challenge with playful mini rounds..."
-              disabled={creating}
+              disabled={creating || softGateActive}
             />
             <div className="home-create-actions">
               <GenerationModeDropdown
                 value={generationMode}
                 onChange={setGenerationMode}
-                disabled={creating}
+                disabled={creating || softGateActive}
+                creditCosts={
+                  billingSummary?.billingEnabled
+                    ? {
+                        fast: billingSummary.costs.fastCredits,
+                        quality: billingSummary.costs.qualityCredits,
+                      }
+                    : null
+                }
               />
               <button
                 type="submit"
                 className={`home-create-submit ${creating ? "is-busy" : ""}`}
-                disabled={creating || prompt.trim().length === 0}
+                disabled={
+                  creating || prompt.trim().length === 0 || softGateActive
+                }
                 aria-label={creating ? "Starting thread" : "Create thread"}
               >
                 {creating ? (
@@ -429,6 +478,14 @@ function HomeWorkspace(input: {
           </div>
         </div>
 
+        {softGateActive && billingSummary ? (
+          <BillingGate
+            plan={billingSummary.plan}
+            billingActionPending={billingActionPending}
+            onBuyTopup={() => void handleBuyTopup()}
+          />
+        ) : null}
+
         <div
           className="home-example-prompts"
           role="group"
@@ -439,7 +496,7 @@ function HomeWorkspace(input: {
               key={item.prompt}
               type="button"
               className="home-example-prompt-chip"
-              disabled={creating}
+              disabled={creating || softGateActive}
               title={item.prompt}
               aria-label={`Use example prompt: ${item.prompt}`}
               onClick={() => {

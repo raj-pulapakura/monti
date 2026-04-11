@@ -15,8 +15,8 @@ export function ChatComposer(input: {
   submitPending: boolean;
   disabled: boolean;
   softGateActive: boolean;
-  creditCost: number | null;
   billingEnabled: boolean;
+  creditCosts?: { fast: number | null; quality: number | null } | null;
 }) {
   const isBusy = input.submitPending || input.generationInFlight;
 
@@ -34,15 +34,13 @@ export function ChatComposer(input: {
           disabled={input.disabled}
         />
         <div className="composer-actions">
-          {input.billingEnabled && typeof input.creditCost === 'number' ? (
-            <span className="composer-credit-cost" aria-live="polite">
-              {input.creditCost} cr
-            </span>
-          ) : null}
           <GenerationModeDropdown
             value={input.generationMode}
             onChange={input.onGenerationModeChange}
             disabled={input.disabled}
+            creditCosts={
+              input.billingEnabled ? (input.creditCosts ?? null) : null
+            }
           />
           <button
             type="submit"

@@ -14,10 +14,28 @@ const ICONS = {
   quality: Gem,
 } as const;
 
+function bracketCostForMode(
+  mode: GenerationMode,
+  costs: { fast: number | null; quality: number | null } | null | undefined,
+): string | null {
+  if (!costs) {
+    return null;
+  }
+  if (mode === 'fast' && typeof costs.fast === 'number') {
+    return `[${costs.fast} cr]`;
+  }
+  if (mode === 'quality' && typeof costs.quality === 'number') {
+    return `[${costs.quality} cr]`;
+  }
+  return null;
+}
+
 export function GenerationModeDropdown(input: {
   value: GenerationMode;
   onChange: (value: GenerationMode) => void;
   disabled?: boolean;
+  /** When provided with numeric fast/quality costs, show [N cr] next to Fast and Quality (menu + trigger). */
+  creditCosts?: { fast: number | null; quality: number | null } | null;
 }) {
   const { open, setOpen, menuRef } = useDropdownMenu();
 
@@ -28,6 +46,7 @@ export function GenerationModeDropdown(input: {
     [input.value],
   );
   const SelectedIcon = ICONS[selected.value];
+  const selectedCostBracket = bracketCostForMode(selected.value, input.creditCosts ?? null);
 
   return (
     <div className="generation-mode-dropdown" ref={menuRef}>
@@ -36,12 +55,19 @@ export function GenerationModeDropdown(input: {
         className="floating-profile-button generation-mode-trigger"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`Generation mode: ${selected.label}`}
+        aria-label={
+          selectedCostBracket
+            ? `Generation mode: ${selected.label} ${selectedCostBracket}`
+            : `Generation mode: ${selected.label}`
+        }
         disabled={input.disabled}
         onClick={() => setOpen((previous) => !previous)}
       >
         <SelectedIcon size={14} strokeWidth={2.1} />
-        <span>{selected.label}</span>
+        <span className="generation-mode-trigger-label">{selected.label}</span>
+        {selectedCostBracket ? (
+          <span className="generation-mode-cost-bracket"> {selectedCostBracket}</span>
+        ) : null}
         <ChevronDown
           size={14}
           strokeWidth={2.1}
@@ -58,6 +84,7 @@ export function GenerationModeDropdown(input: {
           {GENERATION_MODE_OPTIONS.map((option) => {
             const isSelected = option.value === input.value;
             const OptionIcon = ICONS[option.value];
+            const costBracket = bracketCostForMode(option.value, input.creditCosts ?? null);
 
             return (
               <button
@@ -73,7 +100,12 @@ export function GenerationModeDropdown(input: {
                 }}
               >
                 <OptionIcon size={16} strokeWidth={2.2} />
-                <span className="generation-mode-menu-label">{option.label}</span>
+                <span className="generation-mode-menu-text">
+                  <span className="generation-mode-menu-label">{option.label}</span>
+                  {costBracket ? (
+                    <span className="generation-mode-cost-bracket">{costBracket}</span>
+                  ) : null}
+                </span>
               </button>
             );
           })}

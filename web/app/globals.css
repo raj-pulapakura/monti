@@ -1583,8 +1583,27 @@ button:disabled {
   color: #b65a33;
 }
 
+.generation-mode-menu-text {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
 .generation-mode-menu-label {
   font: inherit;
+}
+
+.generation-mode-cost-bracket {
+  font-size: 0.82em;
+  font-weight: 600;
+  color: rgba(108, 58, 35, 0.72);
+  white-space: nowrap;
+}
+
+.generation-mode-trigger .generation-mode-cost-bracket {
+  font-size: 0.78em;
 }
 
 .home-create-submit {
@@ -2143,6 +2162,23 @@ button:disabled {
   padding: 0.58rem 0.68rem;
   font-size: 0.86rem;
   line-height: 1.38;
+}
+
+.billing-gate-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.billing-gate-notice-icon {
+  flex-shrink: 0;
+  margin-top: 0.06rem;
+  color: #b65a33;
+}
+
+.billing-gate-notice-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .chat-build-indicator {

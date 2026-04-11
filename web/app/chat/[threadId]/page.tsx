@@ -43,7 +43,7 @@ import { SuggestionChips } from './components/suggestion-chips';
 import { SandboxHeader } from './components/sandbox-header';
 import { ConversationTimeline } from './components/conversation-timeline';
 import { isBalanceSufficientForMode } from '@/lib/billing/is-balance-sufficient-for-mode';
-import { BillingGate } from './components/billing-gate';
+import { BillingGate } from '@/app/components/billing-gate';
 
 type RefinementSuggestion = {
   label: string;
@@ -540,12 +540,6 @@ export default function ChatThreadPage() {
     billingData === null || !billingLoaded
       ? true
       : isBalanceSufficientForMode(billingData, generationMode);
-  const costForMode =
-    generationMode === 'fast'
-      ? billingData?.costs.fastCredits ?? null
-      : generationMode === 'quality'
-        ? billingData?.costs.qualityCredits ?? null
-        : billingData?.costs.fastCredits ?? null;
   const softGateActive =
     billingLoaded && Boolean(billingData?.billingEnabled) && !balanceSufficient;
 
@@ -1037,8 +1031,15 @@ export default function ChatThreadPage() {
             submitPending={submitPending}
             disabled={!accessToken || submitPending || generationInFlight || !thread?.id || !threadIdIsValid}
             softGateActive={softGateActive}
-            creditCost={costForMode}
             billingEnabled={Boolean(billingData?.billingEnabled)}
+            creditCosts={
+              billingData?.billingEnabled
+                ? {
+                    fast: billingData.costs.fastCredits,
+                    quality: billingData.costs.qualityCredits,
+                  }
+                : null
+            }
           />
 
           {softGateActive && billingData ? (

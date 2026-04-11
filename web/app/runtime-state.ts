@@ -302,6 +302,43 @@ export function reduceRuntimeEvent(
   return next;
 }
 
+/**
+ * GET /threads/:id can race with the client optimistic user row (temp-* ids). If hydration
+ * returns before the server lists the new message, keep those pending rows so the UI does not
+ * flash the empty-thread state.
+ */
+export function mergeHydratedMessagesWithOptimistic(
+  previousMessages: ChatMessage[],
+  hydratedMessages: ChatMessage[],
+): ChatMessage[] {
+  const hydratedIds = new Set(hydratedMessages.map((m) => m.id));
+
+  const optimisticPending = previousMessages.filter((m) => {
+    if (!m.id.startsWith('temp-')) {
+      return false;
+    }
+    if (hydratedIds.has(m.id)) {
+      return false;
+    }
+    if (
+      hydratedMessages.some(
+        (h) => h.role === 'user' && h.content === m.content,
+      )
+    ) {
+      return false;
+    }
+    return true;
+  });
+
+  if (optimisticPending.length === 0) {
+    return hydratedMessages;
+  }
+
+  return [...hydratedMessages, ...optimisticPending].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+}
+
 export function reconcileHydrationState(
   previous: RuntimeState,
   hydrated: RuntimeHydrationSnapshot,
@@ -320,7 +357,7 @@ export function reconcileHydrationState(
 
   return {
     ...previous,
-    messages: hydrated.messages,
+    messages: mergeHydratedMessagesWithOptimistic(previous.messages, hydrated.messages),
     activeRun: hydrated.activeRun,
     activeToolInvocation: hydrated.activeToolInvocation,
     sandboxState: hydrated.sandboxState,

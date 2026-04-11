@@ -1,7 +1,15 @@
 'use client';
 
 import { fetchEventSource } from '@microsoft/fetch-event-source';
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { toggleExperienceFavourite } from '@/lib/chat/experience-favourite';
 import {
@@ -10,6 +18,7 @@ import {
 } from '@/lib/api/authenticated-api-client';
 import type { BillingMeResponse } from '@/lib/api/billing-me';
 import { consumeHomePromptHandoff } from '@/lib/chat/prompt-handoff';
+import { consumeThreadBootstrap } from '@/lib/chat/thread-bootstrap';
 import type { GenerationMode } from '@/lib/chat/generation-mode';
 // X is still used for the fullscreen close button
 import { X } from 'lucide-react';
@@ -28,6 +37,7 @@ import {
   getRetryComposerValue,
   INITIAL_RUNTIME_STATE,
   isRunActive,
+  mergeHydratedMessagesWithOptimistic,
   reconcileHydrationState,
   reduceRuntimeEvent,
   type AssistantRun,
@@ -189,8 +199,9 @@ export default function ChatThreadPage() {
     latestEventIdRef.current = runtimeState.latestEventId;
   }, [runtimeState.latestEventId]);
 
-  useEffect(() => {
-    setThread(null);
+  // Runs synchronously after DOM updates, before the browser paints — avoids a one-frame
+  // skeleton flash when sessionStorage has a thread bootstrap (new chat from home).
+  useLayoutEffect(() => {
     setRuntimeState(INITIAL_RUNTIME_STATE);
     setActiveExperience(null);
     setStreamConnectionState('idle');
@@ -211,6 +222,13 @@ export default function ChatThreadPage() {
     setTitleEditError(null);
     setTitleEditPending(false);
     handoffAttemptedThreadRef.current = null;
+
+    if (isUuidLike(routeThreadId)) {
+      const bootstrap = consumeThreadBootstrap(routeThreadId);
+      setThread(bootstrap ?? null);
+    } else {
+      setThread(null);
+    }
   }, [routeThreadId]);
 
   useEffect(() => {
@@ -465,6 +483,8 @@ export default function ChatThreadPage() {
     Boolean(thread?.id) &&
     (runtimeState.sandboxState?.status === 'creating' ||
       runtimeState.activeToolInvocation?.status === 'running');
+  const showThinkingIndicator =
+    Boolean(thread?.id) && liveRunActive && runtimeState.assistantDraft === null;
 
   useEffect(() => {
     const container = chatScrollRef.current;
@@ -478,6 +498,7 @@ export default function ChatThreadPage() {
     runtimeState.messages.length,
     runtimeState.assistantDraft?.content,
     showChatBuildIndicator,
+    showThinkingIndicator,
   ]);
 
   const conversationTimeline = useMemo<ConversationTimelineItem[]>(() => {
@@ -530,7 +551,6 @@ export default function ChatThreadPage() {
     activeRun: runtimeState.activeRun,
     activeToolInvocation: runtimeState.activeToolInvocation,
     sandboxState: runtimeState.sandboxState,
-    assistantDraftPresent: runtimeState.assistantDraft !== null,
     streamConnectionState,
   });
   const fullscreenSupported = isPreviewFullscreenSupported(
@@ -703,14 +723,15 @@ export default function ChatThreadPage() {
     const hydrated = await fetchThreadHydration(threadId, token);
 
     setThread(hydrated.thread);
-    setRuntimeState({
-      messages: hydrated.messages,
+    setRuntimeState((previous) => ({
+      ...previous,
+      messages: mergeHydratedMessagesWithOptimistic(previous.messages, hydrated.messages),
       activeRun: hydrated.activeRun,
       activeToolInvocation: hydrated.activeToolInvocation,
       sandboxState: hydrated.sandboxState,
       assistantDraft: null,
-      latestEventId: hydrated.latestEventId,
-    });
+      latestEventId: hydrated.latestEventId ?? previous.latestEventId,
+    }));
 
     await refreshSandboxPreview(hydrated.thread.id, token);
     return hydrated.thread;
@@ -985,15 +1006,14 @@ export default function ChatThreadPage() {
             ) : !thread?.id && errorMessage ? (
               <p className="error-banner">{errorMessage}</p>
             ) : !thread?.id ? (
-              <>
-                <div className="chat-loading" aria-hidden="true">
-                  <div className="skeleton-line medium" />
-                  <div className="skeleton-line" />
-                  <div className="skeleton-line short" />
-                </div>
-                <p className="empty-state">Opening conversation...</p>
-              </>
-            ) : conversationTimeline.length === 0 ? (
+              <div className="chat-loading" aria-hidden="true">
+                <div className="skeleton-line medium" />
+                <div className="skeleton-line" />
+                <div className="skeleton-line short" />
+              </div>
+            ) : conversationTimeline.length === 0 &&
+              !submitPending &&
+              !generationInFlight ? (
               <p className="empty-state">
                 Share your goal and Monti will draft the first creation.
               </p>
@@ -1001,6 +1021,7 @@ export default function ChatThreadPage() {
               <ConversationTimeline
                 items={conversationTimeline}
                 activeRunStatus={runtimeState.activeRun?.status ?? null}
+                showThinkingIndicator={showThinkingIndicator}
                 showBuildIndicator={showChatBuildIndicator}
                 onMessageFeedback={
                   accessToken && thread?.id ? handleMessageFeedback : undefined
@@ -1196,7 +1217,6 @@ function getPreviewStatus(input: {
   activeRun: AssistantRun | null;
   activeToolInvocation: ToolInvocation | null;
   sandboxState: SandboxState | null;
-  assistantDraftPresent: boolean;
   streamConnectionState: StreamConnectionState;
 }): {
   title: string;
@@ -1224,17 +1244,6 @@ function getPreviewStatus(input: {
         : 'Putting together the first experience.',
       tone: 'live',
       overlay: input.hasExperience,
-    };
-  }
-
-  if (input.assistantDraftPresent || isRunActive(input.activeRun)) {
-    return {
-      title: 'Preparing experience',
-      detail: input.hasExperience
-        ? 'The experience will update after the streaming reply finishes and any tools complete.'
-        : 'Working through the request before the experience appears.',
-      tone: 'live',
-      overlay: false,
     };
   }
 

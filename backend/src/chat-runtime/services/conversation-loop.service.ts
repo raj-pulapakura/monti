@@ -494,12 +494,13 @@ export class ConversationLoopService {
 
     const baseMessages = hydration.messages.map(mapPersistedMessageToCanonical);
     const filteredMessages = baseMessages.filter((message) => message.role !== 'tool');
+    const windowedMessages = filteredMessages.slice(-this.llmConfig.conversationContextWindowSize);
     return [
       {
         role: 'system',
         content: this.llmConfig.conversationSystemPrompt,
       },
-      ...filteredMessages,
+      ...windowedMessages,
     ];
   }
 

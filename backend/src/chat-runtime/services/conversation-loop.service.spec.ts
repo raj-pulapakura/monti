@@ -120,6 +120,7 @@ describe('ConversationLoopService', () => {
       conversationMaxTokens: 2048,
       conversationMaxToolRounds: 3,
       conversationSystemPrompt: 'You are Monti',
+      conversationContextWindowSize: 20,
     };
 
     const service = new ConversationLoopService(
@@ -316,6 +317,7 @@ describe('ConversationLoopService', () => {
       conversationMaxTokens: 2048,
       conversationMaxToolRounds: 3,
       conversationSystemPrompt: 'You are Monti',
+      conversationContextWindowSize: 20,
     };
 
     const service = new ConversationLoopService(
@@ -502,6 +504,7 @@ describe('ConversationLoopService', () => {
       conversationMaxTokens: 2048,
       conversationMaxToolRounds: 1,
       conversationSystemPrompt: 'You are Monti',
+      conversationContextWindowSize: 20,
     };
 
     const service = new ConversationLoopService(
@@ -667,6 +670,7 @@ describe('ConversationLoopService', () => {
       conversationMaxTokens: 2048,
       conversationMaxToolRounds: 3,
       conversationSystemPrompt: 'You are Monti',
+      conversationContextWindowSize: 20,
     };
 
     const service = new ConversationLoopService(
@@ -699,5 +703,221 @@ describe('ConversationLoopService', () => {
       conversationTokensIn: null,
       conversationTokensOut: null,
     });
+  });
+
+  it('includes all thread messages when the thread is shorter than the context window', async () => {
+    const repository = {
+      markRunRunning: jest.fn(async () => undefined),
+      hydrateThread: jest.fn(async () => ({
+        thread: { id: 'thread-1' },
+        messages: [
+          {
+            id: 'message-1',
+            thread_id: 'thread-1',
+            user_id: 'client-1',
+            role: 'user',
+            content: 'First',
+            content_json: null,
+          },
+          {
+            id: 'message-2',
+            thread_id: 'thread-1',
+            user_id: 'client-1',
+            role: 'user',
+            content: 'Second',
+            content_json: null,
+          },
+          {
+            id: 'message-3',
+            thread_id: 'thread-1',
+            user_id: 'client-1',
+            role: 'user',
+            content: 'Third',
+            content_json: null,
+          },
+        ],
+        sandboxState: { thread_id: 'thread-1', status: 'empty' },
+        activeRun: null,
+        activeToolInvocation: null,
+      })),
+      recordRunProviderTrace: jest.fn(async () => undefined),
+      createAssistantMessage: jest.fn(async () => createAssistantMessage()),
+      markRunSucceeded: jest.fn(async () => undefined),
+      getRunById: jest.fn(async () =>
+        createRun({
+          status: 'succeeded',
+          assistant_message_id: 'assistant-1',
+        }),
+      ),
+      markRunFailed: jest.fn(async () => undefined),
+    };
+
+    const events = { publish: jest.fn() };
+
+    const toolRegistry = {
+      getToolDefinitions: jest.fn(() => []),
+      hasTool: jest.fn(() => false),
+      executeToolCall: jest.fn(async () => {
+        throw new Error('should not be called');
+      }),
+    };
+
+    const toolLlmRouter = {
+      runTurn: jest.fn(async (input: { onAssistantTextSnapshot?: (text: string) => void }) => {
+        await input.onAssistantTextSnapshot?.('ok');
+        return {
+          provider: 'openai' as const,
+          model: 'gpt-5.4',
+          assistantText: 'ok',
+          toolCalls: [],
+          finishReason: 'stop' as const,
+          usage: observedUsage({ inputTokens: 1, outputTokens: 1 }),
+          rawRequest: {},
+          rawResponse: {},
+        };
+      }),
+    };
+
+    const llmConfig = {
+      conversationProvider: 'openai' as const,
+      conversationModel: 'gpt-5.4',
+      conversationMaxTokens: 2048,
+      conversationMaxToolRounds: 3,
+      conversationSystemPrompt: 'SYS',
+      conversationContextWindowSize: 20,
+    };
+
+    const service = new ConversationLoopService(
+      repository as never,
+      events as never,
+      toolRegistry as never,
+      toolLlmRouter as never,
+      llmConfig as never,
+    );
+
+    await service.executeTurn({
+      threadId: 'thread-1',
+      userId: 'client-1',
+      userMessage: {
+        id: 'message-3',
+        thread_id: 'thread-1',
+        user_id: 'client-1',
+        role: 'user',
+        content: 'Third',
+        content_json: null,
+        idempotency_key: null,
+        created_at: new Date().toISOString(),
+      },
+      run: createRun(),
+    });
+
+    const firstRoundMessages = toolLlmRouter.runTurn.mock.calls[0][0].messages;
+    expect(firstRoundMessages.slice(0, 4)).toEqual([
+      { role: 'system', content: 'SYS' },
+      { role: 'user', content: 'First' },
+      { role: 'user', content: 'Second' },
+      { role: 'user', content: 'Third' },
+    ]);
+  });
+
+  it('sends only the last N non-tool messages when the thread exceeds the context window', async () => {
+    const messages = Array.from({ length: 25 }, (_, i) => ({
+      id: `message-${i}`,
+      thread_id: 'thread-1',
+      user_id: 'client-1',
+      role: 'user' as const,
+      content: `Message ${i}`,
+      content_json: null,
+    }));
+
+    const repository = {
+      markRunRunning: jest.fn(async () => undefined),
+      hydrateThread: jest.fn(async () => ({
+        thread: { id: 'thread-1' },
+        messages,
+        sandboxState: { thread_id: 'thread-1', status: 'empty' },
+        activeRun: null,
+        activeToolInvocation: null,
+      })),
+      recordRunProviderTrace: jest.fn(async () => undefined),
+      createAssistantMessage: jest.fn(async () => createAssistantMessage()),
+      markRunSucceeded: jest.fn(async () => undefined),
+      getRunById: jest.fn(async () =>
+        createRun({
+          status: 'succeeded',
+          assistant_message_id: 'assistant-1',
+        }),
+      ),
+      markRunFailed: jest.fn(async () => undefined),
+    };
+
+    const events = { publish: jest.fn() };
+
+    const toolRegistry = {
+      getToolDefinitions: jest.fn(() => []),
+      hasTool: jest.fn(() => false),
+      executeToolCall: jest.fn(async () => {
+        throw new Error('should not be called');
+      }),
+    };
+
+    const toolLlmRouter = {
+      runTurn: jest.fn(async (input: { onAssistantTextSnapshot?: (text: string) => void }) => {
+        await input.onAssistantTextSnapshot?.('ok');
+        return {
+          provider: 'openai' as const,
+          model: 'gpt-5.4',
+          assistantText: 'ok',
+          toolCalls: [],
+          finishReason: 'stop' as const,
+          usage: observedUsage({ inputTokens: 1, outputTokens: 1 }),
+          rawRequest: {},
+          rawResponse: {},
+        };
+      }),
+    };
+
+    const llmConfig = {
+      conversationProvider: 'openai' as const,
+      conversationModel: 'gpt-5.4',
+      conversationMaxTokens: 2048,
+      conversationMaxToolRounds: 3,
+      conversationSystemPrompt: 'SYS',
+      conversationContextWindowSize: 5,
+    };
+
+    const service = new ConversationLoopService(
+      repository as never,
+      events as never,
+      toolRegistry as never,
+      toolLlmRouter as never,
+      llmConfig as never,
+    );
+
+    await service.executeTurn({
+      threadId: 'thread-1',
+      userId: 'client-1',
+      userMessage: {
+        id: 'message-24',
+        thread_id: 'thread-1',
+        user_id: 'client-1',
+        role: 'user',
+        content: 'Message 24',
+        content_json: null,
+        idempotency_key: null,
+        created_at: new Date().toISOString(),
+      },
+      run: createRun(),
+    });
+
+    const firstRoundMessages = toolLlmRouter.runTurn.mock.calls[0][0].messages;
+    expect(firstRoundMessages.slice(0, 6)).toEqual([
+      { role: 'system', content: 'SYS' },
+      { role: 'user', content: 'Message 20' },
+      { role: 'user', content: 'Message 21' },
+      { role: 'user', content: 'Message 22' },
+      { role: 'user', content: 'Message 23' },
+      { role: 'user', content: 'Message 24' },
+    ]);
   });
 });

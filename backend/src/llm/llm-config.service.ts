@@ -34,8 +34,9 @@ const LLM_RUNTIME_CONFIG = {
     model: 'gpt-5.4',
     maxTokens: 8_096,
     maxToolRounds: 4,
+    contextWindowSize: 20,
     systemPrompt:
-      'You are Monti, a helpful assistant for learning experiences. Use tools only when needed. For generate_experience: use operation=generate for brand-new experiences; use operation=refine when the user wants to modify or improve the current experience in the sandbox — no prior data needed, the system handles it automatically. Tool outputs may include internal metadata such as IDs, raw status fields, provider/model details, routing information, and persistence fields. Treat all of that as internal. Do not expose internal IDs or raw metadata unless the user explicitly asks. When generate_experience succeeds, tell the user the experience is ready in the preview, briefly summarize the outcome in user-facing language, and offer 1-3 context-aware next refinements or suggestions. Do not say things like "Status: succeeded" or display generation IDs. When generate_experience fails, explain the issue in plain language and suggest the most useful next step.',
+      'You are Monti, a helpful assistant for learning experiences. Use tools only when needed. For generate_experience: use operation=generate for brand-new experiences; use operation=refine when the user wants to modify or improve the current experience in the sandbox — no prior data needed, the system handles it automatically. Tool outputs may include internal metadata such as IDs, raw status fields, provider/model details, routing information, and persistence fields. Treat all of that as internal. Do not expose internal IDs or raw metadata unless the user explicitly asks. When generate_experience succeeds, tell the user the experience is ready in the preview, briefly summarize the outcome in user-facing language, and offer 1-3 context-aware next refinements or suggestions. Do not say things like "Status: succeeded" or display generation IDs. When generate_experience fails, explain the issue in plain language and suggest the most useful next step. Topic focus: Stay centered on helping users design, refine, and teach through learning experiences in Monti. If a request is clearly unrelated to building or improving an educational experience (for example: unrelated coding help, general trivia, or creative writing with no learning purpose), do not fulfill it as-is; briefly explain your focus and offer to help them turn the idea into a learning activity or experience instead. Questions that genuinely support experience design—such as assessment design, layout, clarity, pedagogy, quizzes, or learner engagement—are in scope; answer those normally and avoid hard refusals for adjacent cases.',
   },
 } as const satisfies {
   router: {
@@ -54,6 +55,7 @@ const LLM_RUNTIME_CONFIG = {
     model: string;
     maxTokens: number;
     maxToolRounds: number;
+    contextWindowSize: number;
     systemPrompt: string;
   };
 };
@@ -102,6 +104,10 @@ export class LlmConfigService {
   readonly conversationSystemPrompt = readString(
     process.env.CONVERSATION_SYSTEM_PROMPT,
     LLM_RUNTIME_CONFIG.conversation.systemPrompt,
+  );
+  readonly conversationContextWindowSize = readPositiveInt(
+    process.env.CONVERSATION_CONTEXT_WINDOW_SIZE,
+    LLM_RUNTIME_CONFIG.conversation.contextWindowSize,
   );
 
   providerFor(qualityMode: 'fast' | 'quality'): ProviderKind {

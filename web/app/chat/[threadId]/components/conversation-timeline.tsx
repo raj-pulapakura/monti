@@ -24,6 +24,7 @@ const THUMB_FEEDBACK_COPY = {
 export function ConversationTimeline(input: {
   items: ConversationTimelineItem[];
   activeRunStatus: AssistantRun['status'] | null;
+  showThinkingIndicator: boolean;
   showBuildIndicator: boolean;
   onMessageFeedback?: (
     messageId: string,
@@ -92,6 +93,13 @@ export function ConversationTimeline(input: {
           </article>
         ),
       )}
+      {input.showThinkingIndicator ? (
+        <article className="message-row message-assistant message-status">
+          <p className="chat-build-indicator" role="status" aria-live="polite">
+            <span className="chat-build-indicator-text">Thinking...</span>
+          </p>
+        </article>
+      ) : null}
       {input.showBuildIndicator ? (
         <article className="message-row message-assistant message-status">
           <p className="chat-build-indicator" role="status" aria-live="polite">

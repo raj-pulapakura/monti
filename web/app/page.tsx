@@ -7,6 +7,7 @@ import { createAuthenticatedApiClient } from "@/lib/api/authenticated-api-client
 import type { BillingMeResponse } from "@/lib/api/billing-me";
 import type { RedirectResponse } from "@/lib/api/types";
 import { writeHomePromptHandoff } from "@/lib/chat/prompt-handoff";
+import { writeThreadBootstrap } from "@/lib/chat/thread-bootstrap";
 import type { GenerationMode } from "@/lib/chat/generation-mode";
 import { useSupabaseClient } from "./hooks/use-supabase-client";
 import { toErrorMessage } from "@/lib/errors";
@@ -400,6 +401,7 @@ function HomeWorkspace(input: {
       ).postJson<ThreadCreateResponse>("/api/chat/threads", {});
 
       const threadId = response.data.thread.id;
+      writeThreadBootstrap(response.data.thread);
       writeHomePromptHandoff(threadId, trimmedPrompt, generationMode);
       router.push(`/chat/${threadId}`);
     } catch (error) {

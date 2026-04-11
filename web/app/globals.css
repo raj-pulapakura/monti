@@ -1408,7 +1408,7 @@ button:disabled {
   width: 100%;
   padding: 0.55rem 0.8rem;
   /* 3 lines × line-height 1.35 × font-size 0.8125rem + vertical padding */
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   border: 1px solid rgba(167, 70, 33, 0.18);
   background: transparent;
   color: #5a3520;
@@ -1461,7 +1461,7 @@ button:disabled {
 
 .home-create-row input {
   width: 100%;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: var(--surface-paper);
   border-color: var(--border-strong);
   min-height: 3.45rem;
@@ -2217,7 +2217,7 @@ button:disabled {
   flex-direction: row;
   align-items: center;
   gap: 0.35rem;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   border: 1px solid #e2c2a8;
   background: #fff4e8;
   color: #72442d;
@@ -2252,7 +2252,7 @@ button:disabled {
 .composer-row input {
   width: 100%;
   min-height: 3.45rem;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   padding-block: 0.86rem;
   padding-inline: 1rem 10.9rem;
   transition:

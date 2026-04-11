@@ -4,6 +4,7 @@ import {
   aggregateTopupCreditsAvailable,
   isPaidEntitlementActive,
   paidPeriodEndsAtIso,
+  selectPrimaryActiveSubscription,
   sortBucketsForDisplay,
   spendableOnGrant,
   utcCalendarMonthRangeUtcMs,
@@ -69,6 +70,53 @@ describe('entitlement-math', () => {
           now,
         ),
       ).toBe(new Date(Date.UTC(2025, 1, 1, 0, 0, 0, 0)).toISOString());
+    });
+  });
+
+  describe('selectPrimaryActiveSubscription', () => {
+    const now = Date.UTC(2025, 0, 10, 0, 0, 0, 0);
+
+    it('returns null when no active period', () => {
+      expect(
+        selectPrimaryActiveSubscription(
+          [
+            {
+              status: 'canceled',
+              current_period_start: null,
+              current_period_end: '2025-01-05T00:00:00.000Z',
+              cancel_at_period_end: false,
+            },
+          ],
+          now,
+        ),
+      ).toBeNull();
+    });
+
+    it('returns the subscription with the latest period end among active rows', () => {
+      expect(
+        selectPrimaryActiveSubscription(
+          [
+            {
+              status: 'active',
+              current_period_start: '2025-01-01T00:00:00.000Z',
+              current_period_end: '2025-01-25T00:00:00.000Z',
+              cancel_at_period_end: false,
+            },
+            {
+              status: 'active',
+              current_period_start: '2025-01-01T00:00:00.000Z',
+              current_period_end: '2025-02-15T00:00:00.000Z',
+              cancel_at_period_end: true,
+            },
+          ],
+          now,
+        ),
+      ).toEqual({
+        status: 'active',
+        cancelAtPeriodEnd: true,
+        currentPeriodStart: '2025-01-01T00:00:00.000Z',
+        currentPeriodEnd: '2025-02-15T00:00:00.000Z',
+      });
     });
   });
 

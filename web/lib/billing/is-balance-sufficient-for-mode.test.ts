@@ -10,10 +10,14 @@ function baseBilling(overrides: Partial<BillingMeData> = {}): BillingMeData {
     pricingRuleVersionKey: 'v1',
     costs: { fastCredits: 1, qualityCredits: 5 },
     includedCreditsAvailable: 0,
+    includedCreditsTotal: 0,
     topupCreditsAvailable: 0,
+    topupCreditsTotal: 0,
     reservedCreditsTotal: 0,
+    buckets: [],
     nextIncludedRefreshAt: null,
     paidPeriodEndsAt: null,
+    subscription: null,
     ...overrides,
   };
 }

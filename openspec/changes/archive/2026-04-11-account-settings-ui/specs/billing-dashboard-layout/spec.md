@@ -1,9 +1,4 @@
-# billing-dashboard-layout Specification
-
-## Purpose
-TBD - created by syncing change billing-page-redesign. Updated for account-settings-ui: billing UI lives at `/settings/billing`; `/billing` redirects permanently.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Render billing page with a single full-width stacked layout
 The `/settings/billing` page SHALL render all billing content within a single full-width card using a stacked vertical layout. The card SHALL contain four distinct sections in order: plan status row, credit balance stat boxes, credit rate footnote row, and action row. Sections SHALL be visually separated by dividers.

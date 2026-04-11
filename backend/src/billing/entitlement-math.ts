@@ -57,6 +57,42 @@ export function paidPeriodEndsAtIso(
   return new Date(Math.max(...ends)).toISOString();
 }
 
+/** Stripe subscription row mirrored in DB; pick the active period with the latest end time. */
+export function selectPrimaryActiveSubscription(
+  subscriptions: Array<{
+    status: string;
+    current_period_start: string | null;
+    current_period_end: string | null;
+    cancel_at_period_end: boolean;
+  }>,
+  nowMs: number,
+): {
+  status: string;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+} | null {
+  const active = subscriptions.filter((s) => {
+    if (!s.current_period_end) {
+      return false;
+    }
+    return Date.parse(s.current_period_end) > nowMs;
+  });
+  if (active.length === 0) {
+    return null;
+  }
+  active.sort(
+    (a, b) => Date.parse(b.current_period_end!) - Date.parse(a.current_period_end!),
+  );
+  const s = active[0];
+  return {
+    status: s.status,
+    cancelAtPeriodEnd: s.cancel_at_period_end,
+    currentPeriodStart: s.current_period_start,
+    currentPeriodEnd: s.current_period_end,
+  };
+}
+
 function cycleStillOpen(grant: GrantRowLike, nowMs: number): boolean {
   if (!grant.cycle_end) {
     return true;

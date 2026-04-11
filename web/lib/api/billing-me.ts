@@ -5,6 +5,25 @@ export type BillingMeCosts = {
   qualityCredits: number | null;
 };
 
+export type BillingMeBucket = {
+  id: string;
+  bucketKind: string;
+  source: string;
+  spendableCredits: number;
+  reservedCredits: number;
+  grantedCredits: number;
+  cycleStart: string | null;
+  cycleEnd: string | null;
+  createdAt: string;
+};
+
+export type BillingMeSubscription = {
+  status: string;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+};
+
 export type BillingMeData = {
   billingEnabled: boolean;
   freeCreditGrantsEnabled: boolean;
@@ -16,8 +35,10 @@ export type BillingMeData = {
   topupCreditsAvailable: number | null;
   topupCreditsTotal: number | null;
   reservedCreditsTotal: number | null;
+  buckets: BillingMeBucket[];
   nextIncludedRefreshAt: string | null;
   paidPeriodEndsAt: string | null;
+  subscription: BillingMeSubscription | null;
 };
 
 export type BillingMeResponse = {

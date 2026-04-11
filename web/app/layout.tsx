@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { DM_Sans } from 'next/font/google';
+import { AuthProvider } from './context/auth-context';
 import { FloatingFeedbackButton } from './components/floating-feedback-button';
 import './globals.css';
 
@@ -37,7 +38,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${sans.variable} antialiased`}>
-        {children}
+        <AuthProvider>{children}</AuthProvider>
         <FloatingFeedbackButton />
       </body>
     </html>

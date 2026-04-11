@@ -17,6 +17,13 @@ export interface BillingMeCostsDto {
   qualityCredits: number | null;
 }
 
+export interface BillingMeSubscriptionDto {
+  status: string;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+}
+
 export interface BillingMeDataDto {
   billingEnabled: boolean;
   freeCreditGrantsEnabled: boolean;
@@ -31,4 +38,6 @@ export interface BillingMeDataDto {
   buckets: BillingMeBucketDto[];
   nextIncludedRefreshAt: string | null;
   paidPeriodEndsAt: string | null;
+  /** Present when the user has an active paid subscription period (mirrored from Stripe). */
+  subscription: BillingMeSubscriptionDto | null;
 }

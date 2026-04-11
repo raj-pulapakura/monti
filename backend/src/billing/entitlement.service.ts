@@ -11,6 +11,7 @@ import {
   aggregateTotalSpendableCredits,
   isPaidEntitlementActive,
   paidPeriodEndsAtIso,
+  selectPrimaryActiveSubscription,
   sortBucketsForDisplay,
   spendableOnGrant,
   utcCalendarMonthRangeUtcMs,
@@ -46,6 +47,7 @@ export class EntitlementService {
     const paidActive = isPaidEntitlementActive(subscriptions, nowMs);
     const plan = paidActive ? 'paid' : 'free';
     const paidEnds = paidPeriodEndsAtIso(subscriptions, nowMs);
+    const primarySub = paidActive ? selectPrimaryActiveSubscription(subscriptions, nowMs) : null;
 
     if (cfg.freeCreditGrantsEnabled && plan === 'free') {
       if (!snapshot) {
@@ -121,6 +123,7 @@ export class EntitlementService {
       buckets,
       nextIncludedRefreshAt: new Date(nextUtcMonthStartMs(nowMs)).toISOString(),
       paidPeriodEndsAt: paidEnds,
+      subscription: primarySub,
     };
   }
 
@@ -161,6 +164,7 @@ export class EntitlementService {
       buckets: [],
       nextIncludedRefreshAt: null,
       paidPeriodEndsAt: null,
+      subscription: null,
     };
   }
 

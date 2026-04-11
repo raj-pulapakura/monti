@@ -440,13 +440,13 @@ function HomeWorkspace(input: {
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               placeholder="A fractions challenge with playful mini rounds..."
-              disabled={creating || softGateActive}
+              disabled={creating}
             />
             <div className="home-create-actions">
               <GenerationModeDropdown
                 value={generationMode}
                 onChange={setGenerationMode}
-                disabled={creating || softGateActive}
+                disabled={creating}
                 creditCosts={
                   billingSummary?.billingEnabled
                     ? {
@@ -496,7 +496,7 @@ function HomeWorkspace(input: {
               key={item.prompt}
               type="button"
               className="home-example-prompt-chip"
-              disabled={creating || softGateActive}
+              disabled={creating}
               title={item.prompt}
               aria-label={`Use example prompt: ${item.prompt}`}
               onClick={() => {

@@ -47,7 +47,7 @@ import {
   type SandboxState,
   type ToolInvocation,
 } from '../../runtime-state';
-import { FloatingProfileControls } from '../../components/floating-profile-controls';
+import { AppTopbar } from '../../components/app-topbar';
 import { ChatComposer } from './components/chat-composer';
 import { SuggestionChips } from './components/suggestion-chips';
 import { SandboxHeader } from './components/sandbox-header';
@@ -995,7 +995,7 @@ export default function ChatThreadPage() {
 
   return (
     <div className="page-shell thread-page-shell">
-      <FloatingProfileControls onSignOut={() => void handleSignOut()} homeHref="/" />
+      <AppTopbar onSignOut={() => void handleSignOut()} />
       <main className="workspace-grid">
         <section className="chat-panel">
           <div ref={chatScrollRef} className="chat-scroll">

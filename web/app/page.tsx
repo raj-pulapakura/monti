@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createAuthenticatedApiClient } from "@/lib/api/authenticated-api-client";
 import type { BillingMeResponse } from "@/lib/api/billing-me";
@@ -11,10 +10,9 @@ import { writeThreadBootstrap } from "@/lib/chat/thread-bootstrap";
 import type { GenerationMode } from "@/lib/chat/generation-mode";
 import { useSupabaseClient } from "./hooks/use-supabase-client";
 import { toErrorMessage } from "@/lib/errors";
-import { FloatingProfileControls } from "./components/floating-profile-controls";
+import { AppTopbar } from "./components/app-topbar";
 import { GenerationModeDropdown } from "./components/generation-mode-segmented-control";
 import { MarketingLanding } from "./components/marketing-landing";
-import { BillingStrip } from "./components/billing-strip";
 import { BillingGate } from "./components/billing-gate";
 import { isBalanceSufficientForMode } from "@/lib/billing/is-balance-sufficient-for-mode";
 import { CreationCard } from "./components/creation-card";
@@ -412,10 +410,7 @@ function HomeWorkspace(input: {
 
   return (
     <main className="home-shell">
-      <Link href="/" className="landing-header-logo floating-wordmark">
-        Monti
-      </Link>
-      <FloatingProfileControls onSignOut={input.onSignOut} />
+      <AppTopbar onSignOut={input.onSignOut} />
       <header className="home-header">
         <div>
           <h1 className="home-hero-heading">
@@ -423,16 +418,6 @@ function HomeWorkspace(input: {
           </h1>
         </div>
       </header>
-
-      {billingLoadError ? (
-        <p className="home-billing-muted" role="status">
-          Billing summary unavailable.
-        </p>
-      ) : null}
-
-      {billingSummary?.billingEnabled && billingLoaded && !billingLoadError ? (
-        <BillingStrip billingData={billingSummary} />
-      ) : null}
 
       <form className="home-create-form" onSubmit={handleCreate}>
         <div className="home-create-row">

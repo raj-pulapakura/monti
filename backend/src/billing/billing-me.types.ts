@@ -24,7 +24,9 @@ export interface BillingMeDataDto {
   pricingRuleVersionKey: string | null;
   costs: BillingMeCostsDto;
   includedCreditsAvailable: number | null;
+  includedCreditsTotal: number | null;
   topupCreditsAvailable: number | null;
+  topupCreditsTotal: number | null;
   reservedCreditsTotal: number | null;
   buckets: BillingMeBucketDto[];
   nextIncludedRefreshAt: string | null;

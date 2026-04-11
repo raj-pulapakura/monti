@@ -76,6 +76,21 @@ export class EntitlementService {
     const topup = aggregateTopupCreditsAvailable(grants, nowMs, paidActive);
     const reservedTotal = aggregateReservedCredits(grants, nowMs);
 
+    const includedTotal = grantRows
+      .filter((row) => {
+        if (row.bucket_kind !== 'recurring_free' && row.bucket_kind !== 'recurring_paid') return false;
+        if (row.bucket_kind === 'recurring_paid' && !paidActive) return false;
+        if (row.cycle_end && Date.parse(row.cycle_end) <= nowMs) return false;
+        return true;
+      })
+      .reduce((sum, row) => sum + row.granted_credits, 0);
+
+    const topupTotal = paidActive
+      ? grantRows
+          .filter((row) => row.bucket_kind === 'topup')
+          .reduce((sum, row) => sum + row.granted_credits, 0)
+      : 0;
+
     const sorted = sortBucketsForDisplay(grants);
     const buckets: BillingMeBucketDto[] = sorted.map((g) => ({
       id: g.id,
@@ -99,7 +114,9 @@ export class EntitlementService {
         qualityCredits: pricing.qualityCredits,
       },
       includedCreditsAvailable: included,
+      includedCreditsTotal: includedTotal,
       topupCreditsAvailable: topup,
+      topupCreditsTotal: topupTotal,
       reservedCreditsTotal: reservedTotal,
       buckets,
       nextIncludedRefreshAt: new Date(nextUtcMonthStartMs(nowMs)).toISOString(),
@@ -137,7 +154,9 @@ export class EntitlementService {
       pricingRuleVersionKey: null,
       costs: { fastCredits: null, qualityCredits: null },
       includedCreditsAvailable: null,
+      includedCreditsTotal: null,
       topupCreditsAvailable: null,
+      topupCreditsTotal: null,
       reservedCreditsTotal: null,
       buckets: [],
       nextIncludedRefreshAt: null,

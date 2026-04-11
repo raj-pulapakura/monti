@@ -124,7 +124,7 @@ button:disabled {
 }
 
 .home-shell {
-  padding-top: 5.35rem;
+  padding-top: calc(60px + 1.75rem);
   padding-bottom: 3.25rem;
   gap: 1.45rem;
 }
@@ -132,7 +132,7 @@ button:disabled {
 .thread-page-shell {
   max-width: 1480px;
   width: 100%;
-  padding-top: 4.65rem;
+  padding-top: calc(60px + 0.85rem);
   min-height: 100svh;
   height: 100dvh;
   overflow: hidden;
@@ -168,44 +168,52 @@ button:disabled {
   padding-top: 0.22rem;
 }
 
-.floating-wordmark {
+.app-topbar {
   position: fixed;
-  top: 1rem;
-  left: clamp(1.5rem, 5vw, 4rem);
+  top: 0;
+  inset-inline: 0;
   z-index: 80;
-  display: inline-block;
-  padding: 0.55rem 0.1rem;
+  padding-top: 0.65rem;
+  display: flex;
+  align-items: flex-start;
+  pointer-events: none;
 }
 
-.home-billing-strip {
-  margin-top: 0.35rem;
-  margin-bottom: 0.15rem;
-  padding: 0.45rem 0.65rem;
-  border-radius: var(--radius-md, 10px);
-  background: var(--brand-soft);
-  border: 1px solid #ebc5ac;
+.app-topbar-inner {
+  width: 100%;
+  max-width: 1260px;
+  margin: 0 auto;
+  padding: 0.6rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
 }
 
-.home-billing-strip-text {
-  margin: 0;
-  font-size: 0.84rem;
-  line-height: 1.35;
+.app-topbar-inner.is-scrolled {
+  background: color-mix(in srgb, var(--surface-paper) 72%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(220, 200, 178, 0.4);
+  box-shadow: var(--elevation-1);
+}
+
+.app-topbar-wordmark {
+  font-size: 1.08rem;
+  font-weight: 700;
+  letter-spacing: -0.035em;
   color: var(--content-strong);
+  text-decoration: none;
 }
 
-.home-billing-plan {
-  font-weight: 600;
-}
-
-.home-billing-sep {
-  margin-inline: 0.35rem;
-  color: var(--content-muted);
-}
-
-.home-billing-muted {
-  margin: 0.25rem 0 0;
-  font-size: 0.8rem;
-  color: var(--content-muted);
+.app-topbar-wordmark:hover {
+  color: var(--brand-500);
 }
 
 .kicker,
@@ -308,52 +316,25 @@ button:disabled {
   box-shadow: var(--elevation-1);
 }
 
-.floating-home-control,
-.floating-controls {
-  position: fixed;
-  top: 1rem;
-  z-index: 80;
-}
-
-.floating-home-control {
-  left: clamp(1.5rem, 5vw, 4rem);
-}
-
-.floating-controls {
-  right: clamp(1.5rem, 5vw, 4rem);
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-}
-
-.floating-icon-button,
-.floating-profile-button {
-  height: 42px;
+.topbar-profile-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  height: 36px;
+  padding: 0 0.78rem;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-strong);
   background: var(--surface-soft);
   color: #7b4026;
+  font-weight: 700;
+  font-size: 0.875rem;
   box-shadow: var(--elevation-1);
 }
 
-.floating-icon-button {
-  width: 42px;
-  display: inline-grid;
-  place-items: center;
-  text-decoration: none;
-}
-
-.floating-profile-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.42rem;
-  padding: 0 0.78rem;
-  font-weight: 700;
-}
-
-.floating-icon-button:hover,
-.floating-profile-button:hover {
+.topbar-profile-button:hover {
   transform: translateY(-1px);
+  background: var(--surface-elevated);
+  border-color: #cf936f;
   box-shadow: var(--elevation-2);
 }
 
@@ -1160,26 +1141,42 @@ button:disabled {
 
 /* ── Billing dashboard ── */
 
+.billing-page {
+  padding-top: var(--topbar-height, 56px);
+  min-height: 100vh;
+}
+
+.billing-page-inner {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 5rem;
+  display: grid;
+  gap: 2rem;
+}
+
 .billing-heading {
-  font-size: clamp(1.5rem, 4vw, 2.1rem);
+  font-size: 1.7rem;
+  font-weight: 700;
   color: var(--content-strong);
   line-height: 1.15;
+  letter-spacing: -0.025em;
 }
 
-.billing-card {
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-paper));
-  box-shadow: var(--elevation-1);
-  padding: clamp(1rem, 4vw, 1.6rem);
+.billing-body {
   display: grid;
   gap: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
-.billing-divider {
-  border: none;
-  border-top: 1px solid var(--border-soft);
-  margin: 1rem 0;
+.billing-section {
+  padding: 1.5rem 1.5rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.billing-section:last-child {
+  border-bottom: none;
 }
 
 .billing-plan-row {
@@ -1190,65 +1187,110 @@ button:disabled {
   gap: 0.5rem;
 }
 
-.billing-plan-row h2 {
-  font-size: 1.06rem;
+.billing-plan-name {
+  font-size: 1rem;
+  font-weight: 600;
   color: var(--content-strong);
   margin: 0;
 }
 
-.billing-plan-row span {
-  font-size: 0.92rem;
+.billing-plan-meta {
+  font-size: 0.88rem;
   color: var(--content-muted);
 }
 
 .billing-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
 }
 
 .billing-stat {
-  background: var(--surface-soft);
+  border: 1px solid var(--border-soft);
   border-radius: var(--radius-md);
-  padding: 1rem;
+  padding: 1.25rem 1.25rem 1.1rem;
   display: grid;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
 .billing-stat-value {
-  font-size: 1.7rem;
+  font-size: 2.4rem;
   font-weight: 700;
   color: var(--content-strong);
-  line-height: 1.15;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 
 .billing-stat-label {
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   color: var(--content-muted);
 }
 
 .billing-stat.is-primary {
+  border-color: var(--brand-200, var(--border-soft));
   background: var(--brand-soft);
 }
 
-.billing-rate-row {
-  font-size: 0.88rem;
-  color: var(--content-muted);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem 0.6rem;
+.billing-progress {
+  height: 4px;
+  border-radius: 99px;
+  background: var(--border-soft);
+  overflow: hidden;
+  margin-top: 0.35rem;
 }
 
-.billing-rate-row span + span::before {
-  content: "·";
-  margin-right: 0.6rem;
+.billing-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--content-muted);
+  transition: width 0.4s var(--ease-standard);
+}
+
+.billing-progress-fill.is-primary {
+  background: var(--brand-500);
+}
+
+.billing-rate-row {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.billing-rate-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+
+.billing-rate-item-label {
+  color: var(--content-muted);
+}
+
+.billing-rate-item-value {
+  font-weight: 600;
+  color: var(--content-strong);
+  font-variant-numeric: tabular-nums;
 }
 
 .billing-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: 0.65rem;
+}
+
+.billing-error-msg {
+  font-size: 0.92rem;
+  color: var(--content-muted);
+  margin: 0 0 0.75rem;
+}
+
+.billing-skeleton {
+  display: inline-block;
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  animation: shimmer 1.7s linear infinite;
+  height: 1.1rem;
 }
 
 .billing-text-link {
@@ -2841,21 +2883,15 @@ button:disabled {
 
 @media (max-width: 1020px) {
   .home-shell {
-    padding-top: 4.95rem;
+    padding-top: calc(60px + 1.35rem);
     gap: 1.15rem;
   }
 
   .thread-page-shell {
-    padding-top: 4.4rem;
+    padding-top: calc(60px + 0.6rem);
     height: auto;
     min-height: 100svh;
     overflow: visible;
-  }
-
-  .floating-home-control,
-  .floating-controls,
-  .floating-wordmark {
-    top: 0.78rem;
   }
 
   .landing-hero {
@@ -2894,6 +2930,10 @@ button:disabled {
 
   .billing-stats {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .billing-page-inner {
+    padding: 2rem 1.25rem 4rem;
   }
 
   .workspace-grid,
@@ -3113,8 +3153,8 @@ button:disabled {
 
 .floating-feedback-root {
   position: fixed;
-  right: clamp(1.25rem, 4vw, 2.75rem);
-  bottom: clamp(1.25rem, 4vw, 2.75rem);
+  right: 1rem;
+  bottom: 1rem;
   /* Above profile controls (80) and landing sticky header (90) */
   z-index: 100;
   pointer-events: none;
@@ -3161,8 +3201,8 @@ button:disabled {
   height: 48px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-strong);
-  background: linear-gradient(145deg, #fff8f1, #fde9d8);
-  color: #6b3d24;
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
   box-shadow: var(--elevation-2);
   cursor: pointer;
   transition:
@@ -3172,7 +3212,7 @@ button:disabled {
 
 .floating-feedback-trigger:hover {
   transform: translateY(-2px);
-  box-shadow: var(--elevation-2), 0 10px 28px rgba(120, 62, 28, 0.14);
+  box-shadow: var(--elevation-3);
 }
 
 .floating-feedback-expanded {

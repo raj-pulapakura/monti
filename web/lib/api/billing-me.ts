@@ -12,7 +12,9 @@ export type BillingMeData = {
   pricingRuleVersionKey: string | null;
   costs: BillingMeCosts;
   includedCreditsAvailable: number | null;
+  includedCreditsTotal: number | null;
   topupCreditsAvailable: number | null;
+  topupCreditsTotal: number | null;
   reservedCreditsTotal: number | null;
   nextIncludedRefreshAt: string | null;
   paidPeriodEndsAt: string | null;

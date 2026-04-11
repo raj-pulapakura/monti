@@ -1,16 +1,62 @@
 'use client';
 
+import { useCallback, useState } from 'react';
 import type { ChatMessage, AssistantRun } from '../../../runtime-state';
+import { toErrorMessage } from '@/lib/errors';
+import { MessageFeedbackModal } from './message-feedback-modal';
+import { ThumbsBar } from './thumbs-bar';
 
 type ConversationTimelineItem =
   | { kind: 'message'; key: string; message: ChatMessage }
   | { kind: 'draft'; key: string; content: string };
 
+const THUMB_FEEDBACK_COPY = {
+  thumbs_up: {
+    title: 'Give positive feedback',
+    detailsPlaceholder: 'What was satisfying about this response?',
+  },
+  thumbs_down: {
+    title: 'What could be better about this response?',
+    detailsPlaceholder: 'What was unsatisfying about this response?',
+  },
+} as const;
+
 export function ConversationTimeline(input: {
   items: ConversationTimelineItem[];
   activeRunStatus: AssistantRun['status'] | null;
   showBuildIndicator: boolean;
+  onMessageFeedback?: (
+    messageId: string,
+    kind: 'thumbs_up' | 'thumbs_down',
+    message: string | null,
+  ) => void | Promise<void>;
 }) {
+  const [pending, setPending] = useState<{
+    messageId: string;
+    kind: 'thumbs_up' | 'thumbs_down';
+  } | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [submitPending, setSubmitPending] = useState(false);
+
+  const handleModalSubmit = useCallback(
+    async (message: string | null) => {
+      if (!pending || !input.onMessageFeedback) {
+        return;
+      }
+      setSubmitPending(true);
+      setModalError(null);
+      try {
+        await input.onMessageFeedback(pending.messageId, pending.kind, message);
+        setPending(null);
+      } catch (err) {
+        setModalError(toErrorMessage(err));
+      } finally {
+        setSubmitPending(false);
+      }
+    },
+    [pending, input.onMessageFeedback],
+  );
+
   return (
     <>
       {input.items.map((item) =>
@@ -19,7 +65,21 @@ export function ConversationTimeline(input: {
             key={item.key}
             className={`message-row ${item.message.role === 'user' ? 'message-user' : 'message-assistant'}`}
           >
-            <p className="message-content">{item.message.content}</p>
+            {item.message.role === 'assistant' ? (
+              <div className="message-assistant-stack">
+                <p className="message-content">{item.message.content}</p>
+                {input.onMessageFeedback ? (
+                  <ThumbsBar
+                    onFeedback={(kind) => {
+                      setModalError(null);
+                      setPending({ messageId: item.message.id, kind });
+                    }}
+                  />
+                ) : null}
+              </div>
+            ) : (
+              <p className="message-content">{item.message.content}</p>
+            )}
           </article>
         ) : (
           <article key={item.key} className="message-row message-assistant">
@@ -38,6 +98,20 @@ export function ConversationTimeline(input: {
             <span className="chat-build-indicator-text">Building experience...</span>
           </p>
         </article>
+      ) : null}
+      {pending && input.onMessageFeedback ? (
+        <MessageFeedbackModal
+          key={`${pending.messageId}-${pending.kind}`}
+          title={THUMB_FEEDBACK_COPY[pending.kind].title}
+          detailsPlaceholder={THUMB_FEEDBACK_COPY[pending.kind].detailsPlaceholder}
+          onDismiss={() => {
+            setPending(null);
+            setModalError(null);
+          }}
+          onSubmit={handleModalSubmit}
+          error={modalError}
+          submitPending={submitPending}
+        />
       ) : null}
     </>
   );

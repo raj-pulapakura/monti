@@ -461,6 +461,32 @@ export interface Database {
         };
         Relationships: [];
       };
+      feedback: {
+        Row: {
+          id: string;
+          user_id: string;
+          kind: 'general' | 'thumbs_up' | 'thumbs_down';
+          message: string | null;
+          thread_id: string | null;
+          message_id: string | null;
+          experience_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          kind: 'general' | 'thumbs_up' | 'thumbs_down';
+          message?: string | null;
+          thread_id?: string | null;
+          message_id?: string | null;
+          experience_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          message?: string | null;
+        };
+        Relationships: [];
+      };
       assistant_runs: {
         Row: {
           id: string;

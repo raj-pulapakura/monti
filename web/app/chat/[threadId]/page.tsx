@@ -1,7 +1,7 @@
 'use client';
 
 import { fetchEventSource } from '@microsoft/fetch-event-source';
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { toggleExperienceFavourite } from '@/lib/chat/experience-favourite';
 import {
@@ -16,6 +16,7 @@ import { X } from 'lucide-react';
 import { useSupabaseClient } from '@/app/hooks/use-supabase-client';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { toErrorMessage } from '@/lib/errors';
+import { submitFeedback } from '@/lib/feedback/submit-feedback';
 import { buildSrcdoc } from '@/lib/preview';
 import type { RedirectResponse } from '@/lib/api/types';
 import {
@@ -495,6 +496,27 @@ export default function ChatThreadPage() {
 
     return items;
   }, [runtimeState.messages, runtimeState.assistantDraft]);
+
+  const handleMessageFeedback = useCallback(
+    async (
+      messageId: string,
+      kind: 'thumbs_up' | 'thumbs_down',
+      message: string | null,
+    ) => {
+      if (!accessToken || !thread?.id) {
+        return;
+      }
+      const experienceId = runtimeState.sandboxState?.experienceId ?? undefined;
+      await submitFeedback(accessToken, {
+        kind,
+        message,
+        thread_id: thread.id,
+        message_id: messageId,
+        ...(experienceId ? { experience_id: experienceId } : {}),
+      });
+    },
+    [accessToken, thread?.id, runtimeState.sandboxState?.experienceId],
+  );
 
   const threadNotice = getThreadNotice({
     streamConnectionState,
@@ -989,6 +1011,9 @@ export default function ChatThreadPage() {
                 items={conversationTimeline}
                 activeRunStatus={runtimeState.activeRun?.status ?? null}
                 showBuildIndicator={showChatBuildIndicator}
+                onMessageFeedback={
+                  accessToken && thread?.id ? handleMessageFeedback : undefined
+                }
               />
             )}
           </div>

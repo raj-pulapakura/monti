@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { DM_Sans } from 'next/font/google';
+import { FloatingFeedbackButton } from './components/floating-feedback-button';
 import './globals.css';
 
 const sans = DM_Sans({
@@ -35,7 +36,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${sans.variable} antialiased`}>{children}</body>
+      <body className={`${sans.variable} antialiased`}>
+        {children}
+        <FloatingFeedbackButton />
+      </body>
     </html>
   );
 }

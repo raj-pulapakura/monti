@@ -44,8 +44,8 @@ Conversation-model settings:
 - `CONVERSATION_MODEL` (default `gpt-5.4`)
 - `CONVERSATION_MAX_TOKENS` (default `4096`)
 - `CONVERSATION_MAX_TOOL_ROUNDS` (default `4`)
-- `LLM_MAX_TOKENS_DEFAULT` (generation default output budget, default `32768`)
-- `LLM_MAX_TOKENS_RETRY` (generation retry ceiling after max-token errors, default `32768`)
+- `LLM_MAX_TOKENS_DEFAULT` (generation default output budget, default `65536`)
+- `LLM_MAX_TOKENS_RETRY` (generation retry ceiling after max-token errors, default `65536`)
 
 ## Rendering Contract
 

@@ -8,6 +8,7 @@ import {
   aggregateIncludedCreditsAvailable,
   aggregateReservedCredits,
   aggregateTopupCreditsAvailable,
+  aggregateTotalSpendableCredits,
   isPaidEntitlementActive,
   paidPeriodEndsAtIso,
   sortBucketsForDisplay,
@@ -104,6 +105,28 @@ export class EntitlementService {
       nextIncludedRefreshAt: new Date(nextUtcMonthStartMs(nowMs)).toISOString(),
       paidPeriodEndsAt: paidEnds,
     };
+  }
+
+  /**
+   * Read-only spendable balance for credit pre-checks. Both fields mirror the same fungible pool
+   * (compare totals against fast vs quality costs separately). Returns null on fetch error (fail-open).
+   */
+  async readSpendableBalance(userId: string): Promise<{ fast: number; quality: number } | null> {
+    try {
+      if (!this.billingConfig.billingEnabled) {
+        return { fast: 0, quality: 0 };
+      }
+
+      const nowMs = Date.now();
+      const subscriptions = await this.billingRepository.listBillingSubscriptionsByUserId(userId);
+      const paidActive = isPaidEntitlementActive(subscriptions, nowMs);
+      const grantRows = await this.billingRepository.listCreditGrantsByUserId(userId);
+      const grants = grantRows.map((row) => this.toGrantLike(row));
+      const total = aggregateTotalSpendableCredits(grants, nowMs, paidActive);
+      return { fast: total, quality: total };
+    } catch {
+      return null;
+    }
   }
 
   private disabledPayload(): BillingMeDataDto {

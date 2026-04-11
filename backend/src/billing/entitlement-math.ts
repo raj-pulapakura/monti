@@ -156,3 +156,24 @@ export function aggregateReservedCredits(grants: GrantRowLike[], nowMs: number):
     })
     .reduce((acc, g) => acc + g.reserved_credits, 0);
 }
+
+/** Total unreserved credits across included, top-up, and manual buckets (same pool as reservation RPC). */
+export function aggregateTotalSpendableCredits(
+  grants: GrantRowLike[],
+  nowMs: number,
+  paidActive: boolean,
+): number {
+  let sum = 0;
+  for (const g of grants) {
+    if (isRecurringFreeEligible(g, nowMs)) {
+      sum += spendableOnGrant(g);
+    } else if (isRecurringPaidEligible(g, nowMs, paidActive)) {
+      sum += spendableOnGrant(g);
+    } else if (isTopupEligible(g, nowMs, paidActive)) {
+      sum += spendableOnGrant(g);
+    } else if (isManualEligible(g, nowMs)) {
+      sum += spendableOnGrant(g);
+    }
+  }
+  return sum;
+}

@@ -1,5 +1,30 @@
 import { ChatRuntimeService } from './chat-runtime.service';
 
+function createBillingDeps() {
+  return {
+    entitlements: {
+      readSpendableBalance: jest.fn(),
+    },
+    billingConfig: {
+      billingEnabled: false,
+      creditEnforcementEnabled: false,
+      launchPricingVersionKey: 'launch-v1',
+      launchCatalog: {
+        freeMonthlyCredits: 15,
+        paidMonthlyCredits: 150,
+        fastCredits: 1,
+        qualityCredits: 5,
+        topupCredits: 50,
+        topupPriceUsd: 4,
+        paidPlanPriceUsd: 10,
+      },
+    },
+    billingRepository: {
+      findPricingRuleSnapshotByVersionKey: jest.fn(),
+    },
+  };
+}
+
 function createRunRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'run-1',
@@ -78,10 +103,14 @@ describe('ChatRuntimeService', () => {
     const conversationLoop = {
       executeTurn: jest.fn(),
     };
+    const billing = createBillingDeps();
     const service = new ChatRuntimeService(
       repository as never,
       events as never,
       conversationLoop as never,
+      billing.entitlements as never,
+      billing.billingConfig as never,
+      billing.billingRepository as never,
     );
 
     const result = await service.listThreads({
@@ -118,6 +147,9 @@ describe('ChatRuntimeService', () => {
 
   it('returns the accepted queued run while delegating execution to the conversation loop', async () => {
     const repository = {
+      findUserMessageByIdempotencyKey: jest.fn(async () => null),
+      findLatestRunForUserMessage: jest.fn(),
+      seedThreadTitleIfEmpty: jest.fn(async () => undefined),
       submitUserMessage: jest.fn(async () => ({
         message: createMessageRow(),
         run: createRunRow(),
@@ -145,10 +177,14 @@ describe('ChatRuntimeService', () => {
       ),
     };
 
+    const billing = createBillingDeps();
     const service = new ChatRuntimeService(
       repository as never,
       events as never,
       conversationLoop as never,
+      billing.entitlements as never,
+      billing.billingConfig as never,
+      billing.billingRepository as never,
     );
 
     const result = await service.submitMessage({
@@ -165,6 +201,9 @@ describe('ChatRuntimeService', () => {
 
   it('does not block the submit response on later conversation loop failure', async () => {
     const repository = {
+      findUserMessageByIdempotencyKey: jest.fn(async () => null),
+      findLatestRunForUserMessage: jest.fn(),
+      seedThreadTitleIfEmpty: jest.fn(async () => undefined),
       submitUserMessage: jest.fn(async () => ({
         message: createMessageRow(),
         run: createRunRow(),
@@ -193,10 +232,14 @@ describe('ChatRuntimeService', () => {
       ),
     };
 
+    const billing = createBillingDeps();
     const service = new ChatRuntimeService(
       repository as never,
       events as never,
       conversationLoop as never,
+      billing.entitlements as never,
+      billing.billingConfig as never,
+      billing.billingRepository as never,
     );
 
     const result = await service.submitMessage({
@@ -214,6 +257,9 @@ describe('ChatRuntimeService', () => {
 
   it('skips conversation loop when run is already terminal', async () => {
     const repository = {
+      findUserMessageByIdempotencyKey: jest.fn(async () => null),
+      findLatestRunForUserMessage: jest.fn(),
+      seedThreadTitleIfEmpty: jest.fn(async () => undefined),
       submitUserMessage: jest.fn(async () => ({
         message: createMessageRow({ id: 'message-existing' }),
         run: createRunRow({
@@ -242,10 +288,14 @@ describe('ChatRuntimeService', () => {
       executeTurn: jest.fn(async () => createRunRow()),
     };
 
+    const billing = createBillingDeps();
     const service = new ChatRuntimeService(
       repository as never,
       events as never,
       conversationLoop as never,
+      billing.entitlements as never,
+      billing.billingConfig as never,
+      billing.billingRepository as never,
     );
 
     const result = await service.submitMessage({
@@ -262,6 +312,9 @@ describe('ChatRuntimeService', () => {
 
   it('persists explicit generation mode and passes it into the queued conversation turn', async () => {
     const repository = {
+      findUserMessageByIdempotencyKey: jest.fn(async () => null),
+      findLatestRunForUserMessage: jest.fn(),
+      seedThreadTitleIfEmpty: jest.fn(async () => undefined),
       submitUserMessage: jest.fn(async () => ({
         message: createMessageRow({ id: 'message-fast' }),
         run: createRunRow({ id: 'run-fast' }),
@@ -283,10 +336,14 @@ describe('ChatRuntimeService', () => {
       executeTurn: jest.fn(async () => createRunRow({ status: 'succeeded' })),
     };
 
+    const billing = createBillingDeps();
     const service = new ChatRuntimeService(
       repository as never,
       events as never,
       conversationLoop as never,
+      billing.entitlements as never,
+      billing.billingConfig as never,
+      billing.billingRepository as never,
     );
 
     const result = await service.submitMessage({

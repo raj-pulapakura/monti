@@ -23,7 +23,7 @@ export function BillingGate(input: {
       ) : (
         <>
           You do not have enough credits for this mode.{' '}
-          <a href="/billing">Upgrade in billing</a>.
+          <a href="/billing">Upgrade</a>.
         </>
       )}
     </p>

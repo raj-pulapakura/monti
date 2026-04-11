@@ -42,6 +42,7 @@ import { ChatComposer } from './components/chat-composer';
 import { SuggestionChips } from './components/suggestion-chips';
 import { SandboxHeader } from './components/sandbox-header';
 import { ConversationTimeline } from './components/conversation-timeline';
+import { isBalanceSufficientForMode } from '@/lib/billing/is-balance-sufficient-for-mode';
 import { BillingGate } from './components/billing-gate';
 
 type RefinementSuggestion = {
@@ -535,22 +536,18 @@ export default function ChatThreadPage() {
   const fullscreenSupported = isPreviewFullscreenSupported(
     typeof document === 'undefined' ? null : document,
   );
-  const totalAvailableCredits =
-    billingData === null
-      ? null
-      : (billingData.includedCreditsAvailable ?? 0) + (billingData.topupCreditsAvailable ?? 0);
+  const balanceSufficient =
+    billingData === null || !billingLoaded
+      ? true
+      : isBalanceSufficientForMode(billingData, generationMode);
   const costForMode =
     generationMode === 'fast'
       ? billingData?.costs.fastCredits ?? null
       : generationMode === 'quality'
         ? billingData?.costs.qualityCredits ?? null
-        : null;
+        : billingData?.costs.fastCredits ?? null;
   const softGateActive =
-    billingLoaded &&
-    Boolean(billingData?.billingEnabled) &&
-    typeof totalAvailableCredits === 'number' &&
-    typeof costForMode === 'number' &&
-    totalAvailableCredits < costForMode;
+    billingLoaded && Boolean(billingData?.billingEnabled) && !balanceSufficient;
 
   useEffect(() => {
     if (typeof document === 'undefined') {

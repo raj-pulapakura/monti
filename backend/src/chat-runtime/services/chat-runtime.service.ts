@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ValidationError } from '../../common/errors/app-error';
+import { BillingConfigService } from '../../billing/billing-config.service';
+import { BillingRepository } from '../../billing/billing.repository';
+import { resolvePricingFromSnapshot } from '../../billing/billing-pricing';
+import { EntitlementService } from '../../billing/entitlement.service';
+import { InsufficientCreditsError, ValidationError } from '../../common/errors/app-error';
 import type {
   CreateThreadRequest,
   HydrateThreadRequest,
@@ -30,6 +34,9 @@ export class ChatRuntimeService {
     private readonly repository: ChatRuntimeRepository,
     private readonly events: ChatRuntimeEventService,
     private readonly conversationLoop: ConversationLoopService,
+    private readonly entitlements: EntitlementService,
+    private readonly billingConfig: BillingConfigService,
+    private readonly billingRepository: BillingRepository,
   ) {}
 
   async listThreads(input: {
@@ -156,6 +163,45 @@ export class ChatRuntimeService {
     userId: string;
   }): Promise<SubmitMessagePayload> {
     assertChatRuntimeEnabled();
+    const idempotencyKey = input.request.idempotencyKey?.trim();
+
+    if (idempotencyKey) {
+      const existingMessage = await this.repository.findUserMessageByIdempotencyKey({
+        threadId: input.threadId,
+        userId: input.userId,
+        idempotencyKey,
+      });
+      if (existingMessage) {
+        await this.repository.seedThreadTitleIfEmpty({
+          threadId: input.threadId,
+          content: existingMessage.content,
+        });
+        const run = await this.repository.findLatestRunForUserMessage(existingMessage.id);
+        const result = {
+          message: existingMessage,
+          run,
+          deduplicated: true as const,
+        };
+        const message = await this.applyGenerationModeMetadata({
+          message: result.message,
+          generationMode: input.request.generationMode,
+          deduplicated: result.deduplicated,
+        });
+        return this.finalizeSubmitMessage({
+          threadId: input.threadId,
+          userId: input.userId,
+          message,
+          run: result.run,
+          deduplicated: result.deduplicated,
+        });
+      }
+    }
+
+    const effectiveGenerationMode = await this.resolveGenerationModeForSubmit({
+      userId: input.userId,
+      generationMode: input.request.generationMode,
+    });
+
     const result = await this.repository.submitUserMessage({
       threadId: input.threadId,
       content: input.request.content,
@@ -163,27 +209,110 @@ export class ChatRuntimeService {
     });
     const message = await this.applyGenerationModeMetadata({
       message: result.message,
-      generationMode: input.request.generationMode,
+      generationMode: effectiveGenerationMode,
       deduplicated: result.deduplicated,
     });
 
-    const run = result.run;
+    return this.finalizeSubmitMessage({
+      threadId: input.threadId,
+      userId: input.userId,
+      message,
+      run: result.run,
+      deduplicated: result.deduplicated,
+    });
+  }
+
+  private async finalizeSubmitMessage(input: {
+    threadId: string;
+    userId: string;
+    message: {
+      id: string;
+      thread_id: string;
+      user_id: string;
+      role: 'user' | 'assistant' | 'tool' | 'system';
+      content: string;
+      content_json: Record<string, unknown> | null;
+      idempotency_key: string | null;
+      created_at: string;
+    };
+    run: Parameters<typeof mapRun>[0] | null;
+    deduplicated: boolean;
+  }): Promise<SubmitMessagePayload> {
+    const run = input.run;
     if (run && run.status === 'queued' && isConversationLoopEnabled()) {
       const queuedRun = run;
       void this.executeQueuedRun({
         threadId: input.threadId,
         userId: input.userId,
-        userMessage: message,
+        userMessage: input.message,
         run: queuedRun,
       });
     }
 
     return {
       threadId: input.threadId,
-      message: mapMessage(message),
+      message: mapMessage(input.message),
       run: run ? mapRun(run) : null,
-      deduplicated: result.deduplicated,
+      deduplicated: input.deduplicated,
     };
+  }
+
+  private shouldEnforceCreditPrecheck(): boolean {
+    return this.billingConfig.billingEnabled && this.billingConfig.creditEnforcementEnabled;
+  }
+
+  private async resolveGenerationModeForSubmit(input: {
+    userId: string;
+    generationMode: GenerationMode | undefined;
+  }): Promise<GenerationMode | undefined> {
+    if (!this.shouldEnforceCreditPrecheck()) {
+      return input.generationMode;
+    }
+
+    const balance = await this.entitlements.readSpendableBalance(input.userId);
+    if (balance === null) {
+      return input.generationMode;
+    }
+
+    const snapshot = await this.billingRepository.findPricingRuleSnapshotByVersionKey(
+      this.billingConfig.launchPricingVersionKey,
+    );
+    if (!snapshot) {
+      return input.generationMode;
+    }
+
+    const pricing = resolvePricingFromSnapshot(snapshot.rules_json, this.billingConfig.launchCatalog);
+    const total = balance.fast;
+    const requested: GenerationMode = input.generationMode ?? 'auto';
+
+    if (requested === 'quality') {
+      if (total < pricing.qualityCredits) {
+        throw new InsufficientCreditsError();
+      }
+      return 'quality';
+    }
+    if (requested === 'fast') {
+      if (total < pricing.fastCredits) {
+        throw new InsufficientCreditsError();
+      }
+      return 'fast';
+    }
+    if (total >= pricing.qualityCredits) {
+      return 'auto';
+    }
+    if (total >= pricing.fastCredits) {
+      this.logger.log(
+        JSON.stringify({
+          event: 'chat_runtime.auto_mode_downgraded_to_fast',
+          userId: input.userId,
+          spendableCredits: total,
+          qualityCreditsRequired: pricing.qualityCredits,
+          fastCreditsRequired: pricing.fastCredits,
+        }),
+      );
+      return 'fast';
+    }
+    throw new InsufficientCreditsError();
   }
 
   async recordRunProviderTrace(input: {

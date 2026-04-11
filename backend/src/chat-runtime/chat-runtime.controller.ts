@@ -11,8 +11,11 @@ import {
   Sse,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Observable } from 'rxjs';
 import { AuthGuard } from '../auth/auth.guard';
+import { UserIdThrottlerGuard } from '../common/guards/user-id-throttler.guard';
+import { chatRateLimitPerMinute } from './chat-rate-limit.config';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import {
@@ -97,6 +100,8 @@ export class ChatRuntimeController {
   }
 
   @Post(':threadId/messages')
+  @UseGuards(UserIdThrottlerGuard)
+  @Throttle({ default: { limit: chatRateLimitPerMinute(), ttl: 60_000 } })
   async submitMessage(
     @CurrentUser() user: AuthenticatedUser,
     @Param('threadId') threadId: string,

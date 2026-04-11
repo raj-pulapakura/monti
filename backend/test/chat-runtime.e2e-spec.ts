@@ -285,6 +285,41 @@ class InMemoryChatRuntimeRepository {
     };
   }
 
+  async findUserMessageByIdempotencyKey(input: {
+    threadId: string;
+    userId: string;
+    idempotencyKey: string;
+  }): Promise<MessageRow | null> {
+    const key = input.idempotencyKey.trim();
+    if (!key) {
+      return null;
+    }
+    const matches = this.messages.filter(
+      (m) =>
+        m.thread_id === input.threadId &&
+        m.user_id === input.userId &&
+        m.role === 'user' &&
+        m.idempotency_key === key,
+    );
+    matches.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return matches[0] ?? null;
+  }
+
+  async findLatestRunForUserMessage(userMessageId: string): Promise<RunRow | null> {
+    const matches = [...this.runs.values()].filter((r) => r.user_message_id === userMessageId);
+    matches.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return matches[0] ?? null;
+  }
+
+  async seedThreadTitleIfEmpty(input: { threadId: string; content: string }): Promise<void> {
+    const thread = this.findThread(input.threadId);
+    if (!thread.title || thread.title.trim().length === 0) {
+      thread.title = buildThreadTitleSnippet(input.content);
+      thread.updated_at = new Date().toISOString();
+      this.threads.set(thread.id, thread);
+    }
+  }
+
   async updateMessageContentJson(input: {
     messageId: string;
     contentJson: Record<string, unknown> | null;
@@ -588,12 +623,12 @@ describe('Chat Runtime (e2e)', () => {
       .expect(201);
 
     const threadId = createThreadResponse.body.data.thread.id as string;
-    const firstEvent = chatRuntimeEvents.publish({
+    chatRuntimeEvents.publish({
       threadId,
       type: 'run_started',
       payload: { phase: 'started' },
     });
-    chatRuntimeEvents.publish({
+    const middleEvent = chatRuntimeEvents.publish({
       threadId,
       type: 'assistant_message_started',
       payload: { draftId: 'run-1', content: 'Drafting...' },
@@ -612,7 +647,7 @@ describe('Chat Runtime (e2e)', () => {
       .get(`/api/chat/threads/${threadId}/events`)
       .expect(401);
 
-    const replayFromCursor = chatRuntimeEvents.stream(threadId, firstEvent.id);
+    const replayFromCursor = chatRuntimeEvents.stream(threadId, middleEvent.id);
     const replayedEvent = await firstValueFrom(
       replayFromCursor.pipe(take(1), timeout(1000)),
     );

@@ -1083,6 +1083,50 @@ export class ChatRuntimeRepository {
     return data;
   }
 
+  async findUserMessageByIdempotencyKey(input: {
+    threadId: string;
+    userId: string;
+    idempotencyKey: string;
+  }): Promise<ChatMessageRow | null> {
+    const key = input.idempotencyKey.trim();
+    if (!key) {
+      return null;
+    }
+
+    const { data, error } = await this.client
+      .from('chat_messages')
+      .select('*')
+      .eq('thread_id', input.threadId)
+      .eq('user_id', input.userId)
+      .eq('role', 'user')
+      .eq('idempotency_key', key)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      this.throwQueryError('find user message by idempotency key', error);
+    }
+
+    return data;
+  }
+
+  async findLatestRunForUserMessage(userMessageId: string): Promise<AssistantRunRow | null> {
+    const { data, error } = await this.client
+      .from('assistant_runs')
+      .select('*')
+      .eq('user_message_id', userMessageId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      this.throwQueryError('find latest run for user message', error);
+    }
+
+    return data;
+  }
+
   private async findRunById(runId: string): Promise<AssistantRunRow | null> {
     const { data, error } = await this.client
       .from('assistant_runs')
@@ -1097,10 +1141,7 @@ export class ChatRuntimeRepository {
     return data;
   }
 
-  private async seedThreadTitleIfEmpty(input: {
-    threadId: string;
-    content: string;
-  }): Promise<void> {
+  async seedThreadTitleIfEmpty(input: { threadId: string; content: string }): Promise<void> {
     const normalizedTitle = buildThreadTitleSnippet(input.content);
     if (!normalizedTitle) {
       return;

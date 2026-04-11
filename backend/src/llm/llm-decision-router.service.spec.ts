@@ -118,7 +118,7 @@ describe('LlmDecisionRouterService', () => {
     });
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [, options] = fetchSpy.mock.calls[0] as [string, { body: string }];
+    const [, options] = fetchSpy.mock.calls[0] as unknown as [string, { body: string }];
     const body = JSON.parse(options.body);
 
     expect(body.model).toBe('gpt-5-mini');

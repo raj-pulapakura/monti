@@ -1005,6 +1005,13 @@ button:disabled {
   font-weight: 500;
 }
 
+.landing-section-sub {
+  font-size: clamp(0.95rem, 1.8vw, 1.1rem);
+  color: var(--content-muted);
+  line-height: 1.5;
+  max-width: 52ch;
+}
+
 /* ── Hero — full viewport ── */
 
 .landing-hero {
@@ -1153,6 +1160,112 @@ button:disabled {
   color: var(--content-muted);
   border-color: var(--border-soft);
   font-weight: 500;
+}
+
+/* ── Demo frame (inline card) ── */
+
+.landing-demo-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+}
+
+.landing-demo-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+.landing-showcase-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.landing-showcase-card-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--content-default);
+}
+
+.landing-demo-expand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  color: var(--content-muted);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  flex-shrink: 0;
+}
+
+.landing-demo-expand:hover {
+  background: var(--brand-soft);
+  color: var(--content-default);
+}
+
+/* ── Demo modal ── */
+
+.landing-demo-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(1100px, 92vw);
+  height: min(800px, 88vh);
+  border-radius: var(--radius-lg);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-soft);
+  box-shadow: 0 24px 60px rgba(64, 43, 26, 0.18);
+  overflow: hidden;
+  padding: 0;
+}
+
+.landing-demo-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-soft);
+  flex-shrink: 0;
+}
+
+.landing-demo-modal-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--content-default);
+}
+
+.landing-demo-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--content-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.landing-demo-modal-close:hover {
+  background: var(--surface-soft);
+  color: var(--content-default);
+}
+
+.landing-demo-modal-iframe {
+  flex: 1;
+  width: 100%;
+  border: none;
+  display: block;
 }
 
 /* ── Steps ── */

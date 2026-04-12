@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+:root {
+  --primary: #2B2D42;
+  --text: #4A4E69;
+  --bg: #F8F9FA;
+  --triangle-fill: #118AB2;
+  --triangle-stroke: #0A6381;
+  --yellow: #FFD166;
+  --red: #EF476F;
+  --green: #06D6A0;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--primary);
+  line-height: 1.5;
+  padding: 20px;
+}
+
+.monti-wrapper {
+  max-width: 960px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.05);
+  padding: 2rem;
+  overflow: hidden;
+}
+
+header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+header h1 {
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+  color: var(--primary);
+}
+
+header p {
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+.monti-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: start;
+}
+
+/* Interactive Pane */
+.interactive-pane {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.canvas-container {
+  position: relative;
+  width: 100%;
+  max-width: 350px;
+  aspect-ratio: 1 / 1;
+  background-color: var(--yellow);
+  border: 3px solid var(--primary);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+}
+
+.geometry-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.triangle {
+  fill: var(--triangle-fill);
+  stroke: var(--triangle-stroke);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.side-label {
+  fill: white;
+  font-size: 14px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+.hyp-label {
+  fill: rgba(255,255,255,0.85);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Labels for empty space */
+.space-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--red);
+  pointer-events: none;
+  will-change: opacity, transform;
+  transition: opacity 0.1s linear;
+}
+
+.label-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.label-value {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.c2-label { left: 50%; top: 50%; }
+.a2-label { left: 21.428%; top: 21.428%; opacity: 0; }
+.b2-label { left: 71.428%; top: 71.428%; opacity: 0; }
+
+.outline {
+  fill: none;
+  stroke: var(--red);
+  stroke-width: 3;
+  stroke-dasharray: 6 6;
+  transition: opacity 0.1s linear, stroke-dasharray 0.3s, stroke-width 0.3s;
+}
+
+.a2-outline, .b2-outline {
+  opacity: 0;
+}
+
+/* Controls */
+.controls {
+  width: 100%;
+  max-width: 350px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+input[type=range] {
+  flex-grow: 1;
+  cursor: pointer;
+  accent-color: var(--primary);
+  height: 6px;
+}
+
+.btn {
+  background: #E9ECEF;
+  border: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.btn:hover {
+  background: #DEE2E6;
+}
+
+.btn:active {
+  transform: scale(0.96);
+}
+
+/* Narrative Pane */
+.narrative-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.steps-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.step {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: #F8F9FA;
+  opacity: 0.5;
+  transition: all 0.3s ease;
+}
+
+.step.active {
+  opacity: 1;
+  background: #ffffff;
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.step-num {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--text);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+  transition: background 0.3s ease;
+}
+
+.step.active .step-num {
+  background: var(--primary);
+}
+
+.step-text h3 {
+  font-size: 1.1rem;
+  margin-bottom: 0.25rem;
+  color: var(--primary);
+}
+
+.step-text p {
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.conclusion {
+  margin-top: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--red);
+  opacity: 0;
+  transform: translateY(5px);
+  transition: all 0.4s ease;
+}
+
+/* Math Box */
+.math-box {
+  background: #F1F3F5;
+  padding: 1.25rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.math-box h4 {
+  margin-bottom: 0.75rem;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.85rem;
+}
+
+.math-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+
+.math-row strong {
+  color: var(--primary);
+}
+
+.math-divider {
+  height: 1px;
+  background: #CED4DA;
+  margin: 0.75rem 0;
+}
+
+.final-math strong {
+  color: var(--red);
+  font-size: 1.1rem;
+}
+
+/* The 'Click' State when Proved */
+body.proved .a2-outline,
+body.proved .b2-outline {
+  stroke-dasharray: none;
+  stroke-width: 4;
+}
+
+body.proved .a2-label,
+body.proved .b2-label {
+  transform: translate(-50%, -50%) scale(1.15);
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+body.proved .conclusion {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .monti-layout {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  
+  .interactive-pane {
+    order: -1;
+  }
+}
+</style>
+</head>
+<body>
+<div class="monti-wrapper">
+  <header>
+    <h1>Proof by Rearrangement</h1>
+    <p>Discover why <strong>a² + b² = c²</strong> by shifting the triangles to reveal the hidden squares.</p>
+  </header>
+
+  <main class="monti-layout">
+    <div class="interactive-pane">
+      <div class="canvas-container">
+        <!-- Responsive labels overlay -->
+        <div class="space-label c2-label">
+          <span class="label-title">c²</span>
+          <span class="label-value">25</span>
+        </div>
+        <div class="space-label a2-label">
+          <span class="label-title">a²</span>
+          <span class="label-value">9</span>
+        </div>
+        <div class="space-label b2-label">
+          <span class="label-title">b²</span>
+          <span class="label-value">16</span>
+        </div>
+
+        <!-- Geometry SVG -->
+        <svg viewBox="0 0 350 350" preserveAspectRatio="xMidYMid meet" class="geometry-svg">
+          <defs>
+            <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+              <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(208,0,0,0.1)" stroke-width="1"/>
+            </pattern>
+          </defs>
+          
+          <!-- Grid background for empty space -->
+          <rect width="350" height="350" fill="url(#grid)" />
+
+          <!-- Outlines of the empty squares -->
+          <polygon class="outline c2-outline" points="150,0 350,150 200,350 0,200" />
+          <rect class="outline a2-outline" x="0" y="0" width="150" height="150" />
+          <rect class="outline b2-outline" x="150" y="150" width="200" height="200" />
+
+          <!-- The 4 Triangles -->
+          <g id="t1" class="triangle-group">
+            <polygon class="triangle" points="0,0 150,0 0,200" />
+            <text x="75" y="20" class="side-label">a=3</text>
+            <text x="25" y="105" class="side-label">b=4</text>
+            <text x="95" y="115" class="side-label hyp-label">c=5</text>
+          </g>
+          <g id="t2" class="triangle-group">
+            <polygon class="triangle" points="150,0 350,0 350,150" />
+            <text x="250" y="20" class="side-label">b=4</text>
+            <text x="325" y="80" class="side-label">a=3</text>
+            <text x="230" y="95" class="side-label hyp-label">c=5</text>
+          </g>
+          <g id="t3" class="triangle-group">
+            <polygon class="triangle" points="350,150 350,350 200,350" />
+            <text x="325" y="255" class="side-label">b=4</text>
+            <text x="275" y="335" class="side-label">a=3</text>
+            <text x="255" y="240" class="side-label hyp-label">c=5</text>
+          </g>
+          <g id="t4" class="triangle-group">
+            <polygon class="triangle" points="0,200 200,350 0,350" />
+            <text x="25" y="275" class="side-label">a=3</text>
+            <text x="100" y="335" class="side-label">b=4</text>
+            <text x="115" y="260" class="side-label hyp-label">c=5</text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="controls">
+        <button id="btn-c2" class="btn" aria-label="Snap to c squared">c² Space</button>
+        <input type="range" id="slider" min="0" max="100" value="0" aria-label="Slide to rearrange triangles">
+        <button id="btn-ab2" class="btn" aria-label="Snap to a squared plus b squared">a² + b² Space</button>
+      </div>
+    </div>
+
+    <div class="narrative-pane">
+      <div class="steps-container">
+        <div class="step active" id="step-1">
+          <div class="step-num">1</div>
+          <div class="step-text">
+            <h3>The Setup</h3>
+            <p>Four identical triangles sit inside a square. The triangles have legs <strong>a=3</strong>, <strong>b=4</strong>, and hypotenuse <strong>c=5</strong>. The central empty area is exactly <strong>c²</strong>.</p>
+          </div>
+        </div>
+        <div class="step" id="step-2">
+          <div class="step-num">2</div>
+          <div class="step-text">
+            <h3>The Rearrangement</h3>
+            <p>Slide the triangles. Since the large square boundary and the triangles themselves do not change size, <strong>the total amount of empty area remains exactly the same</strong>.</p>
+          </div>
+        </div>
+        <div class="step" id="step-3">
+          <div class="step-num">3</div>
+          <div class="step-text">
+            <h3>The Revelation</h3>
+            <p>The empty area has split perfectly into two squares: <strong>a²</strong> and <strong>b²</strong>. Because the total empty area didn't change, they must be equal to our starting space!</p>
+            <div class="conclusion">a² + b² = c²</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="math-box">
+        <h4>Calculation Proof</h4>
+        <div class="math-row">
+          <span>Original empty area (c²):</span>
+          <strong>5² = 25</strong>
+        </div>
+        <div class="math-row">
+          <span>New empty areas (a² + b²):</span>
+          <strong>3² + 4² = 9 + 16 = 25</strong>
+        </div>
+        <div class="math-divider"></div>
+        <div class="math-row final-math">
+          <span>Therefore:</span>
+          <strong>25 = 25</strong>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+const slider = document.getElementById('slider');
+const btnC2 = document.getElementById('btn-c2');
+const btnAb2 = document.getElementById('btn-ab2');
+
+// SVG Triangle Groups
+const t1 = document.getElementById('t1');
+const t2 = document.getElementById('t2');
+const t3 = document.getElementById('t3');
+const t4 = document.getElementById('t4');
+
+// Outline Elements
+const c2Outline = document.querySelector('.c2-outline');
+const a2Outline = document.querySelector('.a2-outline');
+const b2Outline = document.querySelector('.b2-outline');
+
+// Label Elements
+const c2Label = document.querySelector('.c2-label');
+const a2Label = document.querySelector('.a2-label');
+const b2Label = document.querySelector('.b2-label');
+
+// Steps
+const step1 = document.getElementById('step-1');
+const step2 = document.getElementById('step-2');
+const step3 = document.getElementById('step-3');
+
+function updateGeometry() {
+  // progress ranges from 0.0 to 1.0
+  const p = parseInt(slider.value, 10) / 100;
+  
+  // Calculate translations based on state.
+  // In our 350x350 box, a=150, b=200.
+  // Target states to form a^2 and b^2 rectangles:
+  // T1: shifts down by 'a' (150px)
+  // T2: stays stationary
+  // T3: shifts left by 'b' (200px)
+  // T4: shifts right by 'a' (150px) and up by 'b' (-200px)
+  
+  const t1Y = 150 * p;
+  const t3X = -200 * p;
+  const t4X = 150 * p;
+  const t4Y = -200 * p;
+
+  // Use setAttribute for transform to keep it strictly in SVG user space.
+  t1.setAttribute('transform', `translate(0, ${t1Y})`);
+  t2.setAttribute('transform', `translate(0, 0)`);
+  t3.setAttribute('transform', `translate(${t3X}, 0)`);
+  t4.setAttribute('transform', `translate(${t4X}, ${t4Y})`);
+
+  // Crossfade visibility of empty spaces
+  const fadeOut = 1 - p;
+  const fadeIn = p;
+
+  c2Label.style.opacity = fadeOut;
+  c2Outline.style.opacity = fadeOut;
+  
+  a2Label.style.opacity = fadeIn;
+  a2Outline.style.opacity = fadeIn;
+  b2Label.style.opacity = fadeIn;
+  b2Outline.style.opacity = fadeIn;
+
+  // Update narrative active states logically
+  if (p < 0.05) {
+    step1.classList.add('active');
+    step2.classList.remove('active');
+    step3.classList.remove('active');
+  } else if (p >= 0.05 && p < 0.99) {
+    step1.classList.remove('active');
+    step2.classList.add('active');
+    step3.classList.remove('active');
+  } else {
+    step1.classList.remove('active');
+    step2.classList.remove('active');
+    step3.classList.add('active');
+  }
+
+  // Add 'proved' class for the satisfying "click" effect when fully rearranged
+  if (p === 1) {
+    document.body.classList.add('proved');
+  } else {
+    document.body.classList.remove('proved');
+  }
+}
+
+// Event Listeners
+slider.addEventListener('input', updateGeometry);
+
+btnC2.addEventListener('click', () => {
+  slider.value = 0;
+  updateGeometry();
+});
+
+btnAb2.addEventListener('click', () => {
+  slider.value = 100;
+  updateGeometry();
+});
+
+// Initialize the view
+updateGeometry();
+</script>
+</body>
+</html>

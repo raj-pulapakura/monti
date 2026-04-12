@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body {
+  margin: 0;
+  background: #020617;
+  color: #f8fafc;
+  font-family: system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+#canvas-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #020617;
+  padding: 1rem;
+}
+
+#cell-svg {
+  width: 100%;
+  height: auto;
+  max-width: 500px;
+  max-height: 80vh;
+}
+
+#info-panel {
+  width: 450px;
+  background: #0f172a;
+  border-left: 1px solid #1e293b;
+  padding: 3rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  z-index: 10;
+  box-sizing: border-box;
+}
+
+.tagline {
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-weight: 800;
+  font-size: 0.75rem;
+  color: #60a5fa;
+  margin-bottom: 0.5rem;
+}
+
+h1 {
+  font-size: 2rem;
+  margin: 0 0 1rem 0;
+  font-weight: 900;
+}
+
+.hr {
+  width: 40px;
+  height: 4px;
+  background: #60a5fa;
+  margin-bottom: 1.5rem;
+  border-radius: 2px;
+}
+
+p {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #94a3b8;
+  margin-bottom: 1.5rem;
+}
+
+#quiz-section {
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+}
+
+.quiz-header {
+  font-weight: 700;
+  color: #f8fafc;
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+  opacity: 0.8;
+}
+
+.quiz-item {
+  background: #1e293b;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.quiz-item:hover {
+  background: #273549;
+}
+
+.quiz-question {
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin: 0;
+  color: #e2e8f0;
+}
+
+.quiz-answer {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  font-style: italic;
+  color: #10b981;
+  display: none;
+}
+
+.quiz-item.revealed .quiz-answer {
+  display: block;
+}
+
+#reset-btn {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #f8fafc;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: 4px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.organelle {
+  cursor: pointer;
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+.dimmed {
+  opacity: 0.2;
+  filter: grayscale(0.8);
+}
+
+.active {
+  opacity: 1 !important;
+  filter: drop-shadow(0 0 12px rgba(255,255,255,0.3)) !important;
+}
+
+.hidden {
+  display: none !important;
+}
+
+@media (max-width: 950px) {
+  #app { flex-direction: column; overflow: auto; }
+  #info-panel { width: 100%; height: auto; padding: 2rem; border-left: none; border-top: 1px solid #1e293b; }
+  #cell-svg { max-width: 280px; }
+}
+</style>
+</head>
+<body>
+<main id="app">
+  <div id="canvas-container">
+    <svg id="cell-svg" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <radialGradient id="grad-cytoplasm" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#1e293b" />
+          <stop offset="100%" stop-color="#0f172a" />
+        </radialGradient>
+        <radialGradient id="grad-nucleus" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#a855f7" />
+          <stop offset="100%" stop-color="#6b21a8" />
+        </radialGradient>
+      </defs>
+
+      <rect id="bg-click" width="800" height="800" fill="transparent" />
+
+      <g id="cell-group">
+        <circle class="organelle" data-id="cytoplasm" cx="400" cy="400" r="350" fill="url(#grad-cytoplasm)" />
+
+        <g class="organelle" data-id="rer">
+          <path d="M 320 300 Q 240 340 300 420 T 360 480" fill="none" stroke="#3b82f6" stroke-width="22" stroke-linecap="round" opacity="0.7" />
+          <circle cx="280" cy="350" r="3" fill="#fff" /><circle cx="310" cy="400" r="3" fill="#fff" /><circle cx="340" cy="440" r="3" fill="#fff" />
+        </g>
+
+        <g class="organelle" data-id="ser">
+          <path d="M 480 320 Q 550 280 580 350 T 520 420" fill="none" stroke="#60a5fa" stroke-width="18" stroke-linecap="round" />
+        </g>
+
+        <g class="organelle" data-id="mitochondria">
+          <ellipse cx="240" cy="520" rx="55" ry="28" fill="#f97316" transform="rotate(-35, 240, 520)" />
+          <ellipse cx="580" cy="540" rx="50" ry="25" fill="#f97316" transform="rotate(25, 580, 540)" />
+        </g>
+
+        <g class="organelle" data-id="golgi">
+          <path d="M 540 430 Q 610 440 620 490" fill="none" stroke="#22c55e" stroke-width="14" stroke-linecap="round" />
+          <path d="M 530 460 Q 590 470 600 510" fill="none" stroke="#22c55e" stroke-width="12" stroke-linecap="round" />
+          <path d="M 520 490 Q 570 500 580 530" fill="none" stroke="#22c55e" stroke-width="10" stroke-linecap="round" />
+        </g>
+
+        <g class="organelle" data-id="nucleus">
+          <circle cx="410" cy="360" r="95" fill="url(#grad-nucleus)" stroke="#9333ea" stroke-width="2" />
+          <circle cx="430" cy="340" r="35" fill="#ec4899" />
+        </g>
+
+        <circle class="organelle" data-id="lysosomes" cx="260" cy="240" r="22" fill="#ef4444" />
+        <circle class="organelle" data-id="vesicles" cx="540" cy="500" r="10" fill="#14b8a6" />
+
+        <circle class="organelle" data-id="membrane" cx="400" cy="400" r="350" fill="none" stroke="#64748b" stroke-width="10" />
+      </g>
+    </svg>
+  </div>
+
+  <aside id="info-panel">
+    <div id="content-default">
+      <p class="tagline">System Overview</p>
+      <h1>Animal Cell</h1>
+      <div class="hr"></div>
+      <p>The animal cell is a complex unit of life. Select an organelle to see its function and test your knowledge.</p>
+    </div>
+
+    <div id="content-detail" class="hidden">
+      <p class="tagline" id="detail-tag">Organelle</p>
+      <h1 id="detail-name">Title</h1>
+      <div class="hr" id="detail-hr"></div>
+      <p id="detail-text">Description</p>
+      
+      <div id="quiz-section">
+        <p class="quiz-header">Self-Check</p>
+        <div id="quiz-questions"></div>
+      </div>
+
+      <button id="reset-btn">Return Home</button>
+    </div>
+  </aside>
+</main>
+<script>
+const organelleData = {
+  nucleus: {
+    name: "Nucleus",
+    tag: "Genetic Control",
+    text: "The cell's brain. It houses DNA and manages all cellular activities like growth, metabolism, and reproduction.",
+    color: "#a855f7",
+    quiz: [
+      { q: "What key genetic molecule is stored here?", a: "DNA (Deoxyribonucleic acid)" },
+      { q: "What is the dark center of the nucleus called?", a: "The Nucleolus" },
+      { q: "Does the nucleus have its own membrane?", a: "Yes, the nuclear envelope." }
+    ]
+  },
+  mitochondria: {
+    name: "Mitochondria",
+    tag: "Energy Production",
+    text: "Generates most of the cell's supply of adenosine triphosphate (ATP), used as a source of chemical energy.",
+    color: "#f97316",
+    quiz: [
+      { q: "What energy molecule is produced here?", a: "ATP" },
+      { q: "What are the inner folds of the membrane called?", a: "Cristae" },
+      { q: "Which parent provides mitochondrial DNA?", a: "The Mother" }
+    ]
+  },
+  rer: {
+    name: "Rough ER",
+    tag: "Protein Synthesis",
+    text: "Studded with ribosomes, it synthesizes and modifies proteins destined for secretion or the cell membrane.",
+    color: "#3b82f6",
+    quiz: [
+      { q: "What structure makes this 'Rough'?", a: "Ribosomes" },
+      { q: "What does it synthesize?", a: "Proteins" },
+      { q: "Where do its products usually go next?", a: "The Golgi Body" }
+    ]
+  },
+  ser: {
+    name: "Smooth ER",
+    tag: "Lipid Metabolism",
+    text: "Synthesizes lipids, phospholipids, and steroids. It also detoxifies metabolic byproducts.",
+    color: "#60a5fa",
+    quiz: [
+      { q: "What does it synthesize instead of proteins?", a: "Lipids (fats)" },
+      { q: "What role does it play in the liver?", a: "Detoxification" },
+      { q: "Does it have ribosomes?", a: "No" }
+    ]
+  },
+  golgi: {
+    name: "Golgi Body",
+    tag: "Packaging & Shipping",
+    text: "Packages proteins into membrane-bound vesicles before they are sent to their destination.",
+    color: "#22c55e",
+    quiz: [
+      { q: "What are its 'shipping packages' called?", a: "Vesicles" },
+      { q: "What is its primary function?", a: "Packaging and shipping" },
+      { q: "What is its common nickname?", a: "The Post Office of the cell" }
+    ]
+  },
+  lysosomes: {
+    name: "Lysosomes",
+    tag: "Cellular Cleanup",
+    text: "Spherical sacs containing enzymes that break down waste materials and cellular debris.",
+    color: "#ef4444",
+    quiz: [
+      { q: "What do they contain for breaking down waste?", a: "Digestive enzymes" },
+      { q: "Is the inside of a lysosome acidic or basic?", a: "Acidic" },
+      { q: "What is their primary role?", a: "Intracellular digestion/cleanup" }
+    ]
+  },
+  cytoplasm: {
+    name: "Cytoplasm",
+    tag: "Structural Fluid",
+    text: "The jelly-like substance that fills the cell and holds organelles in place, facilitating chemical reactions.",
+    color: "#64748b",
+    quiz: [
+      { q: "What is the liquid portion called?", a: "Cytosol" },
+      { q: "What is its main ingredient?", a: "Water" },
+      { q: "Is it just empty space?", a: "No, it is a dense network of fibers." }
+    ]
+  },
+  membrane: {
+    name: "Cell Membrane",
+    tag: "Boundary Control",
+    text: "A semi-permeable lipid bilayer that regulates exactly what enters and leaves the cell.",
+    color: "#94a3b8",
+    quiz: [
+      { q: "What is the primary material in the membrane?", a: "Phospholipids" },
+      { q: "What does 'semi-permeable' mean?", a: "Only certain things can pass through" },
+      { q: "What is the current model name for it?", a: "Fluid Mosaic Model" }
+    ]
+  },
+  vesicles: {
+    name: "Vesicles",
+    tag: "Transport",
+    text: "Small membrane-enclosed sacs that store or transport substances throughout the cell.",
+    color: "#14b8a6",
+    quiz: [
+      { q: "What are they made of?", a: "A lipid bilayer membrane" },
+      { q: "What do they carry?", a: "Nutrients, waste, or proteins" },
+      { q: "Can they fuse with the cell membrane?", a: "Yes" }
+    ]
+  }
+};
+
+const organelleEls = document.querySelectorAll('.organelle');
+const defaultView = document.getElementById('content-default');
+const detailView = document.getElementById('content-detail');
+const quizContainer = document.getElementById('quiz-questions');
+const resetBtn = document.getElementById('reset-btn');
+const bgClick = document.getElementById('bg-click');
+
+const detTag = document.getElementById('detail-tag');
+const detName = document.getElementById('detail-name');
+const detText = document.getElementById('detail-text');
+const detHr = document.getElementById('detail-hr');
+
+function selectOrganelle(id) {
+  const data = organelleData[id];
+  if (!data) return;
+
+  defaultView.classList.add('hidden');
+  detailView.classList.remove('hidden');
+
+  detName.textContent = data.name;
+  detTag.textContent = data.tag;
+  detText.textContent = data.text;
+  detHr.style.backgroundColor = data.color;
+  detTag.style.color = data.color;
+
+  // Build Quiz
+  quizContainer.innerHTML = '';
+  data.quiz.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'quiz-item';
+    div.innerHTML = `<p class="quiz-question">${item.q}</p><p class="quiz-answer">${item.a}</p>`;
+    div.onclick = () => div.classList.toggle('revealed');
+    quizContainer.appendChild(div);
+  });
+
+  organelleEls.forEach(el => {
+    const elId = el.getAttribute('data-id');
+    if (elId === id) {
+      el.classList.add('active');
+      el.classList.remove('dimmed');
+    } else {
+      el.classList.remove('active');
+      el.classList.add('dimmed');
+    }
+  });
+}
+
+function resetView() {
+  defaultView.classList.remove('hidden');
+  detailView.classList.add('hidden');
+  organelleEls.forEach(el => el.classList.remove('active', 'dimmed'));
+}
+
+organelleEls.forEach(el => {
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    selectOrganelle(el.getAttribute('data-id'));
+  });
+});
+
+bgClick.addEventListener('click', resetView);
+resetBtn.addEventListener('click', resetView);
+resetView();
+</script>
+</body>
+</html>

@@ -1,13 +1,55 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LandingSiteHeader } from '@/app/components/landing-site-header';
+import { AppModalBackdrop, AppModalRoot } from '@/app/components/app-modal';
+import { useAppModalExit } from '@/app/hooks/use-app-modal-exit';
+import { Expand } from 'lucide-react';
+
+const DEMOS = [
+  { slug: 'solar-system', label: 'Solar System' },
+  { slug: 'pythagorean-theorem', label: 'Pythagorean Theorem' },
+  { slug: 'animal-cell', label: 'Animal Cell' },
+] as const;
+
+type DemoSlug = (typeof DEMOS)[number]['slug'];
+
+function DemoModal(input: { slug: DemoSlug; label: string; onDismiss: () => void }) {
+  const { exiting, requestClose, dialogRef } = useAppModalExit({ onDismiss: input.onDismiss });
+  return (
+    <AppModalRoot exiting={exiting}>
+      <AppModalBackdrop onDismiss={requestClose} />
+      <div ref={dialogRef} className="app-modal-dialog landing-demo-modal">
+        <div className="landing-demo-modal-header">
+          <span className="landing-demo-modal-title">{input.label}</span>
+          <button
+            type="button"
+            className="landing-demo-modal-close"
+            aria-label="Close"
+            onClick={requestClose}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M2 2l12 12M14 2L2 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+        <iframe
+          src={`/demos/${input.slug}.html`}
+          title={input.label}
+          className="landing-demo-modal-iframe"
+          sandbox="allow-scripts"
+        />
+      </div>
+    </AppModalRoot>
+  );
+}
 
 export function MarketingLanding(input: {
   authError: string | null;
 }) {
   const shellRef = useRef<HTMLElement>(null);
+  const [activeDemo, setActiveDemo] = useState<DemoSlug | null>(null);
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -85,33 +127,35 @@ export function MarketingLanding(input: {
       <section className="landing-showcase" id="showcase">
         <div className="landing-section-header">
           <h2>Interactive experiences, from a single idea.</h2>
+          <p className="landing-section-sub">
+            Teach the way <em>you</em> want to. Create quizzes, visualisers, and explainers, all in one app.
+          </p>
         </div>
         <div className="landing-showcase-grid">
-          <article className="landing-showcase-card">
-            <div className="landing-showcase-tags">
-              <span className="landing-tag">Solar System</span>
-              <span className="landing-tag is-muted">Middle School</span>
-              <span className="landing-tag is-muted">Visualization</span>
-            </div>
-            <div className="landing-placeholder landing-placeholder-tall">
-              <span>Experience preview</span>
-            </div>
-          </article>
-          <article className="landing-showcase-card">
-            <div className="landing-showcase-tags">
-              <span className="landing-tag">Fraction Pizza</span>
-              <span className="landing-tag is-muted">Elementary</span>
-              <span className="landing-tag is-muted">Game</span>
-            </div>
-            <div className="landing-placeholder landing-placeholder-tall">
-              <span>Experience preview</span>
-            </div>
-          </article>
-          <article className="landing-showcase-card">
-            <div className="landing-placeholder landing-placeholder-tall">
-              <span>Coming soon</span>
-            </div>
-          </article>
+          {DEMOS.map(({ slug, label }) => (
+            <article key={slug} className="landing-showcase-card">
+              <div className="landing-showcase-card-header">
+                <span className="landing-showcase-card-title">{label}</span>
+                <button
+                  type="button"
+                  className="landing-demo-expand"
+                  aria-label={`Expand ${label}`}
+                  onClick={() => setActiveDemo(slug)}
+                >
+                  <Expand size={14} strokeWidth={2.2} />
+                </button>
+              </div>
+              <div className="landing-demo-frame">
+                <iframe
+                  src={`/demos/${slug}.html`}
+                  title={label}
+                  className="landing-demo-iframe"
+                  sandbox="allow-scripts"
+                  loading="lazy"
+                />
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -181,6 +225,14 @@ export function MarketingLanding(input: {
       </footer>
 
       {input.authError ? <p className="error-banner">{input.authError}</p> : null}
+
+      {activeDemo && (
+        <DemoModal
+          slug={activeDemo}
+          label={DEMOS.find((d) => d.slug === activeDemo)!.label}
+          onDismiss={() => setActiveDemo(null)}
+        />
+      )}
     </main>
   );
 }

@@ -2540,10 +2540,13 @@ button:disabled {
   gap: 1.08rem;
 }
 
-.chat-panel,
-.sandbox-panel {
+.chat-panel {
   min-height: 640px;
   padding: 0.72rem;
+}
+
+.sandbox-panel {
+  min-height: 640px;
 }
 
 .chat-panel {
@@ -2847,19 +2850,19 @@ button:disabled {
 }
 
 .sandbox-panel {
-  display: grid;
-  grid-template-rows: auto 1fr;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   min-height: 0;
 }
 
 .sandbox-header {
-  border-bottom: 1px solid var(--border-soft);
-  padding: 0.82rem 1rem;
+  padding: 1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 0.28rem;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .sandbox-header h2 {
@@ -2871,6 +2874,37 @@ button:disabled {
   display: grid;
   gap: 0.28rem;
   min-width: 0;
+}
+
+.sandbox-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding: 0.7rem 1rem 0.7rem 1rem;
+  border-top: 1px solid var(--border-soft);
+  font-size: 0.8rem;
+  color: var(--content-muted);
+}
+
+.sandbox-status-bar .loading-spinner {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex-shrink: 0;
+}
+
+.sandbox-status-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.sandbox-status-ready-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--brand-500);
+  flex-shrink: 0;
+  opacity: 0.7;
 }
 
 .sandbox-header-actions {
@@ -2941,23 +2975,27 @@ button:disabled {
 }
 
 .sandbox-title-icon-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
+  display: inline-grid;
+  place-items: center;
+  width: 1.875rem;
+  height: 1.875rem;
   padding: 0;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: #7b4026;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 248, 240, 0.55);
+  color: rgba(92, 55, 32, 0.45);
   cursor: pointer;
   flex-shrink: 0;
+  transition:
+    color var(--motion-fast) var(--ease-standard),
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
 }
 
 .sandbox-title-icon-action:hover:not(:disabled) {
-  background: rgba(123, 64, 38, 0.08);
-  color: #5c301c;
+  color: #7a4428;
+  border-color: rgba(188, 120, 72, 0.35);
+  background: rgba(255, 240, 226, 0.95);
 }
 
 .sandbox-title-icon-action:disabled {
@@ -3017,9 +3055,9 @@ button:disabled {
 
 .sandbox-control-button,
 .sandbox-fullscreen-close {
-  width: 2.4rem;
-  height: 2.4rem;
-  padding: 0;
+  /* width: 2rem;
+  height: 2rem; */
+  padding: 8px;
   display: inline-grid;
   place-items: center;
   border-radius: var(--radius-pill);
@@ -3081,6 +3119,7 @@ button:disabled {
 
 .sandbox-stage {
   position: relative;
+  flex: 1;
   min-height: 0;
   overflow: hidden;
 }
@@ -3225,6 +3264,7 @@ button:disabled {
 }
 
 .sandbox-empty {
+  flex: 1;
   display: grid;
   place-items: center;
   padding: 1.1rem;

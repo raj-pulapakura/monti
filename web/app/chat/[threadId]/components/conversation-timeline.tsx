@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ChatMessage, AssistantRun } from '../../../runtime-state';
 import { toErrorMessage } from '@/lib/errors';
 import { MessageFeedbackModal } from './message-feedback-modal';
@@ -9,6 +9,15 @@ import { ThumbsBar } from './thumbs-bar';
 type ConversationTimelineItem =
   | { kind: 'message'; key: string; message: ChatMessage }
   | { kind: 'draft'; key: string; content: string };
+
+const BUILD_MESSAGES = [
+  'Building experience...',
+  'Wiring up interactions...',
+  'Crafting the layout...',
+  'Polishing the details...',
+];
+
+const BUILD_MESSAGE_ROTATION_MS = 7000;
 
 const THUMB_FEEDBACK_COPY = {
   thumbs_up: {
@@ -32,6 +41,20 @@ export function ConversationTimeline(input: {
     message: string | null,
   ) => void | Promise<void>;
 }) {
+  const [buildMsgIndex, setBuildMsgIndex] = useState(0);
+
+  useEffect(() => {
+    if (!input.showBuildIndicator) {
+      setBuildMsgIndex(0);
+      return;
+    }
+    const id = setInterval(
+      () => setBuildMsgIndex((i) => (i + 1) % BUILD_MESSAGES.length),
+      BUILD_MESSAGE_ROTATION_MS,
+    );
+    return () => clearInterval(id);
+  }, [input.showBuildIndicator]);
+
   const [pending, setPending] = useState<{
     messageId: string;
     kind: 'thumbs_up' | 'thumbs_down';
@@ -103,7 +126,7 @@ export function ConversationTimeline(input: {
       {input.showBuildIndicator ? (
         <article className="message-row message-assistant message-status">
           <p className="chat-build-indicator" role="status" aria-live="polite">
-            <span className="chat-build-indicator-text">Building experience...</span>
+            <span className="chat-build-indicator-text">{BUILD_MESSAGES[buildMsgIndex]}</span>
           </p>
         </article>
       ) : null}

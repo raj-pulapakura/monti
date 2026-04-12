@@ -41,6 +41,11 @@ export function SandboxHeader(input: {
 }) {
   const titleInputRef = useRef<HTMLInputElement | null>(null);
 
+  const showVersionNav = input.versionList.length > 1 && input.viewingVersionNumber !== null;
+  const showFavourite = Boolean(input.activeExperience);
+  const showLink = Boolean(input.activeExperience?.slug);
+  const showFullscreen = Boolean(input.activeExperience);
+
   return (
     <div className="sandbox-header">
       <div className="sandbox-header-copy">
@@ -105,7 +110,7 @@ export function SandboxHeader(input: {
                   aria-label="Edit experience title"
                   title="Edit title"
                 >
-                  <Pencil size={15} strokeWidth={2} />
+                  <Pencil size={14} strokeWidth={2} />
                 </button>
               </>
             )}
@@ -130,7 +135,7 @@ export function SandboxHeader(input: {
         ) : null}
       </div>
       <div className="sandbox-header-actions">
-        {input.versionList.length > 1 && input.viewingVersionNumber !== null ? (
+        {showVersionNav ? (
           <div
             className="sandbox-version-nav"
             aria-label="Version navigation"
@@ -160,64 +165,60 @@ export function SandboxHeader(input: {
             </button>
           </div>
         ) : null}
-        {input.activeExperience ? (
-          <button
-            type="button"
-            className={`sandbox-control-button${input.activeExperience.isFavourite ? ' is-favourited-star' : ''}`}
-            onClick={input.onFavouriteToggle}
-            disabled={input.favouriteTogglePending}
-            aria-label={
-              input.activeExperience.isFavourite
-                ? 'Remove from favourites'
-                : 'Add to favourites'
-            }
-            title={
-              input.activeExperience.isFavourite
-                ? 'Remove from favourites'
-                : 'Add to favourites'
-            }
-          >
-            <Star size={17} strokeWidth={2.2} />
-          </button>
-        ) : null}
-        {input.activeExperience?.slug ? (
-          <button
-            type="button"
-            className="sandbox-control-button"
-            onClick={input.onCopyLink}
-            aria-label={
-              input.linkCopied
-                ? 'Link copied'
-                : !input.isViewingLatest && input.viewingVersionNumber !== null
-                  ? `Copy link to v${input.viewingVersionNumber}`
-                  : 'Copy link'
-            }
-            title={
-              input.linkCopied
-                ? 'Link copied!'
-                : !input.isViewingLatest && input.viewingVersionNumber !== null
-                  ? `Copy link to v${input.viewingVersionNumber}`
-                  : 'Copy link'
-            }
-          >
-            {input.linkCopied ? (
-              <Check size={17} strokeWidth={2.2} />
-            ) : (
-              <Link2 size={17} strokeWidth={2.2} />
-            )}
-          </button>
-        ) : null}
-        {input.activeExperience ? (
-          <button
-            type="button"
-            className="sandbox-control-button"
-            onClick={input.onEnterFullscreen}
-            aria-label="View experience fullscreen"
-            title="View experience fullscreen"
-          >
-            <Expand size={17} strokeWidth={2.2} />
-          </button>
-        ) : null}
+        <button
+          type="button"
+          className={`sandbox-control-button${input.activeExperience?.isFavourite ? ' is-favourited-star' : ''}`}
+          onClick={input.onFavouriteToggle}
+          disabled={input.favouriteTogglePending || !showFavourite}
+          aria-label={
+            input.activeExperience?.isFavourite
+              ? 'Remove from favourites'
+              : 'Add to favourites'
+          }
+          title={
+            input.activeExperience?.isFavourite
+              ? 'Remove from favourites'
+              : 'Add to favourites'
+          }
+        >
+          <Star size={17} strokeWidth={2.2} />
+        </button>
+        <button
+          type="button"
+          className="sandbox-control-button"
+          onClick={input.onCopyLink}
+          disabled={!showLink}
+          aria-label={
+            input.linkCopied
+              ? 'Link copied'
+              : !input.isViewingLatest && input.viewingVersionNumber !== null
+                ? `Copy link to v${input.viewingVersionNumber}`
+                : 'Copy link'
+          }
+          title={
+            input.linkCopied
+              ? 'Link copied!'
+              : !input.isViewingLatest && input.viewingVersionNumber !== null
+                ? `Copy link to v${input.viewingVersionNumber}`
+                : 'Copy link'
+          }
+        >
+          {input.linkCopied ? (
+            <Check size={17} strokeWidth={2.2} />
+          ) : (
+            <Link2 size={17} strokeWidth={2.2} />
+          )}
+        </button>
+        <button
+          type="button"
+          className="sandbox-control-button"
+          onClick={input.onEnterFullscreen}
+          disabled={!showFullscreen}
+          aria-label="View experience fullscreen"
+          title="View experience fullscreen"
+        >
+          <Expand size={17} strokeWidth={2.2} />
+        </button>
       </div>
     </div>
   );

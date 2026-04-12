@@ -551,13 +551,7 @@ export default function ChatThreadPage() {
     activeRun: runtimeState.activeRun,
   });
 
-  const previewStatus = getPreviewStatus({
-    hasExperience: activeExperience !== null,
-    activeRun: runtimeState.activeRun,
-    activeToolInvocation: runtimeState.activeToolInvocation,
-    sandboxState: runtimeState.sandboxState,
-    streamConnectionState,
-  });
+  const isBuilding = showChatBuildIndicator;
   const fullscreenSupported = isPreviewFullscreenSupported(
     typeof document === 'undefined' ? null : document,
   );
@@ -1171,35 +1165,28 @@ export default function ChatThreadPage() {
                 sandbox="allow-scripts"
                 srcDoc={previewDocument}
               />
-              {previewStatus?.overlay ? (
-                <div className={`sandbox-stage-overlay is-${previewStatus.tone}`}>
-                  <span className="loading-spinner" aria-hidden="true" />
-                  <div>
-                    <strong>{previewStatus.title}</strong>
-                    {previewStatus.tone === 'live' ? null : <p>{previewStatus.detail}</p>}
-                  </div>
-                </div>
-              ) : null}
             </div>
           ) : (
             <div className="sandbox-empty">
-              {previewStatus ? (
-                <div
-                  className={`sandbox-loading sandbox-feedback is-${previewStatus.tone}`}
-                  role="status"
-                  aria-live="polite"
-                >
-                  <span className="loading-spinner" aria-hidden="true" />
-                  <div>
-                    <strong>{previewStatus.title}</strong>
-                    {previewStatus.tone === 'live' ? null : <p>{previewStatus.detail}</p>}
-                  </div>
-                </div>
-              ) : (
-                <p>Your interactive experience appears here after the first draft.</p>
-              )}
+              <p>Your interactive experience appears here after the first draft.</p>
             </div>
           )}
+
+          <div className="sandbox-status-bar" role="status" aria-live="polite">
+            {isBuilding ? (
+              <>
+                <span className="loading-spinner" aria-hidden="true" />
+                <span className="sandbox-status-label">Building…</span>
+              </>
+            ) : activeExperience ? (
+              <>
+                <span className="sandbox-status-ready-dot" aria-hidden="true" />
+                <span className="sandbox-status-label">Ready</span>
+              </>
+            ) : (
+              <span className="sandbox-status-label">No experience yet</span>
+            )}
+          </div>
         </section>
       </main>
     </div>
@@ -1217,55 +1204,6 @@ function getThreadNotice(input: {
 
   if (input.activeRun?.status === 'failed') {
     return 'The last reply stalled. Edit the prompt and try again.';
-  }
-
-  return null;
-}
-
-function getPreviewStatus(input: {
-  hasExperience: boolean;
-  activeRun: AssistantRun | null;
-  activeToolInvocation: ToolInvocation | null;
-  sandboxState: SandboxState | null;
-  streamConnectionState: StreamConnectionState;
-}): {
-  title: string;
-  detail: string;
-  tone: 'live' | 'warning' | 'error';
-  overlay: boolean;
-} | null {
-  if (input.streamConnectionState === 'reconnecting' && isRunActive(input.activeRun)) {
-    return {
-      title: 'Holding the live feed',
-      detail: 'Preview updates resume automatically once the event stream reconnects.',
-      tone: 'warning',
-      overlay: input.hasExperience,
-    };
-  }
-
-  if (
-    input.sandboxState?.status === 'creating' ||
-    input.activeToolInvocation?.status === 'running'
-  ) {
-    return {
-      title: input.hasExperience ? 'Refreshing experience' : 'Building experience',
-      detail: input.hasExperience
-        ? 'Keeping the current experience visible while the next version is prepared.'
-        : 'Putting together the first experience.',
-      tone: 'live',
-      overlay: input.hasExperience,
-    };
-  }
-
-  if (input.sandboxState?.status === 'error' || input.activeRun?.status === 'failed') {
-    return {
-      title: input.hasExperience ? 'Experience needs another pass' : 'Experience paused',
-      detail: input.hasExperience
-        ? 'The last stable experience is still shown. Retry the prompt when you are ready.'
-        : 'The experience did not finish rendering. Retry the prompt to resume.',
-      tone: 'error',
-      overlay: input.hasExperience,
-    };
   }
 
   return null;

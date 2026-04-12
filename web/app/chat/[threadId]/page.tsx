@@ -54,6 +54,7 @@ import { SandboxHeader } from './components/sandbox-header';
 import { ConversationTimeline } from './components/conversation-timeline';
 import { isBalanceSufficientForMode } from '@/lib/billing/is-balance-sufficient-for-mode';
 import { BillingGate } from '@/app/components/billing-gate';
+import { useCreditsBalance } from '@/app/context/credits-balance-context';
 
 type RefinementSuggestion = {
   label: string;
@@ -162,6 +163,7 @@ export default function ChatThreadPage() {
   const threadIdIsValid = isUuidLike(routeThreadId);
   const router = useRouter();
   const getSupabaseClient = useSupabaseClient();
+  const { refreshCredits } = useCreditsBalance();
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [thread, setThread] = useState<ThreadEnvelope | null>(null);
   const [runtimeState, setRuntimeState] = useState<RuntimeState>(INITIAL_RUNTIME_STATE);
@@ -484,7 +486,10 @@ export default function ChatThreadPage() {
     (runtimeState.sandboxState?.status === 'creating' ||
       runtimeState.activeToolInvocation?.status === 'running');
   const showThinkingIndicator =
-    Boolean(thread?.id) && liveRunActive && runtimeState.assistantDraft === null;
+    Boolean(thread?.id) &&
+    liveRunActive &&
+    runtimeState.assistantDraft === null &&
+    !showChatBuildIndicator;
 
   useEffect(() => {
     const container = chatScrollRef.current;
@@ -662,6 +667,11 @@ export default function ChatThreadPage() {
 
         if (parsed.type === 'run_completed' || parsed.type === 'run_failed') {
           void refreshThreadSnapshot(thread.id, accessToken);
+          void refreshCredits().then((data) => {
+            if (data) {
+              setBillingData(data);
+            }
+          });
         }
 
         if (
@@ -692,7 +702,7 @@ export default function ChatThreadPage() {
       closedByCleanup = true;
       abortController.abort();
     };
-  }, [thread?.id, accessToken]);
+  }, [thread?.id, accessToken, refreshCredits]);
 
   const previewDocument = useMemo(() => {
     if (!activeExperience) {

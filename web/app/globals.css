@@ -216,6 +216,55 @@ button:disabled {
   color: var(--brand-500);
 }
 
+.app-topbar-end {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.app-topbar-credits {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  padding: 0.38rem 0.62rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
+  color: var(--content-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  line-height: 1;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.app-topbar-credits:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-elevated);
+  color: var(--content-strong);
+}
+
+.app-topbar-credits.is-loading {
+  min-width: 3.25rem;
+  justify-content: center;
+}
+
+.app-topbar-credits-spinner {
+  flex-shrink: 0;
+  animation: spin 0.8s linear infinite;
+  color: var(--brand-500);
+  opacity: 0.9;
+}
+
+.app-topbar-credits-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--content-strong);
+  min-width: 1.25ch;
+}
+
 .kicker,
 .landing-kicker {
   width: fit-content;
@@ -1372,7 +1421,7 @@ button:disabled {
 }
 
 .settings-billing-section {
-  padding: 1.35rem 0;
+  padding: 2rem 0;
   border-bottom: 1px solid var(--border-soft);
 }
 
@@ -1576,7 +1625,7 @@ button:disabled {
 }
 
 .settings-billing-faq {
-  padding-top: 0.5rem;
+  padding-top: 2.5rem;
   display: grid;
   gap: 1.25rem;
 }

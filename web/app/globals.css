@@ -533,6 +533,10 @@ button:disabled {
   padding-bottom: 2.5rem;
 }
 
+.settings-account-page.settings-subpage {
+  max-width: 100%;
+}
+
 .settings-account-page {
   display: grid;
   gap: 1.75rem;
@@ -553,39 +557,42 @@ button:disabled {
   letter-spacing: -0.02em;
 }
 
-.settings-account-lead {
-  margin: 0;
-  color: var(--content-muted);
-  font-size: 0.92rem;
-}
-
 .settings-account-fields {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  width: 100%;
+}
+
+.settings-account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 1rem;
-  max-width: 28rem;
+  width: 100%;
+  min-width: 0;
 }
 
-.settings-readonly-field {
-  display: grid;
-  gap: 0.35rem;
-  margin: 0;
-}
-
-.settings-readonly-label {
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--content-muted);
-}
-
-.settings-readonly-value {
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  background: var(--surface-elevated);
-  padding: 0.62rem 0.75rem;
-  font-size: 0.95rem;
+.settings-account-row-label {
+  flex-shrink: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-transform: none;
   color: var(--content-strong);
+}
+
+.settings-account-row-value {
+  min-width: 0;
+  text-align: right;
+  font-size: 0.95rem;
+  font-weight: 400;
+  color: var(--content-default);
+  word-break: break-word;
+}
+
+.settings-account-row--action .settings-btn {
+  flex-shrink: 0;
 }
 
 * {
@@ -1364,14 +1371,6 @@ button:disabled {
   color: var(--content-strong);
 }
 
-.settings-billing-lead {
-  margin: 0;
-  max-width: 42rem;
-  font-size: 0.95rem;
-  line-height: 1.55;
-  color: var(--content-muted);
-}
-
 .settings-billing-section {
   padding: 1.35rem 0;
   border-bottom: 1px solid var(--border-soft);
@@ -1434,10 +1433,6 @@ button:disabled {
   align-items: center;
 }
 
-.settings-billing-plan-icon {
-  flex-shrink: 0;
-}
-
 .settings-billing-plan-copy {
   flex: 1;
   min-width: min(100%, 14rem);
@@ -1480,11 +1475,6 @@ button:disabled {
   margin-left: auto;
 }
 
-.settings-billing-row-actions--start {
-  justify-content: flex-start;
-  margin-left: 0;
-}
-
 .settings-billing-credit-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1502,7 +1492,7 @@ button:disabled {
 
 .settings-billing-credit-cell.is-emphasis {
   border-color: rgba(188, 81, 39, 0.28);
-  background: linear-gradient(180deg, var(--brand-soft), var(--surface-elevated));
+  background: var(--surface-elevated);
 }
 
 .settings-billing-credit-value {
@@ -1583,67 +1573,6 @@ button:disabled {
   font-weight: 600;
   color: var(--content-strong);
   font-variant-numeric: tabular-nums;
-}
-
-.settings-billing-fineprint {
-  margin: 0.75rem 0 0;
-  font-size: 0.78rem;
-  color: var(--content-subtle);
-}
-
-.settings-billing-details {
-  border: none;
-}
-
-.settings-billing-details-summary {
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.92rem;
-  color: var(--content-strong);
-  padding: 0.35rem 0;
-  list-style: none;
-}
-
-.settings-billing-details-summary::-webkit-details-marker {
-  display: none;
-}
-
-.settings-billing-details[open] .settings-billing-details-summary {
-  margin-bottom: 0.65rem;
-}
-
-.settings-billing-table-wrap {
-  overflow-x: auto;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-soft);
-}
-
-.settings-billing-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-}
-
-.settings-billing-table th,
-.settings-billing-table td {
-  padding: 0.55rem 0.75rem;
-  text-align: left;
-  border-bottom: 1px solid var(--border-soft);
-}
-
-.settings-billing-table th {
-  font-weight: 600;
-  color: var(--content-muted);
-  background: var(--surface-soft);
-}
-
-.settings-billing-table tr:last-child td {
-  border-bottom: none;
-}
-
-.settings-billing-table td {
-  font-variant-numeric: tabular-nums;
-  color: var(--content-default);
 }
 
 .settings-billing-faq {

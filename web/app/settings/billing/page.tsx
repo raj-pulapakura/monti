@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createAuthenticatedApiClient } from '@/lib/api/authenticated-api-client';
-import type { BillingMeBucket, BillingMeResponse } from '@/lib/api/billing-me';
+import type { BillingMeResponse } from '@/lib/api/billing-me';
 import { useSupabaseClient } from '@/app/hooks/use-supabase-client';
 import { toErrorMessage } from '@/lib/errors';
 import type { RedirectResponse } from '@/lib/api/types';
@@ -17,7 +17,7 @@ export default function SettingsBillingPage() {
   const [billingData, setBillingData] = useState<BillingMeResponse['data'] | null>(null);
   const [viewState, setViewState] = useState<BillingViewState>('auth-loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [busyAction, setBusyAction] = useState<'upgrade' | 'manage' | 'topup' | 'invoice' | null>(null);
+  const [busyAction, setBusyAction] = useState<'upgrade' | 'manage' | 'topup' | null>(null);
 
   const spendableTotal = useMemo(() => {
     if (!billingData?.billingEnabled) {
@@ -136,11 +136,11 @@ export default function SettingsBillingPage() {
     }
   }
 
-  async function openPortal(kind: 'manage' | 'invoice') {
+  async function openPortal() {
     if (!accessToken || busyAction) {
       return;
     }
-    setBusyAction(kind);
+    setBusyAction('manage');
     setErrorMessage(null);
 
     try {
@@ -182,9 +182,6 @@ export default function SettingsBillingPage() {
     <main className="settings-subpage settings-billing">
       <header className="settings-billing-header">
         <h1 className="settings-billing-title">Billing</h1>
-        <p className="settings-billing-lead">
-          Credits, subscription, and invoices — everything that powers generations in Monti.
-        </p>
       </header>
 
       {viewState === 'auth-loading' || viewState === 'loading' ? (
@@ -236,23 +233,6 @@ export default function SettingsBillingPage() {
             <>
               <section className="settings-billing-section">
                 <div className="settings-billing-row settings-billing-row--plan">
-                  <div className="settings-billing-plan-icon" aria-hidden="true">
-                    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <rect width="40" height="40" rx="12" fill="var(--surface-soft)" />
-                      <path
-                        d="M12 22c0-3.314 2.686-6 6-6h4c3.314 0 6 2.686 6 6v2H12v-2z"
-                        stroke="var(--border-strong)"
-                        strokeWidth="1.2"
-                      />
-                      <path
-                        d="M15 16v-2a5 5 0 0110 0v2"
-                        stroke="var(--brand-500)"
-                        strokeWidth="1.2"
-                        strokeLinecap="round"
-                      />
-                      <circle cx="20" cy="25" r="1.2" fill="var(--content-muted)" />
-                    </svg>
-                  </div>
                   <div className="settings-billing-plan-copy">
                     <h2 className="settings-billing-plan-name">
                       {billingData.plan === 'paid' ? 'Paid plan' : 'Free plan'}
@@ -288,7 +268,7 @@ export default function SettingsBillingPage() {
                         <button
                           type="button"
                           className="settings-btn settings-btn--ghost"
-                          onClick={() => void openPortal('manage')}
+                          onClick={() => void openPortal()}
                           disabled={busyAction !== null}
                         >
                           {busyAction === 'manage' ? 'Opening…' : 'Manage subscription'}
@@ -372,7 +352,6 @@ export default function SettingsBillingPage() {
 
               <section className="settings-billing-section">
                 <h2 className="settings-billing-section-title">Generation cost</h2>
-                <p className="settings-billing-section-desc">Per successful generation, using the active pricing rule.</p>
                 <ul className="settings-billing-cost-list">
                   <li>
                     <span>Fast mode</span>
@@ -383,66 +362,7 @@ export default function SettingsBillingPage() {
                     <span>{billingData.costs.qualityCredits ?? '—'} credits</span>
                   </li>
                 </ul>
-                {billingData.pricingRuleVersionKey ? (
-                  <p className="settings-billing-fineprint">Pricing rule: {billingData.pricingRuleVersionKey}</p>
-                ) : null}
               </section>
-
-              <section className="settings-billing-section">
-                <h2 className="settings-billing-section-title">Payment &amp; invoices</h2>
-                <p className="settings-billing-section-desc">
-                  Payment methods, receipts, and tax documents are handled securely by Stripe. Use the customer portal to
-                  update your card or download past invoices.
-                </p>
-                <div className="settings-billing-row-actions settings-billing-row-actions--start">
-                  <button
-                    type="button"
-                    className="settings-btn settings-btn--ghost"
-                    onClick={() => void openPortal('manage')}
-                    disabled={busyAction !== null || billingData.plan !== 'paid'}
-                  >
-                    {busyAction === 'manage' ? 'Opening…' : 'Update payment method'}
-                  </button>
-                  <button
-                    type="button"
-                    className="settings-btn settings-btn--ghost"
-                    onClick={() => void openPortal('invoice')}
-                    disabled={busyAction !== null}
-                  >
-                    {busyAction === 'invoice' ? 'Opening…' : 'Invoice history'}
-                  </button>
-                </div>
-              </section>
-
-              {billingData.buckets.length > 0 ? (
-                <section className="settings-billing-section">
-                  <details className="settings-billing-details">
-                    <summary className="settings-billing-details-summary">Credit bucket breakdown</summary>
-                    <div className="settings-billing-table-wrap">
-                      <table className="settings-billing-table">
-                        <thead>
-                          <tr>
-                            <th scope="col">Bucket</th>
-                            <th scope="col">Spendable</th>
-                            <th scope="col">Reserved</th>
-                            <th scope="col">Granted</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {billingData.buckets.map((b) => (
-                            <tr key={b.id}>
-                              <td>{bucketLabel(b)}</td>
-                              <td>{b.spendableCredits}</td>
-                              <td>{b.reservedCredits}</td>
-                              <td>{b.grantedCredits}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </details>
-                </section>
-              ) : null}
 
               <section className="settings-billing-faq" aria-labelledby="billing-faq-heading">
                 <h2 id="billing-faq-heading" className="settings-billing-faq-heading">
@@ -475,8 +395,8 @@ export default function SettingsBillingPage() {
                   <details className="settings-billing-faq-item">
                     <summary>Where can I change my card or get a receipt?</summary>
                     <p>
-                      Open <strong>Invoice history</strong> or <strong>Update payment method</strong> to reach the Stripe
-                      customer portal — the same place you manage subscription and invoices.
+                      On a paid plan, use <strong>Manage subscription</strong> above to open the Stripe customer portal
+                      for payment methods and invoices.
                     </p>
                   </details>
                 </div>
@@ -531,19 +451,3 @@ function formatSubscriptionStatus(raw: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function bucketLabel(b: BillingMeBucket): string {
-  const kind = b.bucketKind;
-  if (kind === 'recurring_free') {
-    return 'Free cycle';
-  }
-  if (kind === 'recurring_paid') {
-    return 'Paid cycle';
-  }
-  if (kind === 'topup') {
-    return 'Top-up';
-  }
-  if (kind === 'manual') {
-    return 'Manual';
-  }
-  return kind;
-}

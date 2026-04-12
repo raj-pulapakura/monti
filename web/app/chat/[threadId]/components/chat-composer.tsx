@@ -38,6 +38,7 @@ export function ChatComposer(input: {
             value={input.generationMode}
             onChange={input.onGenerationModeChange}
             disabled={input.disabled}
+            menuPlacement="up"
             creditCosts={
               input.billingEnabled ? (input.creditCosts ?? null) : null
             }

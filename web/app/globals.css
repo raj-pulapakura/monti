@@ -41,6 +41,9 @@
   --motion-medium: 240ms;
   --motion-slow: 360ms;
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* App shell: chat thread, home, settings, top nav */
+  --page-max-width: 1480px;
 }
 
 * {
@@ -116,7 +119,7 @@ button:disabled {
 
 .page-shell,
 .home-shell {
-  max-width: 1260px;
+  max-width: min(100%, var(--page-max-width));
   margin: 0 auto;
   padding: 1.25rem;
   display: grid;
@@ -130,7 +133,6 @@ button:disabled {
 }
 
 .thread-page-shell {
-  max-width: 1480px;
   width: 100%;
   padding-top: calc(60px + 0.85rem);
   min-height: 100svh;
@@ -181,7 +183,7 @@ button:disabled {
 
 .app-topbar-inner {
   width: 100%;
-  max-width: 1260px;
+  max-width: min(100%, var(--page-max-width));
   margin: 0 auto;
   padding: 0.6rem 1.25rem;
   display: flex;
@@ -1987,13 +1989,9 @@ button:disabled {
 }
 
 .home-create-actions,
-.composer-actions,
-.generation-mode-dropdown {
-  z-index: 2;
-}
-
-.home-create-actions,
 .composer-actions {
+  /* Above .app-topbar (80) so the mode menu isn’t covered by the credits pill */
+  z-index: 90;
   position: absolute;
   top: 50%;
   right: 0.56rem;
@@ -2005,6 +2003,7 @@ button:disabled {
 
 .generation-mode-dropdown {
   position: relative;
+  z-index: 2;
 }
 
 .generation-mode-trigger {
@@ -2658,17 +2657,25 @@ button:disabled {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
+  border-color: rgba(154, 63, 50, 0.32);
+  background: var(--state-danger-soft);
+  color: var(--state-danger-500);
 }
 
 .billing-gate-notice-icon {
   flex-shrink: 0;
   margin-top: 0.06rem;
-  color: #b65a33;
+  color: var(--state-danger-500);
 }
 
 .billing-gate-notice-text {
   flex: 1;
   min-width: 0;
+}
+
+.billing-gate-notice .inline-link-button,
+.billing-gate-notice a {
+  color: var(--state-danger-500);
 }
 
 .chat-build-indicator {

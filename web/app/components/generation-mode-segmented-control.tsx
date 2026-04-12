@@ -36,6 +36,8 @@ export function GenerationModeDropdown(input: {
   disabled?: boolean;
   /** When provided with numeric fast/quality costs, show [N cr] next to Fast and Quality (menu + trigger). */
   creditCosts?: { fast: number | null; quality: number | null } | null;
+  /** Chat composer opens upward; home opens downward. */
+  menuPlacement?: 'up' | 'down';
 }) {
   const { open, setOpen, menuRef } = useDropdownMenu();
 
@@ -47,6 +49,7 @@ export function GenerationModeDropdown(input: {
   );
   const SelectedIcon = ICONS[selected.value];
   const selectedCostBracket = bracketCostForMode(selected.value, input.creditCosts ?? null);
+  const placement = input.menuPlacement ?? 'down';
 
   return (
     <div className="generation-mode-dropdown" ref={menuRef}>
@@ -77,7 +80,7 @@ export function GenerationModeDropdown(input: {
 
       {open ? (
         <div
-          className="profile-menu generation-mode-menu generation-mode-menu-up"
+          className={`profile-menu generation-mode-menu${placement === 'up' ? ' generation-mode-menu-up' : ''}`}
           role="menu"
           aria-label="Generation mode"
         >

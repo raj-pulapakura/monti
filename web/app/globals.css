@@ -206,16 +206,67 @@ button:disabled {
   box-shadow: var(--elevation-1);
 }
 
-.app-topbar-wordmark {
-  font-size: 1.08rem;
-  font-weight: 700;
-  letter-spacing: -0.035em;
-  color: var(--content-strong);
+.app-topbar-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.68rem;
   text-decoration: none;
+  color: var(--content-strong);
 }
 
-.app-topbar-wordmark:hover {
-  color: var(--brand-500);
+.app-topbar-logo-mark {
+  display: grid;
+  grid-template-columns: repeat(2, var(--app-topbar-logo-tile));
+  grid-template-rows: repeat(2, var(--app-topbar-logo-tile));
+  gap: 2px;
+  flex-shrink: 0;
+  --app-topbar-logo-tile: 9px;
+}
+
+.app-topbar-logo-tile {
+  display: block;
+  border-radius: 2px;
+  background: var(--brand-500);
+  transition:
+    transform var(--motion-medium) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard);
+}
+
+.app-topbar-logo-tile--tr {
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--brand-500) 58%, var(--surface-paper));
+  transform: translate(3px, -3px);
+  transition:
+    transform var(--motion-medium) var(--ease-standard),
+    background-color var(--motion-medium) var(--ease-standard);
+}
+
+.app-topbar-logo:hover .app-topbar-logo-tile--tr {
+  transform: translate(0, 0);
+  background: var(--brand-500);
+}
+
+.app-topbar-logo-text {
+  font-size: 1.08rem;
+  font-weight: 600;
+  text-transform: lowercase;
+  /* color: inherit; */
+  color: var(--brand-700);
+}
+
+.app-topbar-logo:hover .app-topbar-logo-text {
+  color: var(--brand-700);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-topbar-logo-tile {
+    transition: background-color var(--motion-fast) var(--ease-standard);
+  }
+
+  .app-topbar-logo-tile--tr {
+    transform: none;
+    background: var(--brand-500);
+  }
 }
 
 .app-topbar-end {
@@ -2879,12 +2930,21 @@ button:disabled {
 .sandbox-status-bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: space-between;
+  gap: 0.75rem;
   flex-shrink: 0;
   padding: 0.7rem 1rem 0.7rem 1rem;
   border-top: 1px solid var(--border-soft);
   font-size: 0.8rem;
   color: var(--content-muted);
+}
+
+.sandbox-status-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
 }
 
 .sandbox-status-bar .loading-spinner {
@@ -2894,8 +2954,13 @@ button:disabled {
 }
 
 .sandbox-status-label {
-  flex: 1;
   min-width: 0;
+}
+
+.sandbox-status-elapsed {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 .sandbox-status-ready-dot {

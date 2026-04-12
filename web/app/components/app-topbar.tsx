@@ -27,8 +27,14 @@ export function AppTopbar(input: { onSignOut: () => void }) {
   return (
     <nav className="app-topbar">
       <div className={`app-topbar-inner${scrolled ? ' is-scrolled' : ''}`}>
-        <Link href="/" className="app-topbar-wordmark">
-          Monti
+        <Link href="/" className="app-topbar-logo" aria-label="monti home">
+          <span className="app-topbar-logo-mark" aria-hidden="true">
+            <span className="app-topbar-logo-tile" />
+            <span className="app-topbar-logo-tile app-topbar-logo-tile--tr" />
+            <span className="app-topbar-logo-tile" />
+            <span className="app-topbar-logo-tile" />
+          </span>
+          <span className="app-topbar-logo-text">monti</span>
         </Link>
 
         <div className="app-topbar-end">

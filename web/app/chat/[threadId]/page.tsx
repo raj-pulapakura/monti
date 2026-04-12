@@ -552,6 +552,22 @@ export default function ChatThreadPage() {
   });
 
   const isBuilding = showChatBuildIndicator;
+  const [buildElapsedSeconds, setBuildElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!isBuilding) {
+      setBuildElapsedSeconds(0);
+      return;
+    }
+    const startedAt = Date.now();
+    const tick = () => {
+      setBuildElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [isBuilding]);
+
   const fullscreenSupported = isPreviewFullscreenSupported(
     typeof document === 'undefined' ? null : document,
   );
@@ -1172,25 +1188,43 @@ export default function ChatThreadPage() {
             </div>
           )}
 
-          <div className="sandbox-status-bar" role="status" aria-live="polite">
+          <div className="sandbox-status-bar">
+            <div className="sandbox-status-main" role="status" aria-live="polite">
+              {isBuilding ? (
+                <>
+                  <span className="loading-spinner" aria-hidden="true" />
+                  <span className="sandbox-status-label">Building…</span>
+                </>
+              ) : activeExperience ? (
+                <>
+                  <span className="sandbox-status-ready-dot" aria-hidden="true" />
+                  <span className="sandbox-status-label">Ready</span>
+                </>
+              ) : (
+                <span className="sandbox-status-label">No experience yet</span>
+              )}
+            </div>
             {isBuilding ? (
-              <>
-                <span className="loading-spinner" aria-hidden="true" />
-                <span className="sandbox-status-label">Building…</span>
-              </>
-            ) : activeExperience ? (
-              <>
-                <span className="sandbox-status-ready-dot" aria-hidden="true" />
-                <span className="sandbox-status-label">Ready</span>
-              </>
-            ) : (
-              <span className="sandbox-status-label">No experience yet</span>
-            )}
+              <span className="sandbox-status-elapsed" aria-hidden="true">
+                {formatSandboxBuildElapsed(buildElapsedSeconds)}
+              </span>
+            ) : null}
           </div>
         </section>
       </main>
     </div>
   );
+}
+
+function formatSandboxBuildElapsed(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  }
+  return `${m}:${String(sec).padStart(2, '0')}`;
 }
 
 function getThreadNotice(input: {

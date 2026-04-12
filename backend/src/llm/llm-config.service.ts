@@ -27,7 +27,7 @@ const LLM_RUNTIME_CONFIG = {
   },
   maxTokensDefault: 65_536,
   maxTokensRetry: 65_536,
-  timeoutMs: 300_000,
+  timeoutMs: 60_000 * 10,
   maxPartChars: 60_000,
   conversation: {
     provider: 'openai',

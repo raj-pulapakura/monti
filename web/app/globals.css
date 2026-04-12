@@ -41,6 +41,7 @@
   --motion-medium: 240ms;
   --motion-slow: 360ms;
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* App shell: chat thread, home, settings, top nav */
   --page-max-width: 1480px;
@@ -214,6 +215,25 @@ button:disabled {
   color: var(--content-strong);
 }
 
+@keyframes app-topbar-logo-tr-hover {
+  0% {
+    transform: translate(3px, -3px);
+    background: color-mix(in srgb, var(--brand-500) 58%, var(--surface-paper));
+  }
+  34% {
+    transform: translate(6px, -6px);
+    background: color-mix(in srgb, var(--brand-500) 58%, var(--surface-paper));
+  }
+  44% {
+    transform: translate(0, 0);
+    background: var(--brand-500);
+  }
+  100% {
+    transform: translate(0, 0);
+    background: var(--brand-500);
+  }
+}
+
 .app-topbar-logo-mark {
   display: grid;
   grid-template-columns: repeat(2, var(--app-topbar-logo-tile));
@@ -221,6 +241,7 @@ button:disabled {
   gap: 2px;
   flex-shrink: 0;
   --app-topbar-logo-tile: 9px;
+  --app-topbar-logo-tr-hover-duration: 480ms;
 }
 
 .app-topbar-logo-tile {
@@ -242,8 +263,29 @@ button:disabled {
 }
 
 .app-topbar-logo:hover .app-topbar-logo-tile--tr {
-  transform: translate(0, 0);
-  background: var(--brand-500);
+  animation: app-topbar-logo-tr-hover var(--app-topbar-logo-tr-hover-duration) linear forwards;
+  transition: none;
+}
+
+/* Bottom-left: 90° CCW on pointer hover (JS); snaps back with no transition on leave */
+.app-topbar-logo--bl-spin {
+  --app-topbar-logo-bl-spin-duration: 250ms;
+}
+
+.app-topbar-logo--bl-spin .app-topbar-logo-tile--bl {
+  transform: rotate(0deg);
+  transform-origin: center;
+  transition:
+    transform var(--app-topbar-logo-bl-spin-duration) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-standard);
+}
+
+.app-topbar-logo--bl-spin.is-bl-hovered .app-topbar-logo-tile--bl {
+  transform: rotate(-90deg);
+}
+
+.app-topbar-logo--bl-spin.is-bl-instant .app-topbar-logo-tile--bl {
+  transition: none;
 }
 
 .app-topbar-logo-text {
@@ -266,6 +308,18 @@ button:disabled {
   .app-topbar-logo-tile--tr {
     transform: none;
     background: var(--brand-500);
+  }
+
+  .app-topbar-logo:hover .app-topbar-logo-tile--tr {
+    animation: none;
+    transform: none;
+    background: var(--brand-500);
+  }
+
+  .app-topbar-logo--bl-spin .app-topbar-logo-tile--bl,
+  .app-topbar-logo--bl-spin.is-bl-hovered .app-topbar-logo-tile--bl {
+    transform: none;
+    transition: none;
   }
 }
 
@@ -1333,6 +1387,7 @@ button:disabled {
   max-width: 1140px;
   margin: 0 auto;
   padding: clamp(2rem, 5vw, 4rem) clamp(1.25rem, 4vw, 3rem);
+  padding-top: calc(clamp(2rem, 5vw, 4rem) + 60px);
   display: grid;
   gap: 3rem;
 }
@@ -1341,13 +1396,8 @@ button:disabled {
   text-align: center;
   display: grid;
   gap: 0.75rem;
-  padding: clamp(1.5rem, 4vw, 3rem) 0 0;
+  padding: 0;
   justify-items: center;
-}
-
-.pricing-wordmark {
-  display: block;
-  margin-bottom: 0.25rem;
 }
 
 .pricing-header h1 {
@@ -1832,24 +1882,7 @@ button:disabled {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
-}
-
-.auth-header {
-  display: flex;
-  justify-content: center;
-  padding: 2rem 1.25rem 0;
-}
-
-.auth-wordmark {
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--content-strong);
-  text-decoration: none;
-  letter-spacing: -0.01em;
-}
-
-.auth-wordmark:hover {
-  color: var(--brand-500);
+  padding-top: calc(2rem + 60px);
 }
 
 .auth-wrapper {

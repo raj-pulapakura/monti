@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
+import { LandingSiteHeader } from '@/app/components/landing-site-header';
 
 export function MarketingLanding(input: {
   authError: string | null;
@@ -50,23 +51,7 @@ export function MarketingLanding(input: {
   }, []);
   return (
     <main ref={shellRef} className="landing-shell">
-      {/* ── Sticky header ── */}
-      <header className="landing-header">
-        <Link href="/" className="landing-header-logo">
-          Monti
-        </Link>
-        <nav className="landing-header-nav" aria-label="Site navigation">
-          <Link href="/pricing" className="landing-header-link">
-            Pricing
-          </Link>
-          <Link href="/sign-in" className="landing-header-link">
-            Sign in
-          </Link>
-          <Link href="/sign-up" className="landing-header-cta">
-            Get started
-          </Link>
-        </nav>
-      </header>
+      <LandingSiteHeader />
 
       {/* ── Hero ── */}
       <section className="landing-hero">
@@ -192,8 +177,6 @@ export function MarketingLanding(input: {
         <nav className="landing-footer-nav" aria-label="Footer navigation">
           <Link href="/pricing">Pricing</Link>
           <Link href="/sign-in">Sign in</Link>
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/terms">Terms</Link>
         </nav>
       </footer>
 

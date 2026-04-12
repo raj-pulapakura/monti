@@ -6,6 +6,7 @@ import { Coins, LoaderCircle, LogOut, Settings } from 'lucide-react';
 import { useDropdownMenu } from '@/app/hooks/use-dropdown-menu';
 import { useAuthContext } from '@/app/context/auth-context';
 import { useCreditsBalance } from '@/app/context/credits-balance-context';
+import { MontiLogoLink } from '@/app/components/monti-logo-link';
 import { deriveInitialsFromUser } from '@/lib/auth/derive-initials';
 
 export function AppTopbar(input: { onSignOut: () => void }) {
@@ -27,15 +28,7 @@ export function AppTopbar(input: { onSignOut: () => void }) {
   return (
     <nav className="app-topbar">
       <div className={`app-topbar-inner${scrolled ? ' is-scrolled' : ''}`}>
-        <Link href="/" className="app-topbar-logo" aria-label="monti home">
-          <span className="app-topbar-logo-mark" aria-hidden="true">
-            <span className="app-topbar-logo-tile" />
-            <span className="app-topbar-logo-tile app-topbar-logo-tile--tr" />
-            <span className="app-topbar-logo-tile" />
-            <span className="app-topbar-logo-tile" />
-          </span>
-          <span className="app-topbar-logo-text">monti</span>
-        </Link>
+        <MontiLogoLink />
 
         <div className="app-topbar-end">
           {!authLoading && session ? (

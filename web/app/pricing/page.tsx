@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { LandingSiteHeader } from '@/app/components/landing-site-header';
 import { createAuthenticatedApiClient } from '@/lib/api/authenticated-api-client';
 import type { BillingMeResponse } from '@/lib/api/billing-me';
 import { useSupabaseClient } from '@/app/hooks/use-supabase-client';
@@ -162,10 +163,9 @@ export default function PricingPage() {
 
   return (
     <main className="pricing-shell">
+      <LandingSiteHeader />
+
       <header className="pricing-header">
-        <Link href="/" className="landing-header-logo pricing-wordmark">
-          Monti
-        </Link>
         <h1>Pricing</h1>
         <p>Start free. Upgrade when you&rsquo;re ready.</p>
       </header>

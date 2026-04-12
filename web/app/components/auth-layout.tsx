@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { LandingSiteHeader } from '@/app/components/landing-site-header';
 
 export function AuthLayout(input: {
   title: ReactNode;
@@ -18,9 +18,7 @@ export function AuthLayout(input: {
 
   return (
     <main className={shellClass}>
-      <header className="auth-header">
-        <Link href="/" className="auth-wordmark">Monti</Link>
-      </header>
+      <LandingSiteHeader />
       <div className="auth-wrapper">
         <section className={cardClass}>
           <h1>{input.title}</h1>

@@ -1,6 +1,16 @@
 'use client';
 
-import { Check, ChevronLeft, ChevronRight, Expand, Link2, Pencil, Star, X } from 'lucide-react';
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Expand,
+  Link2,
+  Pencil,
+  Star,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { useRef } from 'react';
 
 type VersionMeta = {
@@ -36,6 +46,8 @@ export function SandboxHeader(input: {
   onVersionPrev: () => void;
   onVersionNext: () => void;
   onFavouriteToggle: () => void;
+  onDelete: () => void;
+  isDeletePending: boolean;
   onCopyLink: () => void;
   onEnterFullscreen: () => void;
 }) {
@@ -182,6 +194,16 @@ export function SandboxHeader(input: {
           }
         >
           <Star size={17} strokeWidth={2.2} />
+        </button>
+        <button
+          type="button"
+          className="sandbox-control-button"
+          onClick={input.onDelete}
+          disabled={!input.activeExperience || input.isDeletePending}
+          aria-label="Delete creation"
+          title="Delete creation"
+        >
+          <Trash2 size={17} strokeWidth={2.2} />
         </button>
         <button
           type="button"

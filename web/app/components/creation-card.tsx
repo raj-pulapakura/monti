@@ -1,7 +1,8 @@
 'use client';
 
-import { Star } from 'lucide-react';
+import { MoreVertical, Pencil, Star, Trash2 } from 'lucide-react';
 import { buildSrcdoc } from '@/lib/preview';
+import { useDropdownMenu } from '@/app/hooks/use-dropdown-menu';
 
 type ThreadCard = {
   id: string;
@@ -24,11 +25,15 @@ export function CreationCard(input: {
   favouritePending: boolean;
   onOpen: () => void;
   onFavouriteToggle: () => void;
+  onRename: () => void;
+  onDelete: () => void;
 }) {
   const { thread, favouritePending } = input;
   const title = threadCardDisplayTitle(thread);
   const secondary = threadCardSecondaryTitle(thread);
   const hasPreview = isThreadPreviewReady(thread);
+  const canRename = thread.sandboxStatus === 'ready';
+  const { open: menuOpen, setOpen: setMenuOpen, menuRef } = useDropdownMenu();
 
   return (
     <div
@@ -45,6 +50,60 @@ export function CreationCard(input: {
       }}
     >
       <div className="creation-thumb">
+        <div className="creation-card-menu-shell" ref={menuRef}>
+          <button
+            type="button"
+            className="creation-card-overflow"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-label="Creation actions"
+            onClick={(event) => {
+              event.stopPropagation();
+              setMenuOpen((previous) => !previous);
+            }}
+          >
+            <MoreVertical size={17} strokeWidth={2} aria-hidden />
+          </button>
+          {menuOpen ? (
+            <div className="creation-card-dropdown profile-menu" role="menu" aria-label="Creation actions">
+              <button
+                type="button"
+                role="menuitem"
+                className="profile-menu-item"
+                disabled={!canRename}
+                title={
+                  canRename
+                    ? undefined
+                    : 'Rename is available when the experience has finished generating.'
+                }
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (!canRename) {
+                    return;
+                  }
+                  input.onRename();
+                  setMenuOpen(false);
+                }}
+              >
+                <Pencil size={16} strokeWidth={2.2} aria-hidden />
+                <span>Rename</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="profile-menu-item creation-card-menu-delete"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  input.onDelete();
+                  setMenuOpen(false);
+                }}
+              >
+                <Trash2 size={16} strokeWidth={2.2} aria-hidden />
+                <span>Delete</span>
+              </button>
+            </div>
+          ) : null}
+        </div>
         <button
           type="button"
           className={`creation-card-star${thread.isFavourite ? ' is-favourited' : ''}`}

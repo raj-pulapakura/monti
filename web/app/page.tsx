@@ -15,7 +15,9 @@ import { GenerationModeDropdown } from "./components/generation-mode-segmented-c
 import { MarketingLanding } from "./components/marketing-landing";
 import { BillingGate } from "./components/billing-gate";
 import { isBalanceSufficientForMode } from "@/lib/billing/is-balance-sufficient-for-mode";
+import { ConfirmModal } from "./components/confirm-modal";
 import { CreationCard } from "./components/creation-card";
+import { RenameCreationModal } from "./components/rename-creation-modal";
 import {
   pickHomeExamplePrompts,
 } from "@/lib/home-example-prompts";
@@ -58,6 +60,13 @@ type ThreadCreateResponse = {
       createdAt: string;
       updatedAt: string;
     };
+  };
+};
+
+type UpdateExperienceTitleResponse = {
+  ok: true;
+  data: {
+    title: string;
   };
 };
 
@@ -156,6 +165,18 @@ function HomeWorkspace(input: {
   const [libraryFavouriteError, setLibraryFavouriteError] = useState<
     string | null
   >(null);
+  const [deleteConfirmThread, setDeleteConfirmThread] =
+    useState<ThreadCard | null>(null);
+  const [deletePendingByThreadId, setDeletePendingByThreadId] = useState<
+    Record<string, boolean>
+  >({});
+  const [libraryDeleteError, setLibraryDeleteError] = useState<string | null>(
+    null,
+  );
+  const [renameThread, setRenameThread] = useState<ThreadCard | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renamePending, setRenamePending] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
   const [generationMode, setGenerationMode] = useState<GenerationMode>("auto");
   const [billingSummary, setBillingSummary] = useState<
     BillingMeResponse["data"] | null
@@ -379,6 +400,112 @@ function HomeWorkspace(input: {
     }
   }
 
+  function handleThreadRename(thread: ThreadCard) {
+    setRenameError(null);
+    setRenameThread(thread);
+    setRenameDraft(
+      thread.experienceTitle?.trim() || thread.title?.trim() || "",
+    );
+  }
+
+  function handleRenameCancel() {
+    if (renamePending) {
+      return;
+    }
+    setRenameThread(null);
+    setRenameDraft("");
+    setRenameError(null);
+  }
+
+  async function handleRenameSave() {
+    if (!renameThread || renamePending) {
+      return;
+    }
+
+    const trimmed = renameDraft.trim();
+    if (trimmed.length === 0) {
+      setRenameError("Title must not be empty.");
+      return;
+    }
+
+    const threadId = renameThread.id;
+    const rollbackThread = renameThread;
+
+    setRenameError(null);
+    setRenamePending(true);
+    setThreads((rows) =>
+      rows.map((row) =>
+        row.id === threadId ? { ...row, experienceTitle: trimmed } : row,
+      ),
+    );
+
+    try {
+      const response = await createAuthenticatedApiClient(
+        input.accessToken,
+      ).patchJson<UpdateExperienceTitleResponse>(
+        `/api/chat/threads/${threadId}/title`,
+        { title: trimmed },
+      );
+      setThreads((rows) =>
+        rows.map((row) =>
+          row.id === threadId
+            ? { ...row, experienceTitle: response.data.title }
+            : row,
+        ),
+      );
+      setRenameThread(null);
+      setRenameDraft("");
+    } catch (error) {
+      setThreads((rows) =>
+        rows.map((row) => (row.id === threadId ? rollbackThread : row)),
+      );
+      setRenameError(toErrorMessage(error));
+    } finally {
+      setRenamePending(false);
+    }
+  }
+
+  function handleThreadDeleteRequest(thread: ThreadCard) {
+    setDeleteConfirmThread(thread);
+  }
+
+  async function handleThreadDeleteConfirm() {
+    const thread = deleteConfirmThread;
+    if (!thread) {
+      return;
+    }
+    if (deletePendingByThreadId[thread.id]) {
+      return;
+    }
+
+    setLibraryDeleteError(null);
+    setDeletePendingByThreadId((prev) => ({ ...prev, [thread.id]: true }));
+    setThreads((rows) => rows.filter((row) => row.id !== thread.id));
+
+    try {
+      await createAuthenticatedApiClient(input.accessToken).deleteJson<{
+        ok: true;
+      }>(`/api/chat/threads/${thread.id}`);
+      setDeleteConfirmThread(null);
+    } catch (error) {
+      setThreads((rows) => {
+        if (rows.some((row) => row.id === thread.id)) {
+          return rows;
+        }
+        return [...rows, thread].sort((a, b) =>
+          b.updatedAt.localeCompare(a.updatedAt),
+        );
+      });
+      setLibraryDeleteError(toErrorMessage(error));
+    } finally {
+      setDeletePendingByThreadId((prev) => {
+        const nextMap = { ...prev };
+        delete nextMap[thread.id];
+        return nextMap;
+      });
+    }
+  }
+
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
     if (creating || softGateActive) {
@@ -546,6 +673,12 @@ function HomeWorkspace(input: {
           </p>
         ) : null}
 
+        {libraryDeleteError ? (
+          <p className="error-banner" role="status">
+            {libraryDeleteError}
+          </p>
+        ) : null}
+
         {loadingThreads ? (
           <>
             <div className="creation-skeleton" aria-hidden="true">
@@ -604,6 +737,8 @@ function HomeWorkspace(input: {
                   favouritePending={Boolean(favouritePendingByThreadId[thread.id])}
                   onOpen={() => router.push(`/chat/${thread.id}`)}
                   onFavouriteToggle={() => void handleThreadFavouriteToggle(thread)}
+                  onRename={() => handleThreadRename(thread)}
+                  onDelete={() => handleThreadDeleteRequest(thread)}
                 />
               ))}
             </div>
@@ -624,6 +759,34 @@ function HomeWorkspace(input: {
       </section>
 
       {createError ? <p className="error-banner">{createError}</p> : null}
+
+      {deleteConfirmThread ? (
+        <ConfirmModal
+          title="Delete this creation?"
+          message="It will be removed from your library. This action cannot be undone."
+          confirmLabel="Delete"
+          isPending={Boolean(
+            deletePendingByThreadId[deleteConfirmThread.id],
+          )}
+          onConfirm={() => void handleThreadDeleteConfirm()}
+          onCancel={() => {
+            if (!deletePendingByThreadId[deleteConfirmThread.id]) {
+              setDeleteConfirmThread(null);
+            }
+          }}
+        />
+      ) : null}
+
+      {renameThread ? (
+        <RenameCreationModal
+          draft={renameDraft}
+          onDraftChange={setRenameDraft}
+          error={renameError}
+          isPending={renamePending}
+          onSave={() => void handleRenameSave()}
+          onCancel={handleRenameCancel}
+        />
+      ) : null}
     </main>
   );
 }

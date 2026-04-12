@@ -47,6 +47,7 @@ import {
   type SandboxState,
   type ToolInvocation,
 } from '../../runtime-state';
+import { ConfirmModal } from '../../components/confirm-modal';
 import { AppTopbar } from '../../components/app-topbar';
 import { ChatComposer } from './components/chat-composer';
 import { SuggestionChips } from './components/suggestion-chips';
@@ -196,6 +197,8 @@ export default function ChatThreadPage() {
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const [favouriteTogglePending, setFavouriteTogglePending] = useState(false);
   const [favouriteActionError, setFavouriteActionError] = useState<string | null>(null);
+  const [sandboxDeleteConfirmOpen, setSandboxDeleteConfirmOpen] = useState(false);
+  const [sandboxDeletePending, setSandboxDeletePending] = useState(false);
 
   useEffect(() => {
     latestEventIdRef.current = runtimeState.latestEventId;
@@ -991,6 +994,25 @@ export default function ChatThreadPage() {
     setTimeout(() => setLinkCopied(false), 2000);
   }
 
+  async function handleSandboxDeleteConfirm() {
+    if (!accessToken || !thread?.id || sandboxDeletePending) {
+      return;
+    }
+
+    setSandboxDeletePending(true);
+    try {
+      await createAuthenticatedApiClient(accessToken).deleteJson<{ ok: true }>(
+        `/api/chat/threads/${thread.id}`,
+      );
+      router.replace('/');
+    } catch (error) {
+      setErrorMessage(toErrorMessage(error));
+      setSandboxDeleteConfirmOpen(false);
+    } finally {
+      setSandboxDeletePending(false);
+    }
+  }
+
   async function handleBuyTopup() {
     if (!accessToken || billingActionPending) {
       return;
@@ -1142,6 +1164,8 @@ export default function ChatThreadPage() {
               }
             }}
             onFavouriteToggle={() => void handleSandboxFavouriteToggle()}
+            onDelete={() => setSandboxDeleteConfirmOpen(true)}
+            isDeletePending={sandboxDeletePending}
             onCopyLink={() => void handleCopyLink()}
             onEnterFullscreen={() => void handleEnterPreviewFullscreen()}
           />
@@ -1212,6 +1236,21 @@ export default function ChatThreadPage() {
           </div>
         </section>
       </main>
+
+      {sandboxDeleteConfirmOpen ? (
+        <ConfirmModal
+          title="Delete this creation?"
+          message="It will be removed from your library. This action cannot be undone."
+          confirmLabel="Delete"
+          isPending={sandboxDeletePending}
+          onConfirm={() => void handleSandboxDeleteConfirm()}
+          onCancel={() => {
+            if (!sandboxDeletePending) {
+              setSandboxDeleteConfirmOpen(false);
+            }
+          }}
+        />
+      ) : null}
     </div>
   );
 }

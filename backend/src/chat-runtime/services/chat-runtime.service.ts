@@ -157,6 +157,11 @@ export class ChatRuntimeService {
     return this.repository.toggleFavourite(input);
   }
 
+  async deleteThread(input: { threadId: string; userId: string }): Promise<void> {
+    assertChatRuntimeEnabled();
+    await this.repository.archiveThread(input);
+  }
+
   async submitMessage(input: {
     threadId: string;
     request: SubmitMessageRequest;

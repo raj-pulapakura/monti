@@ -49,6 +49,8 @@ export class ChatRuntimeRepository {
       throw new ValidationError('Thread not found for user scope.');
     }
 
+    this.assertThreadNotArchived(thread);
+
     const { data: sandboxState, error: sandboxError } = await this.client
       .from('sandbox_states')
       .select('experience_id')
@@ -84,6 +86,31 @@ export class ChatRuntimeRepository {
     return { title: updated.title };
   }
 
+  async archiveThread(input: { threadId: string; userId: string }): Promise<void> {
+    const thread = await this.findThread(input);
+    if (!thread) {
+      throw new ValidationError('Thread not found for user scope.');
+    }
+
+    if (thread.archived_at) {
+      return;
+    }
+
+    const archivedAt = new Date().toISOString();
+    const { error } = await this.client
+      .from('chat_threads')
+      .update({
+        archived_at: archivedAt,
+        updated_at: archivedAt,
+      })
+      .eq('id', input.threadId)
+      .eq('user_id', input.userId);
+
+    if (error) {
+      this.throwQueryError('archive chat thread', error);
+    }
+  }
+
   async toggleFavourite(input: {
     threadId: string;
     userId: string;
@@ -93,6 +120,8 @@ export class ChatRuntimeRepository {
     if (!thread) {
       throw new ValidationError('Thread not found for user scope.');
     }
+
+    this.assertThreadNotArchived(thread);
 
     const { data: sandboxState, error: sandboxError } = await this.client
       .from('sandbox_states')
@@ -137,6 +166,7 @@ export class ChatRuntimeRepository {
       .from('chat_threads')
       .select('*')
       .eq('user_id', input.userId)
+      .is('archived_at', null)
       .order('updated_at', { ascending: false })
       .limit(input.limit);
 
@@ -373,6 +403,8 @@ export class ChatRuntimeRepository {
     if (!thread) {
       throw new ValidationError('Thread not found for user scope.');
     }
+
+    this.assertThreadNotArchived(thread);
 
     const [
       { data: messages, error: messagesError },
@@ -630,6 +662,8 @@ export class ChatRuntimeRepository {
     if (!thread) {
       throw new ValidationError('Thread not found for user scope.');
     }
+
+    this.assertThreadNotArchived(thread);
   }
 
   async getSandboxPreview(input: {
@@ -653,6 +687,8 @@ export class ChatRuntimeRepository {
     if (!thread) {
       throw new ValidationError('Thread not found for user scope.');
     }
+
+    this.assertThreadNotArchived(thread);
 
     const { data: sandboxState, error: sandboxError } = await this.client
       .from('sandbox_states')
@@ -755,6 +791,8 @@ export class ChatRuntimeRepository {
     if (!thread) {
       throw new ValidationError('Thread not found for user scope.');
     }
+
+    this.assertThreadNotArchived(thread);
 
     const { data: sandboxState, error: sandboxError } = await this.client
       .from('sandbox_states')
@@ -1047,6 +1085,12 @@ export class ChatRuntimeRepository {
       experienceId: data.experience_id,
       versionId: data.id,
     };
+  }
+
+  private assertThreadNotArchived(thread: ChatThreadRow): void {
+    if (thread.archived_at) {
+      throw new ValidationError('Thread not found for user scope.');
+    }
   }
 
   private async findThread(input: {

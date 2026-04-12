@@ -129,7 +129,7 @@ class InMemoryChatRuntimeRepository {
     >
   > {
     return [...this.threads.values()]
-      .filter((thread) => thread.user_id === input.userId)
+      .filter((thread) => thread.user_id === input.userId && thread.archived_at === null)
       .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
       .slice(0, input.limit)
       .map((thread) => {
@@ -337,6 +337,18 @@ class InMemoryChatRuntimeRepository {
     return updatedMessage;
   }
 
+  async archiveThread(input: { threadId: string; userId: string }): Promise<void> {
+    const thread = this.findScopedThreadForMutation(input.threadId, input.userId);
+    if (thread.archived_at) {
+      return;
+    }
+
+    const archivedAt = new Date().toISOString();
+    thread.archived_at = archivedAt;
+    thread.updated_at = archivedAt;
+    this.threads.set(thread.id, thread);
+  }
+
   async assertThreadAccess(input: {
     threadId: string;
     userId: string;
@@ -378,6 +390,15 @@ class InMemoryChatRuntimeRepository {
   }
 
   private findScopedThread(threadId: string, userId: string): ThreadRow {
+    const thread = this.findScopedThreadForMutation(threadId, userId);
+    if (thread.archived_at) {
+      throw new ValidationError('Thread not found for user scope.');
+    }
+
+    return thread;
+  }
+
+  private findScopedThreadForMutation(threadId: string, userId: string): ThreadRow {
     const thread = this.findThread(threadId);
     if (thread.user_id !== userId) {
       throw new ValidationError('Thread not found for user scope.');

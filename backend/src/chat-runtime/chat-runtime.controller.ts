@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   MessageEvent,
@@ -218,6 +219,20 @@ export class ChatRuntimeController {
         isFavourite: result.isFavourite,
       },
     };
+  }
+
+  @Delete(':threadId')
+  async deleteThread(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('threadId') threadId: string,
+  ): Promise<{ ok: true }> {
+    const request = parseHydrateThreadRequest(threadId, {});
+    await this.chatRuntimeService.deleteThread({
+      threadId: request.threadId,
+      userId: user.id,
+    });
+
+    return { ok: true };
   }
 
   @Sse(':threadId/events')

@@ -38,11 +38,18 @@ export function createAuthenticatedApiClient(accessToken: string) {
         accessToken,
       });
     },
+    deleteJson<TResponse>(path: string): Promise<TResponse> {
+      return requestJson<TResponse>({
+        method: 'DELETE',
+        path,
+        accessToken,
+      });
+    },
   };
 }
 
 async function requestJson<TResponse>(input: {
-  method: 'GET' | 'POST' | 'PATCH';
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   path: string;
   accessToken: string;
   body?: unknown;

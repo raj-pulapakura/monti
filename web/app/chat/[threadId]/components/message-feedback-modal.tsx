@@ -1,10 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
-
-/** Slightly longer than dialog exit (280ms) for fallback when motion is reduced. */
-const MESSAGE_MODAL_EXIT_FALLBACK_MS = 320;
+import { AppModalBackdrop, AppModalRoot } from '@/app/components/app-modal';
+import { useAppModalExit } from '@/app/hooks/use-app-modal-exit';
 
 export function MessageFeedbackModal(input: {
   title: string;
@@ -14,51 +13,14 @@ export function MessageFeedbackModal(input: {
   error: string | null;
   submitPending: boolean;
 }) {
-  const [exiting, setExiting] = useState(false);
   const titleId = useId();
   const detailsId = useId();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const dialogRef = useRef<HTMLDivElement | null>(null);
-  const exitDoneRef = useRef(false);
 
-  const finishExit = useCallback(() => {
-    if (exitDoneRef.current) {
-      return;
-    }
-    exitDoneRef.current = true;
-    input.onDismiss();
-  }, [input.onDismiss]);
-
-  const requestClose = useCallback(() => {
-    if (input.submitPending || exiting) {
-      return;
-    }
-    exitDoneRef.current = false;
-    setExiting(true);
-  }, [input.submitPending, exiting]);
-
-  useEffect(() => {
-    if (!exiting) {
-      return;
-    }
-
-    const node = dialogRef.current;
-    const timer = window.setTimeout(finishExit, MESSAGE_MODAL_EXIT_FALLBACK_MS);
-
-    const onAnimEnd = (e: AnimationEvent) => {
-      if (e.target !== node) {
-        return;
-      }
-      window.clearTimeout(timer);
-      finishExit();
-    };
-
-    node?.addEventListener('animationend', onAnimEnd);
-    return () => {
-      window.clearTimeout(timer);
-      node?.removeEventListener('animationend', onAnimEnd);
-    };
-  }, [exiting, finishExit]);
+  const { exiting, requestClose, dialogRef } = useAppModalExit({
+    onDismiss: input.onDismiss,
+    dismissBlocked: input.submitPending,
+  });
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -75,17 +37,15 @@ export function MessageFeedbackModal(input: {
   }, [requestClose]);
 
   return (
-    <div className={`message-feedback-modal-root${exiting ? ' is-exiting' : ''}`}>
-      <button
-        type="button"
-        className="message-feedback-modal-backdrop"
-        aria-label="Dismiss feedback dialog"
-        onClick={requestClose}
+    <AppModalRoot exiting={exiting}>
+      <AppModalBackdrop
+        ariaLabel="Dismiss feedback dialog"
+        onDismiss={requestClose}
         disabled={exiting}
       />
       <div
         ref={dialogRef}
-        className="message-feedback-modal-dialog"
+        className="app-modal-dialog message-feedback-modal-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -141,6 +101,6 @@ export function MessageFeedbackModal(input: {
           </button>
         </div>
       </div>
-    </div>
+    </AppModalRoot>
   );
 }

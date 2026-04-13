@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projectile Motion</title>
+<style>
+:root {
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --secondary: #e2e8f0;
+  --secondary-hover: #cbd5e1;
+  --bg: #f8fafc;
+  --panel: #ffffff;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --border: #cbd5e1;
+  --target: #22c55e;
+  --miss: #ef4444;
+  --grid: #e2e8f0;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.app-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+}
+
+.panel {
+  width: 360px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  gap: 1.5rem;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+}
+
+header h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+header p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.slider-header output {
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+input[type="range"] {
+  width: 100%;
+  cursor: pointer;
+}
+
+.ticks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.button-group {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+button {
+  border: none;
+  border-radius: 6px;
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-secondary {
+  background: var(--secondary);
+  color: var(--text);
+}
+
+.btn-secondary:hover {
+  background: var(--secondary-hover);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 100%;
+}
+
+.btn-outline:hover {
+  background: var(--bg);
+}
+
+.dashboard {
+  background: var(--bg);
+  padding: 1rem;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dashboard h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+}
+
+.stat-label {
+  color: var(--text-muted);
+}
+
+.stat-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.feedback-panel {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.message {
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.message.neutral {
+  background: var(--bg);
+  color: var(--text-muted);
+}
+
+.message.success {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.message.error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.canvas-wrapper {
+  flex: 1;
+  position: relative;
+  background: white;
+  min-width: 0;
+  min-height: 0;
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+  .panel {
+    width: 100%;
+    height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .canvas-wrapper {
+    height: 60vh;
+  }
+}
+</style>
+</head>
+<body>
+<div class="app-container">
+  <aside class="panel">
+    <header>
+      <h1>Projectile Motion</h1>
+      <p>Adjust angle and speed to hit the target zone.</p>
+    </header>
+
+    <div class="controls">
+      <div class="control-group">
+        <div class="slider-header">
+          <label for="angle-slider">Launch Angle</label>
+          <output id="angle-val">45°</output>
+        </div>
+        <input type="range" id="angle-slider" min="5" max="85" step="1" value="45">
+        <div class="ticks"><span>5°</span><span>45°</span><span>85°</span></div>
+      </div>
+
+      <div class="control-group">
+        <div class="slider-header">
+          <label for="speed-slider">Initial Speed</label>
+          <output id="speed-val">20 m/s</output>
+        </div>
+        <input type="range" id="speed-slider" min="10" max="35" step="1" value="20">
+        <div class="ticks"><span>10</span><span>35</span></div>
+      </div>
+
+      <div class="button-group">
+        <button id="btn-fire" class="btn-primary">Launch</button>
+        <button id="btn-reset" class="btn-secondary">Reset</button>
+      </div>
+    </div>
+
+    <div class="dashboard">
+      <h3>Live Telemetry</h3>
+      <div class="stat-row">
+        <span class="stat-label">Time of Flight</span>
+        <span class="stat-value"><span id="stat-time">0.00</span> s</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Horizontal Range</span>
+        <span class="stat-value"><span id="stat-range">0.0</span> m</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Max Height</span>
+        <span class="stat-value"><span id="stat-height">0.0</span> m</span>
+      </div>
+    </div>
+
+    <div class="feedback-panel">
+      <button id="btn-target" class="btn-outline">Randomize Target</button>
+      <div id="feedback-msg" class="message neutral">Adjust parameters and launch to test your aim.</div>
+    </div>
+  </aside>
+
+  <main class="canvas-wrapper">
+    <canvas id="sim-canvas"></canvas>
+  </main>
+</div>
+<script>
+const canvas = document.getElementById('sim-canvas');
+const ctx = canvas.getContext('2d');
+
+const UI = {
+  angle: document.getElementById('angle-slider'),
+  speed: document.getElementById('speed-slider'),
+  angleVal: document.getElementById('angle-val'),
+  speedVal: document.getElementById('speed-val'),
+  btnFire: document.getElementById('btn-fire'),
+  btnReset: document.getElementById('btn-reset'),
+  btnTarget: document.getElementById('btn-target'),
+  statTime: document.getElementById('stat-time'),
+  statRange: document.getElementById('stat-range'),
+  statHeight: document.getElementById('stat-height'),
+  feedback: document.getElementById('feedback-msg')
+};
+
+const PHY = {
+  g: 9.81,
+  xMin: -10,
+  xMax: 135,
+  yMin: -10,
+  yMax: 70
+};
+
+let state = {
+  status: 'IDLE',
+  angle: 45,
+  speed: 20,
+  t: 0,
+  maxH: 0,
+  targetX: 80,
+  targetW: 10,
+  history: []
+};
+
+let width, height;
+let lastTime = 0;
+let animFrame;
+
+function init() {
+  window.addEventListener('resize', resize);
+  resize();
+
+  UI.angle.addEventListener('input', onInput);
+  UI.speed.addEventListener('input', onInput);
+  UI.btnFire.addEventListener('click', toggleFire);
+  UI.btnReset.addEventListener('click', resetSim);
+  UI.btnTarget.addEventListener('click', randomizeTarget);
+
+  onInput();
+  randomizeTarget();
+  draw();
+}
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  width = canvas.parentElement.clientWidth;
+  height = canvas.parentElement.clientHeight;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw();
+}
+
+function cx(x) { return ((x - PHY.xMin) / (PHY.xMax - PHY.xMin)) * width; }
+function cy(y) { return height - (((y - PHY.yMin) / (PHY.yMax - PHY.yMin)) * height); }
+
+function onInput() {
+  state.angle = parseFloat(UI.angle.value);
+  state.speed = parseFloat(UI.speed.value);
+  UI.angleVal.textContent = state.angle + '°';
+  UI.speedVal.textContent = state.speed + ' m/s';
+
+  if (state.status === 'LANDED' || state.status === 'IDLE') {
+    state.status = 'IDLE';
+    state.t = 0;
+    state.maxH = 0;
+    setFeedback('neutral', 'Adjust parameters and launch to test your aim.');
+    updateDashboard();
+    updateBtn();
+    draw();
+  }
+}
+
+function randomizeTarget() {
+  state.targetX = 30 + Math.random() * 80;
+  if (state.status === 'LANDED') {
+    state.status = 'IDLE';
+    state.t = 0;
+    setFeedback('neutral', 'New target acquired. Ready to launch.');
+  } else if (state.status === 'IDLE') {
+    setFeedback('neutral', 'Target moved. Ready to launch.');
+  }
+  draw();
+}
+
+function resetSim() {
+  cancelAnimationFrame(animFrame);
+  state.history = [];
+  state.angle = 45;
+  state.speed = 20;
+  UI.angle.value = 45;
+  UI.speed.value = 20;
+  onInput();
+  randomizeTarget();
+}
+
+function toggleFire() {
+  if (state.status === 'IDLE') {
+    state.status = 'FLYING';
+    lastTime = performance.now();
+    setFeedback('neutral', 'Projectile in flight...');
+    animFrame = requestAnimationFrame(loop);
+  } else if (state.status === 'FLYING') {
+    state.status = 'PAUSED';
+    setFeedback('neutral', 'Simulation paused.');
+  } else if (state.status === 'PAUSED') {
+    state.status = 'FLYING';
+    lastTime = performance.now();
+    setFeedback('neutral', 'Projectile in flight...');
+    animFrame = requestAnimationFrame(loop);
+  } else if (state.status === 'LANDED') {
+    state.history.push({ angle: state.angle, speed: state.speed });
+    if (state.history.length > 2) state.history.shift();
+
+    state.t = 0;
+    state.maxH = 0;
+    state.status = 'FLYING';
+    lastTime = performance.now();
+    setFeedback('neutral', 'Projectile in flight...');
+    animFrame = requestAnimationFrame(loop);
+  }
+  updateBtn();
+  draw();
+}
+
+function updateBtn() {
+  if (state.status === 'IDLE' || state.status === 'LANDED') {
+    UI.btnFire.textContent = 'Launch';
+  } else if (state.status === 'FLYING') {
+    UI.btnFire.textContent = 'Pause';
+  } else if (state.status === 'PAUSED') {
+    UI.btnFire.textContent = 'Resume';
+  }
+}
+
+function setFeedback(type, text) {
+  UI.feedback.className = 'message ' + type;
+  UI.feedback.textContent = text;
+}
+
+function getPos(t, v, theta) {
+  const rad = theta * Math.PI / 180;
+  const x = (v * Math.cos(rad)) * t;
+  const y = (v * Math.sin(rad)) * t - 0.5 * PHY.g * t * t;
+  return { x, y };
+}
+
+function loop(time) {
+  if (state.status !== 'FLYING') return;
+
+  const dt = (time - lastTime) / 1000;
+  lastTime = time;
+
+  state.t += dt;
+
+  const rad = state.angle * Math.PI / 180;
+  const vy = state.speed * Math.sin(rad);
+  const totalT = (2 * vy) / PHY.g;
+
+  const currentPos = getPos(state.t, state.speed, state.angle);
+  if (currentPos.y > state.maxH) state.maxH = currentPos.y;
+
+  if (state.t >= totalT || currentPos.y <= 0 && state.t > 0.1) {
+    state.t = totalT;
+    state.status = 'LANDED';
+    evaluateHit();
+    updateBtn();
+  }
+
+  updateDashboard();
+  draw();
+
+  if (state.status === 'FLYING') {
+    animFrame = requestAnimationFrame(loop);
+  }
+}
+
+function evaluateHit() {
+  const pos = getPos(state.t, state.speed, state.angle);
+  const landX = pos.x;
+
+  if (landX >= state.targetX && landX <= state.targetX + state.targetW) {
+    setFeedback('success', 'Direct hit. Excellent combination of speed and angle.');
+  } else if (landX < state.targetX) {
+    const diff = (state.targetX - landX).toFixed(1);
+    setFeedback('error', 'Landed short by ' + diff + 'm. Try increasing speed, or adjust the angle closer to 45° to maximize distance.');
+  } else {
+    const diff = (landX - (state.targetX + state.targetW)).toFixed(1);
+    setFeedback('error', 'Overshot by ' + diff + 'm. Try decreasing speed, or adjust the angle further from 45° (steeper or shallower).');
+  }
+}
+
+function updateDashboard() {
+  if (state.status === 'IDLE') {
+    UI.statTime.textContent = '0.00';
+    UI.statRange.textContent = '0.0';
+    UI.statHeight.textContent = '0.0';
+  } else {
+    const pos = getPos(state.t, state.speed, state.angle);
+    UI.statTime.textContent = state.t.toFixed(2);
+    UI.statRange.textContent = pos.x.toFixed(1);
+    UI.statHeight.textContent = state.maxH.toFixed(1);
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, width, height);
+
+  ctx.strokeStyle = '#f1f5f9';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 0; x <= PHY.xMax; x += 10) {
+    ctx.moveTo(cx(x), 0);
+    ctx.lineTo(cx(x), height);
+  }
+  for (let y = 0; y <= PHY.yMax; y += 10) {
+    ctx.moveTo(0, cy(y));
+    ctx.lineTo(width, cy(y));
+  }
+  ctx.stroke();
+
+  ctx.strokeStyle = '#94a3b8';
+  ctx.fillStyle = '#64748b';
+  ctx.font = '12px system-ui';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  for (let x = 20; x <= PHY.xMax; x += 20) {
+    ctx.fillText(x + 'm', cx(x), cy(-3));
+  }
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (let y = 20; y <= PHY.yMax; y += 20) {
+    ctx.fillText(y + 'm', cx(-2), cy(y));
+  }
+
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(0, cy(0), width, height - cy(0));
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, cy(0));
+  ctx.lineTo(width, cy(0));
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(34, 197, 94, 0.2)';
+  ctx.fillRect(cx(state.targetX), cy(0) - 10, cx(state.targetX + state.targetW) - cx(state.targetX), 10);
+  ctx.fillStyle = '#22c55e';
+  ctx.fillRect(cx(state.targetX), cy(0) - 4, cx(state.targetX + state.targetW) - cx(state.targetX), 4);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('TARGET', cx(state.targetX + state.targetW / 2), cy(0) - 8);
+
+  state.history.forEach((h) => {
+    drawTrajectory(h.speed, h.angle, (2 * h.speed * Math.sin(h.angle * Math.PI / 180)) / PHY.g, '#cbd5e1', false);
+  });
+
+  if (state.status === 'IDLE') {
+    const rad = state.angle * Math.PI / 180;
+    const vecL = state.speed * 0.8;
+    ctx.strokeStyle = '#2563eb';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx(0), cy(0));
+    ctx.lineTo(cx(vecL * Math.cos(rad)), cy(vecL * Math.sin(rad)));
+    ctx.stroke();
+
+    ctx.fillStyle = '#1e40af';
+    ctx.beginPath();
+    ctx.arc(cx(0), cy(0), 6, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    drawTrajectory(state.speed, state.angle, state.t, '#3b82f6', true);
+
+    const pos = getPos(state.t, state.speed, state.angle);
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(cx(pos.x), cy(pos.y), 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawTrajectory(v, angle, tMax, color, dashed) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  if (dashed) ctx.setLineDash([6, 6]);
+  else ctx.setLineDash([]);
+
+  ctx.beginPath();
+  ctx.moveTo(cx(0), cy(0));
+  const steps = 40;
+  for (let i = 1; i <= steps; i++) {
+    const t = (i / steps) * tMax;
+    const pos = getPos(t, v, angle);
+    ctx.lineTo(cx(pos.x), cy(pos.y));
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+init();
+</script>
+</body>
+</html>

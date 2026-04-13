@@ -1,108 +1,32 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { LandingSiteHeader } from '@/app/components/landing-site-header';
-import { AppModalBackdrop, AppModalRoot } from '@/app/components/app-modal';
-import { useAppModalExit } from '@/app/hooks/use-app-modal-exit';
 import { Expand } from 'lucide-react';
+import { DEMOS, type DemoSlug } from './constants';
+import { LandingDemoModal } from './landing-demo-modal';
+import { LandingStepPromptVisual } from './landing-step-prompt-visual';
+import { LandingStepRefineVisual } from './landing-step-refine-visual';
+import { LandingStepShareVisual } from './landing-step-share-visual';
+import { useLandingShellAnimations } from './use-landing-shell-animations';
 
-const DEMOS = [
-  { slug: 'solar-system', label: 'Solar System' },
-  { slug: 'pythagorean-theorem', label: 'Pythagorean Theorem' },
-  { slug: 'animal-cell', label: 'Animal Cell' },
-] as const;
-
-type DemoSlug = (typeof DEMOS)[number]['slug'];
-
-function DemoModal(input: { slug: DemoSlug; label: string; onDismiss: () => void }) {
-  const { exiting, requestClose, dialogRef } = useAppModalExit({ onDismiss: input.onDismiss });
-  return (
-    <AppModalRoot exiting={exiting}>
-      <AppModalBackdrop onDismiss={requestClose} />
-      <div ref={dialogRef} className="app-modal-dialog landing-demo-modal">
-        <div className="landing-demo-modal-header">
-          <span className="landing-demo-modal-title">{input.label}</span>
-          <button
-            type="button"
-            className="landing-demo-modal-close"
-            aria-label="Close"
-            onClick={requestClose}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M2 2l12 12M14 2L2 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-        <iframe
-          src={`/demos/${input.slug}.html`}
-          title={input.label}
-          className="landing-demo-modal-iframe"
-          sandbox="allow-scripts"
-        />
-      </div>
-    </AppModalRoot>
-  );
-}
-
-export function MarketingLanding(input: {
-  authError: string | null;
-}) {
+export function MarketingLanding(input: { authError: string | null }) {
   const shellRef = useRef<HTMLElement>(null);
   const [activeDemo, setActiveDemo] = useState<DemoSlug | null>(null);
 
-  useEffect(() => {
-    const shell = shellRef.current;
-    if (!shell) return;
+  useLandingShellAnimations(shellRef);
 
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-    // Assign stagger indices so CSS transition-delay calc(var(--i) * Xms) works
-    for (const group of [
-      shell.querySelectorAll('.landing-showcase-card'),
-      shell.querySelectorAll('.landing-final-cta-inner > *'),
-    ]) {
-      group.forEach((el, i) => {
-        (el as HTMLElement).style.setProperty('--i', String(i));
-      });
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible');
-            observer.unobserve(entry.target);
-          }
-        }
-      },
-      { threshold: 0.1 },
-    );
-
-    // Section-level targets (showcase cards + CTA trigger off the section)
-    for (const el of shell.querySelectorAll('.landing-showcase, .landing-final-cta')) {
-      observer.observe(el);
-    }
-
-    // Each step observed individually — they're tall, sequential elements
-    for (const step of shell.querySelectorAll('.landing-step')) {
-      observer.observe(step);
-    }
-
-    return () => observer.disconnect();
-  }, []);
   return (
     <main ref={shellRef} className="landing-shell">
       <LandingSiteHeader />
 
-      {/* ── Hero ── */}
       <section className="landing-hero">
         <div className="landing-hero-content">
           <h1>
             Turn lessons into{' '}
             <span className="display-script">experiences.</span>
           </h1>
-          {/* <p className="landing-for">For teachers, tutors &amp; parents</p> */}
           <p className="landing-subline">
             Monti turns lesson ideas into interactive experiences
             you can share with anyone.
@@ -111,9 +35,6 @@ export function MarketingLanding(input: {
             <Link href="/sign-up" className="landing-primary">
               Get started free
             </Link>
-            {/* <a href="#showcase" className="landing-secondary">
-              See it in action
-            </a> */}
           </div>
         </div>
         <div className="landing-hero-asset" aria-hidden="true">
@@ -123,7 +44,6 @@ export function MarketingLanding(input: {
         </div>
       </section>
 
-      {/* ── Showcase ── */}
       <section className="landing-showcase" id="showcase">
         <div className="landing-section-header">
           <h2>Interactive experiences, from a single idea.</h2>
@@ -159,8 +79,14 @@ export function MarketingLanding(input: {
         </div>
       </section>
 
-      {/* ── How it works ── */}
-      <section className="landing-steps">
+      <section className="landing-steps" id="how-it-works">
+        <div className="landing-section-header">
+          <h2>From your words to their experience.</h2>
+          <p className="landing-section-sub">
+            Sketch the idea, refine it in conversation, then present or share a link when it
+            feels ready.
+          </p>
+        </div>
         <div className="landing-steps-list">
           <article className="landing-step">
             <div className="landing-step-content">
@@ -170,9 +96,7 @@ export function MarketingLanding(input: {
                 Start with a lesson objective. Make it a game, explainer or any format.
               </p>
             </div>
-            <div className="landing-placeholder landing-placeholder-short">
-              <span>Step visual</span>
-            </div>
+            <LandingStepPromptVisual />
           </article>
           <article className="landing-step">
             <div className="landing-step-content">
@@ -183,9 +107,7 @@ export function MarketingLanding(input: {
                 or focus. See changes instantly.
               </p>
             </div>
-            <div className="landing-placeholder landing-placeholder-short">
-              <span>Step visual</span>
-            </div>
+            <LandingStepRefineVisual />
           </article>
           <article className="landing-step">
             <div className="landing-step-content">
@@ -195,14 +117,11 @@ export function MarketingLanding(input: {
                 Your experience is ready. Present with full-screen mode, or share a link via a safe, accessible URL.
               </p>
             </div>
-            <div className="landing-placeholder landing-placeholder-short">
-              <span>Step visual</span>
-            </div>
+            <LandingStepShareVisual />
           </article>
         </div>
       </section>
 
-      {/* ── Final CTA ── */}
       <section className="landing-final-cta">
         <div className="landing-final-cta-inner">
           <h2>Your next lesson is a conversation away.</h2>
@@ -215,7 +134,6 @@ export function MarketingLanding(input: {
         </div>
       </section>
 
-      {/* ── Footer ── */}
       <footer className="landing-footer">
         <span>© {new Date().getFullYear()} Monti</span>
         <nav className="landing-footer-nav" aria-label="Footer navigation">
@@ -227,7 +145,7 @@ export function MarketingLanding(input: {
       {input.authError ? <p className="error-banner">{input.authError}</p> : null}
 
       {activeDemo && (
-        <DemoModal
+        <LandingDemoModal
           slug={activeDemo}
           label={DEMOS.find((d) => d.slug === activeDemo)!.label}
           onDismiss={() => setActiveDemo(null)}

@@ -1029,10 +1029,11 @@ button:disabled {
   min-height: 100svh;
   padding: clamp(2rem, 6vw, 4rem) clamp(1.5rem, 5vw, 4rem);
   padding-top: calc(clamp(2rem, 6vw, 4rem) + 60px);
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(2rem, 4vw, 4rem);
+  padding-bottom: clamp(2.5rem, 5vw, 4rem);
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  gap: clamp(1.75rem, 4vw, 2.75rem);
   background:
     radial-gradient(
       circle at 85% 15%,
@@ -1045,6 +1046,22 @@ button:disabled {
 .landing-hero-content {
   display: grid;
   gap: 1.4rem;
+}
+
+.landing-hero-content--stacked {
+  max-width: 52rem;
+  width: 100%;
+  text-align: center;
+  justify-items: center;
+}
+
+.landing-subline--centered {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.landing-actions--center {
+  justify-content: center;
 }
 
 .landing-hero h1 {
@@ -1079,9 +1096,12 @@ button:disabled {
   letter-spacing: 0.01em;
 }
 
-.landing-hero-asset {
+.landing-hero-visual {
+  width: 100%;
+  max-width: min(1180px, 100%);
   display: grid;
-  place-items: center;
+  gap: 0.65rem;
+  justify-items: center;
 }
 
 .landing-placeholder {
@@ -1104,6 +1124,412 @@ button:disabled {
 .landing-placeholder-short {
   aspect-ratio: 16 / 9;
   margin-top: 0.5rem;
+}
+
+/* Hero — full-width workspace mock (Monti UI) */
+
+.landing-hero-mock {
+  width: 100%;
+}
+
+.landing-hero-mock-viewport {
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 88%, transparent);
+  background: linear-gradient(
+    165deg,
+    var(--surface-elevated) 0%,
+    var(--surface-paper) 55%,
+    color-mix(in srgb, var(--brand-soft) 22%, var(--surface-paper)) 100%
+  );
+  box-shadow:
+    var(--elevation-2),
+    0 24px 64px rgba(120, 62, 28, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.45) inset;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.landing-hero-mock-appbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+  padding: 0.55rem 0.85rem 0.5rem;
+  border-bottom: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--surface-paper) 92%, transparent);
+}
+
+.landing-hero-mock-logo-static {
+  pointer-events: none;
+  cursor: default;
+  text-decoration: none;
+}
+
+.landing-hero-mock-appbar-end {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.landing-hero-mock-credits {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.32rem 0.55rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(167, 70, 33, 0.18);
+  background: #fff5ea;
+  color: #7f4023;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.landing-hero-mock-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 2.05rem;
+  height: 2.05rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(167, 70, 33, 0.22);
+  background: linear-gradient(145deg, var(--brand-500), var(--brand-600));
+  color: #fffaf5;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.landing-hero-mock-workspace {
+  display: grid;
+  grid-template-columns: minmax(220px, 32%) minmax(0, 1fr);
+  gap: 0.85rem;
+  padding: 0.75rem 0.85rem 0.85rem;
+  min-height: clamp(380px, 58vw, 560px);
+  max-height: min(680px, 78vh);
+  min-width: 0;
+}
+
+.landing-hero-mock-chat {
+  min-height: 0;
+  min-width: 0;
+  padding: 0.55rem 0.6rem 0.6rem;
+}
+
+.landing-hero-mock-chat-scroll {
+  max-height: 15.5rem;
+  gap: 0.75rem;
+}
+
+.landing-hero-mock-chat .message-content {
+  font-size: 0.82rem;
+  line-height: 1.38;
+}
+
+.landing-hero-mock-composer .composer-row input {
+  min-height: 2.85rem;
+  padding-block: 0.62rem;
+  font-size: 0.84rem;
+}
+
+.landing-hero-mock-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.2rem;
+  padding: 0.38rem 0.5rem;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: var(--surface-soft);
+  color: #6c3a23;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: var(--elevation-1);
+}
+
+.landing-hero-mock .chat-panel,
+.landing-hero-mock .sandbox-panel {
+  min-height: 0;
+}
+
+.landing-hero-mock-sandbox {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.landing-hero-mock-sandbox .sandbox-header {
+  padding: 0.72rem 0.85rem;
+  flex-shrink: 0;
+}
+
+.landing-hero-mock-sandbox .sandbox-title-heading {
+  font-size: 0.98rem;
+}
+
+.landing-hero-mock-stage {
+  flex: 1;
+  min-height: 280px;
+  background: #0f0f0f;
+  position: relative;
+}
+
+.landing-hero-mock-sandbox .sandbox-status-bar {
+  padding: 0.55rem 0.85rem;
+  flex-shrink: 0;
+}
+
+@keyframes landing-hero-mock-viewport-in {
+  from {
+    opacity: 0.9;
+    transform: translateY(14px) scale(0.992);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.landing-hero-mock-viewport.is-hero-mock-intro-visible:not(.is-hero-mock-reduced) {
+  animation: landing-hero-mock-viewport-in 0.58s var(--ease-standard) forwards;
+}
+
+@keyframes landing-hero-mock-shimmer-bg {
+  0% {
+    background-position: 0% 40%;
+  }
+
+  100% {
+    background-position: 100% 60%;
+  }
+}
+
+@keyframes landing-hero-mock-thinking-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes landing-hero-mock-pulse-expand {
+  0%,
+  100% {
+    box-shadow: var(--elevation-1);
+    transform: translateY(0);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(188, 81, 39, 0.22),
+      var(--elevation-2);
+    transform: translateY(-1px);
+  }
+}
+
+.landing-hero-mock-stage-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.48s var(--ease-standard);
+  background: linear-gradient(
+    118deg,
+    #1c1c1c 0%,
+    #0a0a0a 38%,
+    color-mix(in srgb, var(--brand-600) 32%, #121212) 72%,
+    #181818 100%
+  );
+  background-size: 240% 240%;
+}
+
+.landing-hero-mock-stage.is-preview-masked .landing-hero-mock-stage-overlay {
+  opacity: 1;
+  animation: landing-hero-mock-shimmer-bg 1.35s linear infinite;
+}
+
+.landing-hero-mock-stage .sandbox-iframe {
+  position: relative;
+  z-index: 1;
+  transition:
+    opacity 0.5s var(--ease-standard),
+    filter 0.5s var(--ease-standard);
+}
+
+.landing-hero-mock-stage.is-preview-masked .sandbox-iframe {
+  opacity: 0.4;
+  filter: brightness(0.76) saturate(0.88);
+}
+
+.landing-hero-mock-msg-user:not(.is-visible),
+.landing-hero-mock-msg-assistant:not(.is-visible) {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin-block: 0;
+  padding-block: 0;
+  border-width: 0;
+  transform: translateY(10px);
+  transition:
+    max-height 0.5s var(--ease-standard),
+    opacity 0.4s var(--ease-standard),
+    transform 0.45s var(--ease-standard),
+    margin 0.35s var(--ease-standard),
+    padding 0.35s var(--ease-standard),
+    border-width 0.35s var(--ease-standard);
+}
+
+.landing-hero-mock-msg-user:not(.is-visible) {
+  transform: translateX(14px);
+}
+
+.landing-hero-mock-msg-user.is-visible,
+.landing-hero-mock-msg-assistant.is-visible {
+  max-height: 28rem;
+  opacity: 1;
+  margin-block: unset;
+  padding-block: unset;
+  transform: translateX(0) translateY(0);
+}
+
+.landing-hero-mock-msg-user.is-visible {
+  border-width: 1px;
+}
+
+.landing-hero-mock-msg-thinking {
+  animation: landing-hero-mock-thinking-in 0.38s var(--ease-standard) both;
+}
+
+.landing-hero-mock-pills:not(.is-visible) {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 0.38s var(--ease-standard), transform 0.38s var(--ease-standard);
+}
+
+.landing-hero-mock-pills.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.landing-hero-mock-chip {
+  opacity: 0;
+  transform: translateY(7px);
+  transition:
+    opacity 0.4s var(--ease-standard),
+    transform 0.4s var(--ease-standard);
+  transition-delay: calc(var(--i, 0) * 58ms);
+}
+
+.landing-hero-mock-pills.is-visible .landing-hero-mock-chip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.landing-hero-mock-composer {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sandbox-control-button.is-hero-mock-pulse-expand {
+  animation: landing-hero-mock-pulse-expand 0.68s var(--ease-standard) 1;
+}
+
+.landing-hero-mock-viewport.is-hero-mock-reduced {
+  animation: none;
+}
+
+.landing-hero-mock-viewport.is-hero-mock-reduced .landing-hero-mock-stage-overlay {
+  opacity: 0;
+  animation: none;
+}
+
+.landing-hero-mock-viewport.is-hero-mock-reduced .landing-hero-mock-msg-user:not(.is-visible),
+.landing-hero-mock-viewport.is-hero-mock-reduced .landing-hero-mock-msg-assistant:not(.is-visible) {
+  max-height: none;
+  opacity: 1;
+  transform: none;
+  overflow: visible;
+  margin-block: unset;
+  padding-block: unset;
+  border-width: unset;
+  transition: none;
+}
+
+.landing-hero-mock-viewport.is-hero-mock-reduced .landing-hero-mock-pills:not(.is-visible) {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+.landing-hero-mock-viewport.is-hero-mock-reduced .landing-hero-mock-chip {
+  opacity: 1;
+  transform: none;
+  transition: none;
+  transition-delay: 0ms;
+}
+
+.landing-hero-mock-viewport.is-hero-mock-reduced .sandbox-iframe {
+  opacity: 1;
+  filter: none;
+}
+
+@media (max-width: 1020px) {
+  .landing-hero-mock-workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    max-height: none;
+    min-height: 0;
+  }
+
+  .landing-hero-mock-sandbox {
+    order: -1;
+    min-height: 360px;
+  }
+
+  .landing-hero-mock-chat-scroll {
+    max-height: 11.5rem;
+  }
+
+  .landing-hero-mock .sandbox-header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .landing-hero-mock .sandbox-header-actions {
+    justify-content: flex-end;
+  }
+}
+
+.landing-hero-preview-caption {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.landing-hero-preview-caption a {
+  color: var(--content-muted);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--content-muted) 35%, transparent);
+  text-underline-offset: 0.14em;
+}
+
+.landing-hero-preview-caption a:hover {
+  color: var(--content-default);
+  text-decoration-color: color-mix(in srgb, var(--content-default) 40%, transparent);
 }
 
 /* ── Section wrapper (shared padding for content sections) ── */
@@ -1801,7 +2227,7 @@ button:disabled {
 .landing-hero .landing-subline { animation-delay: 0.1s; }
 .landing-hero .landing-actions { animation-delay: 0.2s; }
 
-.landing-hero-asset {
+.landing-hero-visual {
   animation: landing-fade-in 0.7s var(--ease-standard) 0.2s both;
 }
 
@@ -1894,10 +2320,26 @@ button:disabled {
   .landing-hero h1,
   .landing-hero .landing-subline,
   .landing-hero .landing-actions,
-  .landing-hero-asset {
+  .landing-hero-visual {
     animation: none;
     opacity: 1;
     transform: none;
+  }
+
+  .landing-hero-mock-viewport {
+    animation: none;
+  }
+
+  .landing-hero-mock-msg-thinking {
+    animation: none;
+  }
+
+  .landing-hero-mock-stage.is-preview-masked .landing-hero-mock-stage-overlay {
+    animation: none;
+  }
+
+  .sandbox-control-button.is-hero-mock-pulse-expand {
+    animation: none;
   }
 
   .landing-showcase .landing-section-header,
@@ -4097,7 +4539,6 @@ button:disabled {
   }
 
   .landing-hero {
-    grid-template-columns: 1fr;
     min-height: auto;
     padding: 2rem 1.25rem;
     padding-top: calc(2rem + 60px);

@@ -9,6 +9,35 @@ export type DemoSlug = (typeof DEMOS)[number]['slug'];
 export const STEP_REFINE_DEMO_SLUG = 'solar-system' as const;
 export const STEP_SHARE_DEMO_SLUG = 'projectile-motion' as const;
 
+/** Featured demo in the marketing hero (keep in sync with step 2 visual). */
+export const HERO_DEMO_SLUG = STEP_REFINE_DEMO_SLUG;
+
+export const HERO_MOCK_EXPERIENCE_TITLE = 'Interactive Solar System' as const;
+
+export const HERO_MOCK_USER_MESSAGE =
+  'Build a beautiful solar system visualiser. Minimal text — focus on illustration and interaction.' as const;
+
+export const HERO_MOCK_ASSISTANT_MESSAGE =
+  "Here's an interactive orrery with pan and zoom. Drag to explore orbits at scaled speeds.\n\nPossible next refinements:\n1. Cinematic focus on one planet\n2. A scale comparison strip" as const;
+
+export const HERO_MOCK_SUGGESTION_LABELS = [
+  'Add cinematic planet focus',
+  'Include scale comparison',
+] as const;
+
+/** Delays between hero workspace mock animation steps (ms, cumulative chain built in hook). */
+export const HERO_MOCK_ANIM_MS = {
+  afterIntro: 1000,
+  userToThinking: 680,
+  thinkingToAssistant: 1150,
+  assistantToChips: 580,
+  /** After suggestion chips appear, pause before preview “building” (composer stays visible throughout). */
+  chipsToPreviewBusy: 800,
+  previewBusyToReady: 950,
+  holdReady: 3600,
+  repeatResetPause: 380,
+} as const;
+
 export const STEP_PROMPT_EXAMPLES = [
   'Build an interactive tour of the solar system with a fact card for each planet.',
   'A projectile motion lab: angle and speed sliders, parabolic path, telemetry, and a random ground target with hit/miss feedback.',

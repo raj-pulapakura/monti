@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { LandingSiteHeader } from '@/app/components/landing-site-header';
 import { Expand } from 'lucide-react';
-import { DEMOS, type DemoSlug } from './constants';
+import { DEMOS, HERO_DEMO_SLUG, type DemoSlug } from './constants';
+import { LandingHeroWorkspaceMock } from './landing-hero-workspace-mock';
 import { LandingDemoModal } from './landing-demo-modal';
 import { LandingStepPromptVisual } from './landing-step-prompt-visual';
 import { LandingStepRefineVisual } from './landing-step-refine-visual';
@@ -17,30 +18,37 @@ export function MarketingLanding(input: { authError: string | null }) {
 
   useLandingShellAnimations(shellRef);
 
+  const heroDemo = DEMOS.find((d) => d.slug === HERO_DEMO_SLUG)!;
+
   return (
     <main ref={shellRef} className="landing-shell">
       <LandingSiteHeader />
 
       <section className="landing-hero">
-        <div className="landing-hero-content">
+        <div className="landing-hero-content landing-hero-content--stacked">
           <h1>
             Turn lessons into{' '}
             <span className="display-script">experiences.</span>
           </h1>
-          <p className="landing-subline">
+          <p className="landing-subline landing-subline--centered">
             Monti turns lesson ideas into interactive experiences
             you can share with anyone.
           </p>
-          <div className="landing-actions">
+          <div className="landing-actions landing-actions--center">
             <Link href="/sign-up" className="landing-primary">
               Get started free
             </Link>
           </div>
         </div>
-        <div className="landing-hero-asset" aria-hidden="true">
-          <div className="landing-placeholder">
-            <span>Product preview</span>
-          </div>
+        <div className="landing-hero-visual">
+          <LandingHeroWorkspaceMock
+            demoSlug={heroDemo.slug}
+            demoLabel={heroDemo.label}
+            onExpandDemo={() => setActiveDemo(heroDemo.slug)}
+          />
+          <p className="landing-hero-preview-caption">
+            <Link href="#showcase">More examples below</Link>
+          </p>
         </div>
       </section>
 

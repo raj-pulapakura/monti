@@ -34,6 +34,8 @@ export interface BillingMeDataDto {
   includedCreditsTotal: number | null;
   topupCreditsAvailable: number | null;
   topupCreditsTotal: number | null;
+  /** Sum of spendable credits across recurring, top-up, and manual buckets (matches runtime enforcement). */
+  totalSpendableCredits: number | null;
   reservedCreditsTotal: number | null;
   buckets: BillingMeBucketDto[];
   nextIncludedRefreshAt: string | null;

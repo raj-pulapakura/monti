@@ -28,9 +28,10 @@ function applyBillingResponse(data: BillingMeResponse['data'], userId: string): 
     setTopbarCreditsCache({ userId, hydrated: true, total: null });
     return null;
   }
-  const included = data.includedCreditsAvailable ?? 0;
-  const topup = data.topupCreditsAvailable ?? 0;
-  const next = included + topup;
+  const next =
+    data.totalSpendableCredits != null
+      ? data.totalSpendableCredits
+      : (data.includedCreditsAvailable ?? 0) + (data.topupCreditsAvailable ?? 0);
   setTopbarCreditsCache({ userId, hydrated: true, total: next });
   return next;
 }

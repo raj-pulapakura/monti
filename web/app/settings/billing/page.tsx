@@ -23,9 +23,9 @@ export default function SettingsBillingPage() {
     if (!billingData?.billingEnabled) {
       return null;
     }
-    const inc = billingData.includedCreditsAvailable ?? 0;
-    const top = billingData.topupCreditsAvailable ?? 0;
-    return inc + top;
+    return billingData.totalSpendableCredits != null
+      ? billingData.totalSpendableCredits
+      : (billingData.includedCreditsAvailable ?? 0) + (billingData.topupCreditsAvailable ?? 0);
   }, [billingData]);
 
   const approxGenerations = useMemo(() => {
@@ -203,6 +203,10 @@ export default function SettingsBillingPage() {
                 <span className="settings-billing-skeleton" style={{ width: '4rem', height: '2rem' }} />
                 <span className="settings-billing-skeleton" style={{ width: '8rem', height: '0.85rem' }} />
               </div>
+              <div className="settings-billing-credit-cell">
+                <span className="settings-billing-skeleton" style={{ width: '4rem', height: '2rem' }} />
+                <span className="settings-billing-skeleton" style={{ width: '8rem', height: '0.85rem' }} />
+              </div>
             </div>
           </div>
         </div>
@@ -303,6 +307,17 @@ export default function SettingsBillingPage() {
 
                 <div className="settings-billing-credit-grid">
                   <div className="settings-billing-credit-cell is-emphasis">
+                    <span className="settings-billing-credit-value">
+                      {billingData.totalSpendableCredits != null
+                        ? billingData.totalSpendableCredits
+                        : (billingData.includedCreditsAvailable ?? 0) + (billingData.topupCreditsAvailable ?? 0)}
+                    </span>
+                    <span className="settings-billing-credit-label">Available credits</span>
+                    <span className="settings-billing-credit-sublabel">
+                      Total you can spend now (included, top-ups, and any manual credits).
+                    </span>
+                  </div>
+                  <div className="settings-billing-credit-cell">
                     <span className="settings-billing-credit-value">{billingData.includedCreditsAvailable ?? 0}</span>
                     <span className="settings-billing-credit-label">
                       Included credits

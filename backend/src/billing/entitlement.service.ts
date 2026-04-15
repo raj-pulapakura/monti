@@ -76,6 +76,7 @@ export class EntitlementService {
 
     const included = aggregateIncludedCreditsAvailable(grants, nowMs, paidActive);
     const topup = aggregateTopupCreditsAvailable(grants, nowMs, paidActive);
+    const totalSpendable = aggregateTotalSpendableCredits(grants, nowMs, paidActive);
     const reservedTotal = aggregateReservedCredits(grants, nowMs);
 
     const includedTotal = grantRows
@@ -119,6 +120,7 @@ export class EntitlementService {
       includedCreditsTotal: includedTotal,
       topupCreditsAvailable: topup,
       topupCreditsTotal: topupTotal,
+      totalSpendableCredits: totalSpendable,
       reservedCreditsTotal: reservedTotal,
       buckets,
       nextIncludedRefreshAt: new Date(nextUtcMonthStartMs(nowMs)).toISOString(),
@@ -160,6 +162,7 @@ export class EntitlementService {
       includedCreditsTotal: null,
       topupCreditsAvailable: null,
       topupCreditsTotal: null,
+      totalSpendableCredits: null,
       reservedCreditsTotal: null,
       buckets: [],
       nextIncludedRefreshAt: null,

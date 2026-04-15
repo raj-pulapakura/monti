@@ -15,11 +15,15 @@ export function isBalanceSufficientForMode(
 
   const included = billingData.includedCreditsAvailable;
   const topup = billingData.topupCreditsAvailable;
-  if (included == null || topup == null) {
+  const total =
+    billingData.totalSpendableCredits != null
+      ? billingData.totalSpendableCredits
+      : included != null && topup != null
+        ? included + topup
+        : null;
+  if (total == null) {
     return true;
   }
-
-  const total = included + topup;
   const fast = billingData.costs.fastCredits;
   const quality = billingData.costs.qualityCredits;
   if (fast == null || quality == null) {

@@ -30,7 +30,11 @@ export default function CheckoutSuccessPage() {
         }
         if (response.data.plan === 'paid') {
           setPlanName('paid');
-          setRemainingCredits(response.data.includedCreditsAvailable ?? 0);
+          setRemainingCredits(
+            response.data.totalSpendableCredits != null
+              ? response.data.totalSpendableCredits
+              : response.data.includedCreditsAvailable ?? 0,
+          );
           setState('confirmed');
           stopped = true;
           if (intervalId) {

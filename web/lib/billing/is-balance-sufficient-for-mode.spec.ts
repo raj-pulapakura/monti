@@ -3,7 +3,7 @@ import { isBalanceSufficientForMode } from './is-balance-sufficient-for-mode';
 import type { BillingMeData } from '@/lib/api/billing-me';
 
 function baseBilling(overrides: Partial<BillingMeData> = {}): BillingMeData {
-  return {
+  const merged: BillingMeData = {
     billingEnabled: true,
     freeCreditGrantsEnabled: true,
     plan: 'free',
@@ -13,6 +13,7 @@ function baseBilling(overrides: Partial<BillingMeData> = {}): BillingMeData {
     includedCreditsTotal: 0,
     topupCreditsAvailable: 0,
     topupCreditsTotal: 0,
+    totalSpendableCredits: 0,
     reservedCreditsTotal: 0,
     buckets: [],
     nextIncludedRefreshAt: null,
@@ -20,6 +21,11 @@ function baseBilling(overrides: Partial<BillingMeData> = {}): BillingMeData {
     subscription: null,
     ...overrides,
   };
+  if (overrides.totalSpendableCredits === undefined) {
+    merged.totalSpendableCredits =
+      (merged.includedCreditsAvailable ?? 0) + (merged.topupCreditsAvailable ?? 0);
+  }
+  return merged;
 }
 
 describe('isBalanceSufficientForMode', () => {
@@ -38,6 +44,19 @@ describe('isBalanceSufficientForMode', () => {
     ).toBe(false);
     expect(
       isBalanceSufficientForMode(baseBilling({ includedCreditsAvailable: 5, topupCreditsAvailable: 0 }), 'quality'),
+    ).toBe(true);
+  });
+
+  it('counts manual credits toward the spendable total', () => {
+    expect(
+      isBalanceSufficientForMode(
+        baseBilling({
+          includedCreditsAvailable: 0,
+          topupCreditsAvailable: 0,
+          totalSpendableCredits: 5,
+        }),
+        'quality',
+      ),
     ).toBe(true);
   });
 });

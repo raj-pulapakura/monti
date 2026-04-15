@@ -2717,6 +2717,13 @@ button:disabled {
   line-height: 1.35;
 }
 
+.settings-billing-credit-sublabel {
+  font-size: 0.75rem;
+  color: var(--content-muted);
+  line-height: 1.4;
+  opacity: 0.92;
+}
+
 .settings-billing-progress {
   height: 4px;
   border-radius: 99px;

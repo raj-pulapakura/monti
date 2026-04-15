@@ -34,6 +34,8 @@ export type BillingMeData = {
   includedCreditsTotal: number | null;
   topupCreditsAvailable: number | null;
   topupCreditsTotal: number | null;
+  /** Sum of spendable credits across recurring, top-up, and manual buckets. */
+  totalSpendableCredits: number | null;
   reservedCreditsTotal: number | null;
   buckets: BillingMeBucket[];
   nextIncludedRefreshAt: string | null;

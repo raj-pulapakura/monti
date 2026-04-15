@@ -1,10 +1,37 @@
 'use client';
 
-import { STEP_SHARE_DEMO_SLUG } from './constants';
+import { useEffect, useState } from 'react';
+import { Check } from 'lucide-react';
+import { playDemoPublicPath, STEP_SHARE_DEMO_SLUG } from './constants';
 
 export function LandingStepShareVisual() {
+  const [origin, setOrigin] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  useEffect(() => {
+    setOrigin(typeof window !== 'undefined' ? window.location.origin : '');
+  }, []);
+
+  const shareUrl =
+    origin === '' ? '' : `${origin}${playDemoPublicPath(STEP_SHARE_DEMO_SLUG)}`;
+
+  async function handleCopyLink() {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      /* ignore */
+    }
+  }
+
   return (
-    <div className="landing-step-visual landing-step-visual-share" aria-hidden="true">
+    <div
+      className="landing-step-visual landing-step-visual-share"
+      role="group"
+      aria-label="Example: copy a public play link"
+    >
       <div className="landing-step-share-window">
         <div className="landing-step-share-chrome">
           <div className="landing-step-share-traffic" aria-hidden="true">
@@ -24,9 +51,24 @@ export function LandingStepShareVisual() {
                 />
               </svg>
             </span>
-            <span className="landing-step-share-url-text">http://monti.app/play/projectile-motion-lab-1fd8aa</span>
-            <button type="button" className="landing-step-share-copy" tabIndex={-1} disabled>
-              Copy link
+            <span className="landing-step-share-url-text" title={shareUrl || undefined}>
+              {shareUrl || `${playDemoPublicPath(STEP_SHARE_DEMO_SLUG)}`}
+            </span>
+            <button
+              type="button"
+              className="landing-step-share-copy"
+              onClick={handleCopyLink}
+              disabled={!shareUrl}
+              aria-label={linkCopied ? 'Link copied' : 'Copy share link'}
+            >
+              {linkCopied ? (
+                <>
+                  <Check size={12} strokeWidth={2.5} aria-hidden className="landing-step-share-copy-icon" />
+                  Copied
+                </>
+              ) : (
+                'Copy link'
+              )}
             </button>
           </div>
         </div>

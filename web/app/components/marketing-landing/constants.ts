@@ -1,13 +1,37 @@
+/** Showcase grid (“Interactive experiences”): third slot is independent of step 3 below. */
 export const DEMOS = [
   { slug: 'solar-system', label: 'Solar System' },
   { slug: 'pythagorean-theorem', label: 'Pythagorean Theorem' },
-  { slug: 'projectile-motion', label: 'Projectile Motion' },
+  { slug: 'animal-cell', label: 'Animal Cell' },
 ] as const;
 
 export type DemoSlug = (typeof DEMOS)[number]['slug'];
 
 export const STEP_REFINE_DEMO_SLUG = 'solar-system' as const;
+
+/** Step 3 “Share” visual only; must have `public/demos/{slug}.html`. Not required to appear in `DEMOS`. */
 export const STEP_SHARE_DEMO_SLUG = 'projectile-motion' as const;
+
+/** Any slug we link to at `/play/demo/{slug}` (showcase entries + step-only demos like `STEP_SHARE_DEMO_SLUG`). */
+export type PlayDemoUrlSlug = DemoSlug | typeof STEP_SHARE_DEMO_SLUG;
+
+/** Public play URL for static marketing demos (no DB); iframe uses `/demos/{slug}.html`. */
+export function playDemoPublicPath(slug: PlayDemoUrlSlug): string {
+  return `/play/demo/${slug}`;
+}
+
+const PLAY_DEMO_LABEL_BY_SLUG: Partial<Record<typeof STEP_SHARE_DEMO_SLUG, string>> = {
+  'projectile-motion': 'Projectile Motion',
+};
+
+/** Title for `/play/demo/[slug]` metadata and iframe (covers slugs not in `DEMOS`). */
+export function playDemoLabel(slug: string): string {
+  return (
+    DEMOS.find((d) => d.slug === slug)?.label ??
+    PLAY_DEMO_LABEL_BY_SLUG[slug as typeof STEP_SHARE_DEMO_SLUG] ??
+    slug
+  );
+}
 
 /** Featured demo in the marketing hero (keep in sync with step 2 visual). */
 export const HERO_DEMO_SLUG = STEP_REFINE_DEMO_SLUG;

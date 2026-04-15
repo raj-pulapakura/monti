@@ -62,7 +62,6 @@ export function LandingHeroWorkspaceMock(input: {
               <span className="app-topbar-logo-tile app-topbar-logo-tile--bl" />
               <span className="app-topbar-logo-tile" />
             </span>
-            <span className="app-topbar-logo-text">monti</span>
           </span>
           <div className="landing-hero-mock-appbar-end">
             <span className="landing-hero-mock-credits">
@@ -188,7 +187,7 @@ export function LandingHeroWorkspaceMock(input: {
                 </button>
                 <button
                   type="button"
-                  className={`sandbox-control-button${pulseExpand ? ' is-hero-mock-pulse-expand' : ''}`}
+                  className={`sandbox-control-button landing-hero-mock-expand-btn${pulseExpand ? ' is-hero-mock-pulse-expand' : ''}`}
                   aria-label={`Expand ${input.demoLabel} demo`}
                   title="Expand demo"
                   onClick={input.onExpandDemo}

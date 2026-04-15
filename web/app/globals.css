@@ -927,10 +927,28 @@ button:disabled {
   justify-content: space-between;
   padding: 0 clamp(1.5rem, 5vw, 4rem);
   height: 60px;
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition:
+    background 0.32s var(--ease-standard),
+    border-color 0.32s var(--ease-standard),
+    backdrop-filter 0.32s var(--ease-standard),
+    -webkit-backdrop-filter 0.32s var(--ease-standard);
+}
+
+.landing-header--solid {
   background: rgba(248, 239, 227, 0.82);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border-soft);
+  border-bottom-color: var(--border-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-header {
+    transition: none;
+  }
 }
 
 .landing-header-logo {
@@ -1326,15 +1344,31 @@ button:disabled {
 @keyframes landing-hero-mock-pulse-expand {
   0%,
   100% {
-    box-shadow: var(--elevation-1);
+    box-shadow:
+      var(--elevation-1),
+      0 0 0 1px color-mix(in srgb, var(--brand-500) 28%, transparent),
+      0 0 20px color-mix(in srgb, var(--brand-500) 32%, transparent),
+      0 0 36px color-mix(in srgb, var(--brand-500) 18%, transparent);
     transform: translateY(0);
   }
 
   50% {
     box-shadow:
-      0 0 0 3px rgba(188, 81, 39, 0.22),
-      var(--elevation-2);
+      var(--elevation-2),
+      0 0 0 1px color-mix(in srgb, var(--brand-500) 38%, transparent),
+      0 0 28px color-mix(in srgb, var(--brand-500) 42%, transparent),
+      0 0 48px color-mix(in srgb, var(--brand-500) 26%, transparent);
     transform: translateY(-1px);
+  }
+}
+
+@keyframes landing-hero-mock-expand-shimmer {
+  0% {
+    transform: rotate(22deg) translateX(-165%);
+  }
+
+  100% {
+    transform: rotate(22deg) translateX(340%);
   }
 }
 
@@ -2127,6 +2161,10 @@ button:disabled {
 }
 
 .landing-step-share-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
   flex-shrink: 0;
   font-size: 0.65rem;
   font-weight: 600;
@@ -2136,6 +2174,20 @@ button:disabled {
   background: var(--surface-soft);
   color: var(--content-subtle);
   cursor: default;
+}
+
+.landing-step-share-copy:not(:disabled) {
+  cursor: pointer;
+  color: var(--brand-600);
+}
+
+.landing-step-share-copy:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--brand-500) 35%, var(--border-soft));
+  background: color-mix(in srgb, var(--brand-soft) 45%, var(--surface-soft));
+}
+
+.landing-step-share-copy-icon {
+  flex-shrink: 0;
 }
 
 .landing-step-share-copy:disabled {
@@ -2340,6 +2392,11 @@ button:disabled {
 
   .sandbox-control-button.is-hero-mock-pulse-expand {
     animation: none;
+  }
+
+  .landing-hero-mock .sandbox-control-button.landing-hero-mock-expand-btn::before {
+    animation: none;
+    opacity: 0;
   }
 
   .landing-showcase .landing-section-header,
@@ -4235,6 +4292,60 @@ button:disabled {
 
 .sandbox-control-button.is-favourited-star svg {
   fill: currentColor;
+}
+
+/* Hero mock: bright sweep + brand halo on the interactive expand control (must follow .sandbox-control-button). */
+.landing-hero-mock .sandbox-control-button.landing-hero-mock-expand-btn {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  box-shadow:
+    var(--elevation-1),
+    0 0 0 1px color-mix(in srgb, var(--brand-500) 28%, transparent),
+    0 0 20px color-mix(in srgb, var(--brand-500) 32%, transparent),
+    0 0 36px color-mix(in srgb, var(--brand-500) 18%, transparent);
+}
+
+.landing-hero-mock .sandbox-control-button.landing-hero-mock-expand-btn:hover {
+  box-shadow:
+    var(--elevation-2),
+    0 0 0 1px color-mix(in srgb, var(--brand-500) 38%, transparent),
+    0 0 28px color-mix(in srgb, var(--brand-500) 42%, transparent),
+    0 0 48px color-mix(in srgb, var(--brand-500) 26%, transparent);
+}
+
+.landing-hero-mock .sandbox-control-button.landing-hero-mock-expand-btn::before {
+  content: "";
+  position: absolute;
+  top: -75%;
+  left: -8%;
+  width: 78%;
+  height: 250%;
+  border-radius: inherit;
+  background: linear-gradient(
+    105deg,
+    rgb(255 255 255 / 0) 0%,
+    rgb(255 255 255 / 0) 18%,
+    color-mix(in srgb, var(--brand-soft) 55%, transparent) 28%,
+    rgb(255 255 255 / 0.75) 38%,
+    rgb(255 255 255 / 1) 45%,
+    color-mix(in srgb, var(--brand-soft) 35%, #fff) 49%,
+    color-mix(in srgb, var(--brand-500) 22%, #fff) 52%,
+    rgb(255 255 255 / 0.98) 56%,
+    color-mix(in srgb, var(--brand-soft) 45%, transparent) 64%,
+    rgb(255 255 255 / 0) 76%,
+    rgb(255 255 255 / 0) 100%
+  );
+  opacity: 0.98;
+  transform: rotate(22deg) translateX(-165%);
+  animation: landing-hero-mock-expand-shimmer 1.35s linear infinite;
+  filter: saturate(1.2) brightness(1.08);
+  pointer-events: none;
+}
+
+.landing-hero-mock .sandbox-control-button.landing-hero-mock-expand-btn svg {
+  position: relative;
+  z-index: 1;
 }
 
 .sandbox-status-pill {

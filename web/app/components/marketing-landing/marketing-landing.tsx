@@ -46,17 +46,14 @@ export function MarketingLanding(input: { authError: string | null }) {
             demoLabel={heroDemo.label}
             onExpandDemo={() => setActiveDemo(heroDemo.slug)}
           />
-          <p className="landing-hero-preview-caption">
-            <Link href="#showcase">More examples below</Link>
-          </p>
         </div>
       </section>
 
       <section className="landing-showcase" id="showcase">
         <div className="landing-section-header">
-          <h2>Interactive experiences, from a single idea.</h2>
+          <h2>Build personalised learning experiences</h2>
           <p className="landing-section-sub">
-            Teach the way <em>you</em> want to. Create quizzes, visualisers, and explainers, all in one app.
+          Monti bring your lessons to life. See some examples below
           </p>
         </div>
         <div className="landing-showcase-grid">
@@ -89,9 +86,9 @@ export function MarketingLanding(input: { authError: string | null }) {
 
       <section className="landing-steps" id="how-it-works">
         <div className="landing-section-header">
-          <h2>From your words to their experience.</h2>
+          <h2>From your words to their experience</h2>
           <p className="landing-section-sub">
-            Sketch the idea, refine it in conversation, then present or share a link when it
+            Draft an idea, refine it in conversation, then present or share a link when it
             feels ready.
           </p>
         </div>
@@ -101,7 +98,7 @@ export function MarketingLanding(input: { authError: string | null }) {
               <span className="landing-step-number">1</span>
               <h3>Describe your idea</h3>
               <p>
-                Start with a lesson objective. Make it a game, explainer or any format.
+              Explain your lesson in your own words. Monti builds an interactive experience.
               </p>
             </div>
             <LandingStepPromptVisual />
@@ -111,8 +108,7 @@ export function MarketingLanding(input: { authError: string | null }) {
               <span className="landing-step-number">2</span>
               <h3>Refine in conversation</h3>
               <p>
-                Monti generates an interactive experience. Chat to adjust difficulty, tone,
-                or focus. See changes instantly.
+Adjust tone, level, and structure in chat until it feels right for your room.
               </p>
             </div>
             <LandingStepRefineVisual />
@@ -122,7 +118,7 @@ export function MarketingLanding(input: { authError: string | null }) {
               <span className="landing-step-number">3</span>
               <h3>Share with learners</h3>
               <p>
-                Your experience is ready. Present with full-screen mode, or share a link via a safe, accessible URL.
+                Your experience is ready. Present with full-screen mode, or share a link with one click.
               </p>
             </div>
             <LandingStepShareVisual />
@@ -132,7 +128,7 @@ export function MarketingLanding(input: { authError: string | null }) {
 
       <section className="landing-final-cta">
         <div className="landing-final-cta-inner">
-          <h2>Your next lesson is a conversation away.</h2>
+          <h2>Bring your lessons to life today.</h2>
           <p className="landing-final-cta-sub">Free to start. No credit card required.</p>
           <div className="landing-actions landing-actions-center">
             <Link href="/sign-up" className="landing-primary landing-primary-lg">

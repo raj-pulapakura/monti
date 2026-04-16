@@ -37,6 +37,7 @@ import {
   getRetryComposerValue,
   INITIAL_RUNTIME_STATE,
   isRunActive,
+  isUserFacingChatMessage,
   mergeHydratedMessagesWithOptimistic,
   reconcileHydrationState,
   reduceRuntimeEvent,
@@ -510,11 +511,13 @@ export default function ChatThreadPage() {
   ]);
 
   const conversationTimeline = useMemo<ConversationTimelineItem[]>(() => {
-    const items: ConversationTimelineItem[] = runtimeState.messages.map((message) => ({
-      kind: 'message',
-      key: message.id,
-      message,
-    }));
+    const items: ConversationTimelineItem[] = runtimeState.messages
+      .filter(isUserFacingChatMessage)
+      .map((message) => ({
+        kind: 'message',
+        key: message.id,
+        message,
+      }));
 
     if (runtimeState.assistantDraft) {
       items.push({

@@ -11,6 +11,30 @@ export type ChatMessage = {
   createdAt: string;
 };
 
+function hasPersistedToolCalls(contentJson: Record<string, unknown> | null): boolean {
+  const raw = contentJson?.toolCalls;
+  return Array.isArray(raw) && raw.length > 0;
+}
+
+/**
+ * Chat rows persisted for the LLM / tool pipeline (`role: tool`, or assistant rows that
+ * only carry `content_json.toolCalls` with no user-visible text) are omitted from the
+ * transcript UI — see `ConversationTimeline` consumers.
+ */
+export function isUserFacingChatMessage(message: ChatMessage): boolean {
+  if (message.role === 'tool') {
+    return false;
+  }
+  if (
+    message.role === 'assistant' &&
+    hasPersistedToolCalls(message.contentJson) &&
+    message.content.trim().length === 0
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export type AssistantRun = {
   id: string;
   threadId: string;

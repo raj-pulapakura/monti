@@ -1,8 +1,10 @@
 import {
   getRetryComposerValue,
   INITIAL_RUNTIME_STATE,
+  isUserFacingChatMessage,
   reconcileHydrationState,
   reduceRuntimeEvent,
+  type ChatMessage,
   type RuntimeEventData,
   type RuntimeState,
 } from './runtime-state';
@@ -337,5 +339,70 @@ describe('runtime-state integration', () => {
 
     expect(failedRunValue).toBe('Build a solar system quiz');
     expect(succeededRunValue).toBeNull();
+  });
+});
+
+describe('isUserFacingChatMessage', () => {
+  const base = (overrides: Partial<ChatMessage>): ChatMessage => ({
+    id: 'm1',
+    threadId: 't1',
+    userId: 'u1',
+    role: 'assistant',
+    content: '',
+    contentJson: null,
+    idempotencyKey: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  });
+
+  it('hides persisted tool-role rows (LLM-facing tool results)', () => {
+    expect(
+      isUserFacingChatMessage(
+        base({
+          role: 'tool',
+          content: '{"status":"succeeded","operation":"generate"}',
+          contentJson: { toolCallId: 'c1', toolName: 'generate_experience' },
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it('hides assistant rows that only persist tool calls with no visible text', () => {
+    expect(
+      isUserFacingChatMessage(
+        base({
+          role: 'assistant',
+          content: '',
+          contentJson: {
+            toolCalls: [{ id: 'call-1', name: 'generate_experience', arguments: {} }],
+          },
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it('keeps assistant rows that include text alongside tool calls', () => {
+    expect(
+      isUserFacingChatMessage(
+        base({
+          role: 'assistant',
+          content: 'Calling the tool now.',
+          contentJson: {
+            toolCalls: [{ id: 'call-1', name: 'generate_experience', arguments: {} }],
+          },
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('keeps normal assistant replies without tool calls metadata', () => {
+    expect(
+      isUserFacingChatMessage(
+        base({
+          content: 'Here is your game.',
+          contentJson: { provider: 'openai', model: 'gpt-5' },
+        }),
+      ),
+    ).toBe(true);
   });
 });

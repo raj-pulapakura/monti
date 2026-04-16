@@ -134,24 +134,21 @@ export class OpenAiNativeToolAdapter implements NativeToolAdapter {
       toolCalls: parsed.toolCalls,
       finishReason: parsed.finishReason,
       usage: normalizeOpenAiUsage(payload.usage),
-      providerContinuation:
-        typeof payload.id === 'string' && payload.id.trim().length > 0
-          ? {
-              openai: {
-                previousResponseId: payload.id,
-              },
-            }
-          : undefined,
       rawRequest: body,
       rawResponse: payload as Record<string, unknown>,
     };
   }
 }
 
+/**
+ * OpenAI Responses API documents `previous_response_id` for multi-turn continuity, but
+ * server-side retention / TTL is not clearly specified for long-lived chat threads, and
+ * community reports show fragile behavior when pairing continuation IDs with tool
+ * outputs across separate requests. We therefore reconstruct every turn as a stateless
+ * `input` item list (user/system messages plus `function_call` / `function_call_output`
+ * items) from canonical history and do not send `previous_response_id`.
+ */
 export function buildOpenAiToolRequest(request: CanonicalToolTurnRequest): Record<string, unknown> {
-  const continuationResponseId =
-    request.providerContinuation?.openai?.previousResponseId?.trim() ?? '';
-
   const body: Record<string, unknown> = {
     model: request.model,
     temperature: request.temperature,
@@ -164,24 +161,57 @@ export function buildOpenAiToolRequest(request: CanonicalToolTurnRequest): Recor
     })),
   };
 
-  if (continuationResponseId.length > 0) {
-    const toolOutputs = extractTrailingToolMessages(request.messages);
-    body.previous_response_id = continuationResponseId;
-    body.input = toolOutputs.map((message) => ({
-      type: 'function_call_output',
-      call_id: message.toolCallId ?? randomId(),
-      output: message.content,
-    }));
-    return body;
+  const input: Array<Record<string, unknown>> = [];
+
+  for (const message of request.messages) {
+    if (message.role === 'system') {
+      input.push({
+        role: 'system',
+        content: message.content,
+      });
+      continue;
+    }
+
+    if (message.role === 'user') {
+      input.push({
+        role: 'user',
+        content: message.content,
+      });
+      continue;
+    }
+
+    if (message.role === 'assistant') {
+      if (message.content.trim().length > 0) {
+        input.push({
+          role: 'assistant',
+          content: message.content,
+        });
+      }
+
+      if (message.toolCalls && message.toolCalls.length > 0) {
+        for (const toolCall of message.toolCalls) {
+          input.push({
+            type: 'function_call',
+            call_id: toolCall.id,
+            name: toolCall.name,
+            arguments: JSON.stringify(toolCall.arguments),
+          });
+        }
+      }
+
+      continue;
+    }
+
+    if (message.role === 'tool') {
+      input.push({
+        type: 'function_call_output',
+        call_id: message.toolCallId ?? randomId(),
+        output: message.content,
+      });
+    }
   }
 
-  body.input = request.messages
-    .filter((message) => message.role !== 'tool')
-    .map((message) => ({
-      role: message.role,
-      content: message.content,
-    }));
-
+  body.input = input;
   return body;
 }
 
@@ -260,15 +290,3 @@ function randomId(): string {
   return `openai_tool_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function extractTrailingToolMessages(messages: CanonicalToolTurnRequest['messages']) {
-  const trailing: CanonicalToolTurnRequest['messages'] = [];
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message.role !== 'tool') {
-      break;
-    }
-    trailing.push(message);
-  }
-
-  return trailing.reverse();
-}

@@ -930,6 +930,75 @@ export class ChatRuntimeRepository {
     return data;
   }
 
+  async createToolCallMessage(input: {
+    threadId: string;
+    userId: string;
+    content: string;
+    toolCalls: Array<{
+      id: string;
+      name: string;
+      arguments: Record<string, unknown>;
+    }>;
+    contentJson?: Record<string, unknown> | null;
+  }): Promise<ChatMessageRow> {
+    const contentJson = {
+      ...(input.contentJson ?? {}),
+      toolCalls: input.toolCalls,
+    };
+
+    const { data, error } = await this.client
+      .from('chat_messages')
+      .insert({
+        thread_id: input.threadId,
+        user_id: input.userId,
+        role: 'assistant',
+        content: input.content,
+        content_json: contentJson,
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      this.throwQueryError('create tool-call assistant message', error);
+    }
+
+    return data;
+  }
+
+  async createToolResultMessage(input: {
+    threadId: string;
+    userId: string;
+    toolCallId: string;
+    toolName: string;
+    /** JSON-serialised LLM-facing payload */
+    content: string;
+    contentJson?: Record<string, unknown> | null;
+  }): Promise<ChatMessageRow> {
+    const contentJson = {
+      ...(input.contentJson ?? {}),
+      toolCallId: input.toolCallId,
+      toolName: input.toolName,
+    };
+
+    const { data, error } = await this.client
+      .from('chat_messages')
+      .insert({
+        thread_id: input.threadId,
+        user_id: input.userId,
+        role: 'tool',
+        content: input.content,
+        content_json: contentJson,
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      this.throwQueryError('create tool result message', error);
+    }
+
+    return data;
+  }
+
   async createToolInvocation(input: {
     threadId: string;
     runId: string;

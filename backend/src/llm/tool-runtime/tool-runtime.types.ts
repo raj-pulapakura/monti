@@ -6,6 +6,7 @@ export type CanonicalChatRole = 'system' | 'user' | 'assistant' | 'tool';
 export interface CanonicalChatMessage {
   role: CanonicalChatRole;
   content: string;
+  toolCalls?: CanonicalToolCall[];
   toolCallId?: string;
   toolName?: string;
 }
@@ -28,7 +29,6 @@ export interface CanonicalToolTurnRequest {
   model: string;
   maxTokens: number;
   temperature?: number;
-  providerContinuation?: ProviderContinuationState;
   messages: CanonicalChatMessage[];
   tools: CanonicalToolDefinition[];
   signal?: AbortSignal;
@@ -42,25 +42,6 @@ export interface CanonicalToolTurnResponse {
   toolCalls: CanonicalToolCall[];
   finishReason: 'stop' | 'tool_calls' | 'max_tokens' | 'unknown';
   usage: LlmUsageTelemetry;
-  providerContinuation?: ProviderContinuationState;
   rawRequest: Record<string, unknown>;
   rawResponse: Record<string, unknown>;
-}
-
-export interface ProviderContinuationState {
-  openai?: {
-    previousResponseId: string;
-  };
-  anthropic?: {
-    pendingToolCalls: ContinuationToolCallState[];
-  };
-  gemini?: {
-    pendingToolCalls: ContinuationToolCallState[];
-  };
-}
-
-export interface ContinuationToolCallState {
-  id: string;
-  name: string;
-  arguments: Record<string, unknown>;
 }

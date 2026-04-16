@@ -125,8 +125,8 @@ describe('Native Tool Adapter Contract', () => {
     expect(geminiParsed.toolCalls).toHaveLength(0);
   });
 
-  it('builds provider-native tool-result continuation payloads from canonical tool messages', () => {
-    const canonicalRequest = {
+  it('builds provider-native tool call and tool result payloads from canonical message history', () => {
+    const toolCallHistory = {
       requestId: 'run-1',
       provider: 'openai' as const,
       model: 'gpt-5.4',
@@ -135,8 +135,19 @@ describe('Native Tool Adapter Contract', () => {
         { role: 'system' as const, content: 'You are Monti' },
         { role: 'user' as const, content: 'Build a quiz' },
         {
+          role: 'assistant' as const,
+          content: 'On it.',
+          toolCalls: [
+            {
+              id: 'call_1',
+              name: 'generate_experience',
+              arguments: { prompt: 'Build a quiz', operation: 'generate' },
+            },
+          ],
+        },
+        {
           role: 'tool' as const,
-          content: '{"status":"succeeded"}',
+          content: '{"status":"succeeded","operation":"generate"}',
           toolCallId: 'call_1',
           toolName: 'generate_experience',
         },
@@ -150,62 +161,26 @@ describe('Native Tool Adapter Contract', () => {
       ],
     };
 
-    const openAiInitial = buildOpenAiToolRequest(canonicalRequest);
-    const openAiContinuation = buildOpenAiToolRequest({
-      ...canonicalRequest,
-      providerContinuation: {
-        openai: {
-          previousResponseId: 'resp_123',
-        },
-      },
-    });
+    const openAi = buildOpenAiToolRequest(toolCallHistory);
     const anthropic = buildAnthropicToolRequest({
-      ...canonicalRequest,
+      ...toolCallHistory,
       provider: 'anthropic',
-      providerContinuation: {
-        anthropic: {
-          pendingToolCalls: [
-            {
-              id: 'toolu_1',
-              name: 'generate_experience',
-              arguments: { prompt: 'Build a quiz' },
-            },
-          ],
-        },
-      },
     });
     const gemini = buildGeminiToolRequest({
-      ...canonicalRequest,
+      ...toolCallHistory,
       provider: 'gemini',
-      providerContinuation: {
-        gemini: {
-          pendingToolCalls: [
-            {
-              id: 'gem_call_1',
-              name: 'generate_experience',
-              arguments: { prompt: 'Build a quiz' },
-            },
-          ],
-        },
-      },
     });
 
-    expect(openAiInitial).toMatchObject({
-      input: [
-        {
-          role: 'system',
-          content: 'You are Monti',
-        },
-        {
-          role: 'user',
-          content: 'Build a quiz',
-        },
-      ],
-    });
-
-    expect(openAiContinuation).toMatchObject({
-      previous_response_id: 'resp_123',
+    expect(openAi).toMatchObject({
       input: expect.arrayContaining([
+        { role: 'system', content: 'You are Monti' },
+        { role: 'user', content: 'Build a quiz' },
+        { role: 'assistant', content: 'On it.' },
+        expect.objectContaining({
+          type: 'function_call',
+          call_id: 'call_1',
+          name: 'generate_experience',
+        }),
         expect.objectContaining({
           type: 'function_call_output',
           call_id: 'call_1',
@@ -217,6 +192,9 @@ describe('Native Tool Adapter Contract', () => {
       messages: expect.arrayContaining([
         expect.objectContaining({
           role: 'assistant',
+          content: expect.arrayContaining([
+            expect.objectContaining({ type: 'tool_use', id: 'call_1' }),
+          ]),
         }),
         expect.objectContaining({
           role: 'user',
@@ -234,6 +212,13 @@ describe('Native Tool Adapter Contract', () => {
       contents: expect.arrayContaining([
         expect.objectContaining({
           role: 'model',
+          parts: expect.arrayContaining([
+            expect.objectContaining({
+              functionCall: expect.objectContaining({
+                name: 'generate_experience',
+              }),
+            }),
+          ]),
         }),
         expect.objectContaining({
           role: 'user',

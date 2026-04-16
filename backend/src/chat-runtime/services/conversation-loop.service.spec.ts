@@ -1,5 +1,8 @@
 import { observedUsage, unavailableUsage } from '../../llm/llm-usage';
-import { ConversationLoopService } from './conversation-loop.service';
+import {
+  applyConversationMessageWindow,
+  ConversationLoopService,
+} from './conversation-loop.service';
 
 function createRun(overrides: Record<string, unknown> = {}) {
   return {
@@ -206,6 +209,19 @@ describe('ConversationLoopService', () => {
         activeToolInvocation: null,
       })),
       recordRunProviderTrace: jest.fn(async () => undefined),
+      createToolCallMessage: jest.fn(async () =>
+        createAssistantMessage({
+          id: 'tool-call-msg-1',
+          content_json: { toolCalls: [] },
+        }),
+      ),
+      createToolResultMessage: jest.fn(async () =>
+        createAssistantMessage({
+          id: 'tool-result-msg-1',
+          role: 'tool',
+          content: '{"status":"succeeded","operation":"generate"}',
+        }),
+      ),
       createToolInvocation: jest.fn(async () => ({
         id: 'tool-1',
         tool_name: 'generate_experience',
@@ -288,11 +304,6 @@ describe('ConversationLoopService', () => {
             inputTokens: 90,
             outputTokens: 25,
           }),
-          providerContinuation: {
-            openai: {
-              previousResponseId: 'resp-1',
-            },
-          },
           rawRequest: {},
           rawResponse: {},
         })
@@ -358,19 +369,30 @@ describe('ConversationLoopService', () => {
       conversationTokensIn: 150,
       conversationTokensOut: 42,
     });
+    expect(repository.createToolCallMessage).toHaveBeenCalledTimes(1);
+    expect(repository.createToolResultMessage).toHaveBeenCalledTimes(1);
     expect(toolLlmRouter.runTurn).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
-        providerContinuation: {
-          openai: {
-            previousResponseId: 'resp-1',
-          },
-        },
         messages: [
+          { role: 'system', content: 'You are Monti' },
+          { role: 'user', content: 'Build a quiz' },
+          expect.objectContaining({
+            role: 'assistant',
+            content: 'Building now.',
+            toolCalls: [
+              {
+                id: 'call-1',
+                name: 'generate_experience',
+                arguments: { operation: 'generate', prompt: 'Build a quiz' },
+              },
+            ],
+          }),
           expect.objectContaining({
             role: 'tool',
             toolCallId: 'call-1',
             toolName: 'generate_experience',
+            content: '{"status":"succeeded","operation":"generate"}',
           }),
         ],
       }),
@@ -412,6 +434,19 @@ describe('ConversationLoopService', () => {
         activeToolInvocation: null,
       })),
       recordRunProviderTrace: jest.fn(async () => undefined),
+      createToolCallMessage: jest.fn(async () =>
+        createAssistantMessage({
+          id: 'tool-call-msg-1',
+          content_json: { toolCalls: [] },
+        }),
+      ),
+      createToolResultMessage: jest.fn(async () =>
+        createAssistantMessage({
+          id: 'tool-result-msg-1',
+          role: 'tool',
+          content: '{"status":"succeeded","operation":"generate"}',
+        }),
+      ),
       createToolInvocation: jest.fn(async () => ({
         id: 'tool-1',
         tool_name: 'generate_experience',
@@ -562,6 +597,19 @@ describe('ConversationLoopService', () => {
         activeToolInvocation: null,
       })),
       recordRunProviderTrace: jest.fn(async () => undefined),
+      createToolCallMessage: jest.fn(async () =>
+        createAssistantMessage({
+          id: 'tool-call-msg-1',
+          content_json: { toolCalls: [] },
+        }),
+      ),
+      createToolResultMessage: jest.fn(async () =>
+        createAssistantMessage({
+          id: 'tool-result-msg-1',
+          role: 'tool',
+          content: '{"status":"succeeded","operation":"generate"}',
+        }),
+      ),
       createToolInvocation: jest.fn(async () => ({
         id: 'tool-1',
         tool_name: 'generate_experience',
@@ -644,11 +692,6 @@ describe('ConversationLoopService', () => {
             inputTokens: 90,
             outputTokens: 25,
           }),
-          providerContinuation: {
-            openai: {
-              previousResponseId: 'resp-1',
-            },
-          },
           rawRequest: {},
           rawResponse: {},
         })
@@ -919,5 +962,25 @@ describe('ConversationLoopService', () => {
       { role: 'user', content: 'Message 23' },
       { role: 'user', content: 'Message 24' },
     ]);
+  });
+
+  it('snaps the context window to a preceding user message when the slice would start on a tool turn', () => {
+    const messages = [
+      { role: 'user' as const, content: 'first' },
+      {
+        role: 'assistant' as const,
+        content: 'calling',
+        toolCalls: [{ id: 'call-1', name: 'generate_experience', arguments: { operation: 'generate' } }],
+      },
+      {
+        role: 'tool' as const,
+        content: '{"status":"succeeded","operation":"generate"}',
+        toolCallId: 'call-1',
+        toolName: 'generate_experience',
+      },
+    ];
+
+    const windowed = applyConversationMessageWindow(messages, 1);
+    expect(windowed).toEqual(messages);
   });
 });

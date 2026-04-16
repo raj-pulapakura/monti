@@ -5,7 +5,6 @@ import type { NativeToolAdapter } from './native-tool-adapter.interface';
 import type {
   CanonicalToolTurnRequest,
   CanonicalToolTurnResponse,
-  ProviderContinuationState,
 } from './tool-runtime.types';
 import { AnthropicNativeToolAdapter } from './providers/anthropic-native-tool.adapter';
 import { GeminiNativeToolAdapter } from './providers/gemini-native-tool.adapter';
@@ -18,7 +17,6 @@ export interface RoutedToolTurnRequest {
   model?: string;
   maxTokens?: number;
   temperature?: number;
-  providerContinuation?: ProviderContinuationState;
   messages: CanonicalToolTurnRequest['messages'];
   tools: CanonicalToolTurnRequest['tools'];
   signal?: AbortSignal;
@@ -54,7 +52,6 @@ export class ToolLlmRouterService {
       model: request.model ?? this.config.modelFor(request.provider, request.qualityMode),
       maxTokens: request.maxTokens ?? this.config.maxTokensDefault,
       temperature: request.temperature,
-      providerContinuation: request.providerContinuation,
       messages: request.messages,
       tools: request.tools,
       signal: request.signal,

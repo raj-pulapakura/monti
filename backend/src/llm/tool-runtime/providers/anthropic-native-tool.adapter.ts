@@ -197,18 +197,6 @@ export class AnthropicNativeToolAdapter implements NativeToolAdapter {
       toolCalls: parsed.toolCalls,
       finishReason: parsed.finishReason,
       usage: normalizeAnthropicUsage(assembledPayload.usage),
-      providerContinuation:
-        parsed.toolCalls.length > 0
-          ? {
-              anthropic: {
-                pendingToolCalls: parsed.toolCalls.map((toolCall) => ({
-                  id: toolCall.id,
-                  name: toolCall.name,
-                  arguments: toolCall.arguments,
-                })),
-              },
-            }
-          : undefined,
       rawRequest: body,
       rawResponse: assembledPayload as Record<string, unknown>,
     };
@@ -222,34 +210,76 @@ export function buildAnthropicToolRequest(request: CanonicalToolTurnRequest): Re
     .join('\n\n')
     .trim();
 
-  const pendingToolCalls = request.providerContinuation?.anthropic?.pendingToolCalls ?? [];
-  const toolResults = extractTrailingToolMessages(request.messages);
+  const messages: Array<Record<string, unknown>> = [];
+  const nonSystem = request.messages.filter((message) => message.role !== 'system');
 
-  const messages: Array<Record<string, unknown>> = request.messages
-    .filter((message) => message.role !== 'system' && message.role !== 'tool')
-    .map((message) => ({
-      role: message.role,
-      content: message.content,
-    }));
+  let index = 0;
+  while (index < nonSystem.length) {
+    const message = nonSystem[index];
+    if (message.role === 'user') {
+      messages.push({
+        role: 'user',
+        content: message.content,
+      });
+      index += 1;
+      continue;
+    }
 
-  if (pendingToolCalls.length > 0 && toolResults.length > 0) {
-    messages.push({
-      role: 'assistant',
-      content: pendingToolCalls.map((toolCall) => ({
-        type: 'tool_use',
-        id: toolCall.id,
-        name: toolCall.name,
-        input: toolCall.arguments,
-      })),
-    });
-    messages.push({
-      role: 'user',
-      content: toolResults.map((toolResult, index) => ({
-        type: 'tool_result',
-        tool_use_id: toolResult.toolCallId ?? pendingToolCalls[index]?.id ?? randomId(),
-        content: toolResult.content,
-      })),
-    });
+    if (message.role === 'assistant') {
+      if (message.toolCalls && message.toolCalls.length > 0) {
+        const contentBlocks: Array<Record<string, unknown>> = [];
+        if (message.content.trim().length > 0) {
+          contentBlocks.push({
+            type: 'text',
+            text: message.content,
+          });
+        }
+
+        for (const toolCall of message.toolCalls) {
+          contentBlocks.push({
+            type: 'tool_use',
+            id: toolCall.id,
+            name: toolCall.name,
+            input: toolCall.arguments,
+          });
+        }
+
+        messages.push({
+          role: 'assistant',
+          content: contentBlocks,
+        });
+        index += 1;
+
+        const toolResults: CanonicalToolTurnRequest['messages'] = [];
+        while (index < nonSystem.length && nonSystem[index].role === 'tool') {
+          toolResults.push(nonSystem[index]);
+          index += 1;
+        }
+
+        if (toolResults.length > 0) {
+          messages.push({
+            role: 'user',
+            content: toolResults.map((toolResult) => ({
+              type: 'tool_result',
+              tool_use_id: toolResult.toolCallId ?? randomId(),
+              content: toolResult.content,
+            })),
+          });
+        }
+      } else {
+        messages.push({
+          role: 'assistant',
+          content: message.content,
+        });
+        index += 1;
+      }
+      continue;
+    }
+
+    if (message.role === 'tool') {
+      index += 1;
+      continue;
+    }
   }
 
   return {
@@ -345,15 +375,3 @@ function parseJsonObject(value: string): Record<string, unknown> {
   return {};
 }
 
-function extractTrailingToolMessages(messages: CanonicalToolTurnRequest['messages']) {
-  const trailing: CanonicalToolTurnRequest['messages'] = [];
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message.role !== 'tool') {
-      break;
-    }
-    trailing.push(message);
-  }
-
-  return trailing.reverse();
-}

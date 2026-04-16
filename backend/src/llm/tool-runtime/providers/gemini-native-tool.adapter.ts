@@ -184,18 +184,6 @@ export class GeminiNativeToolAdapter implements NativeToolAdapter {
       toolCalls: parsed.toolCalls,
       finishReason: parsed.finishReason,
       usage: normalizeGeminiUsage(payload.usageMetadata),
-      providerContinuation:
-        parsed.toolCalls.length > 0
-          ? {
-              gemini: {
-                pendingToolCalls: parsed.toolCalls.map((toolCall) => ({
-                  id: toolCall.id,
-                  name: toolCall.name,
-                  arguments: toolCall.arguments,
-                })),
-              },
-            }
-          : undefined,
       rawRequest: body,
       rawResponse: payload as Record<string, unknown>,
     };
@@ -209,35 +197,75 @@ export function buildGeminiToolRequest(request: CanonicalToolTurnRequest): Recor
     .join('\n\n')
     .trim();
 
-  const pendingToolCalls = request.providerContinuation?.gemini?.pendingToolCalls ?? [];
-  const toolResults = extractTrailingToolMessages(request.messages);
+  const contents: Array<Record<string, unknown>> = [];
+  const nonSystem = request.messages.filter((message) => message.role !== 'system');
 
-  const contents: Array<Record<string, unknown>> = request.messages
-    .filter((message) => message.role !== 'system' && message.role !== 'tool')
-    .map((message) => ({
-      role: message.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: message.content }],
-    }));
+  let index = 0;
+  while (index < nonSystem.length) {
+    const message = nonSystem[index];
+    if (message.role === 'user') {
+      contents.push({
+        role: 'user',
+        parts: [{ text: message.content }],
+      });
+      index += 1;
+      continue;
+    }
 
-  if (pendingToolCalls.length > 0 && toolResults.length > 0) {
-    contents.push({
-      role: 'model',
-      parts: pendingToolCalls.map((toolCall) => ({
-        functionCall: {
-          name: toolCall.name,
-          args: toolCall.arguments,
-        },
-      })),
-    });
-    contents.push({
-      role: 'user',
-      parts: toolResults.map((toolResult, index) => ({
-        functionResponse: {
-          name: toolResult.toolName ?? pendingToolCalls[index]?.name ?? 'tool_result',
-          response: parseJsonObject(toolResult.content),
-        },
-      })),
-    });
+    if (message.role === 'assistant') {
+      if (message.toolCalls && message.toolCalls.length > 0) {
+        const parts: Array<Record<string, unknown>> = [];
+        if (message.content.trim().length > 0) {
+          parts.push({ text: message.content });
+        }
+
+        for (const toolCall of message.toolCalls) {
+          parts.push({
+            functionCall: {
+              id: toolCall.id,
+              name: toolCall.name,
+              args: toolCall.arguments,
+            },
+          });
+        }
+
+        contents.push({
+          role: 'model',
+          parts,
+        });
+        index += 1;
+
+        const toolResults: CanonicalToolTurnRequest['messages'] = [];
+        while (index < nonSystem.length && nonSystem[index].role === 'tool') {
+          toolResults.push(nonSystem[index]);
+          index += 1;
+        }
+
+        if (toolResults.length > 0) {
+          contents.push({
+            role: 'user',
+            parts: toolResults.map((toolResult) => ({
+              functionResponse: {
+                name: toolResult.toolName ?? 'tool_result',
+                response: parseJsonObject(toolResult.content),
+              },
+            })),
+          });
+        }
+      } else {
+        contents.push({
+          role: 'model',
+          parts: [{ text: message.content }],
+        });
+        index += 1;
+      }
+      continue;
+    }
+
+    if (message.role === 'tool') {
+      index += 1;
+      continue;
+    }
   }
 
   return {
@@ -322,19 +350,6 @@ function parseJsonObject(value: string): Record<string, unknown> {
   return {
     value,
   };
-}
-
-function extractTrailingToolMessages(messages: CanonicalToolTurnRequest['messages']) {
-  const trailing: CanonicalToolTurnRequest['messages'] = [];
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message.role !== 'tool') {
-      break;
-    }
-    trailing.push(message);
-  }
-
-  return trailing.reverse();
 }
 
 function parseGeminiStreamPayload(value: string): GeminiNativeResponse | null {

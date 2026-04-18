@@ -426,7 +426,7 @@ export class ChatRuntimeRepository {
         .from('assistant_runs')
         .select('*')
         .eq('thread_id', input.threadId)
-        .in('status', ['queued', 'running'])
+        .in('status', ['queued', 'running', 'awaiting_confirmation'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -855,6 +855,60 @@ export class ChatRuntimeRepository {
     }
   }
 
+  async markRunAwaitingConfirmation(input: {
+    runId: string;
+    confirmationToolCallId: string;
+    confirmationMetadata: Record<string, unknown>;
+  }): Promise<void> {
+    const { error } = await this.client
+      .from('assistant_runs')
+      .update({
+        status: 'awaiting_confirmation',
+        confirmation_tool_call_id: input.confirmationToolCallId,
+        confirmation_metadata: input.confirmationMetadata,
+      })
+      .eq('id', input.runId);
+
+    if (error) {
+      this.throwQueryError('mark run awaiting confirmation', error);
+    }
+  }
+
+  async markRunRunningFromConfirmation(runId: string): Promise<void> {
+    const { error } = await this.client
+      .from('assistant_runs')
+      .update({
+        status: 'running',
+        confirmation_tool_call_id: null,
+        confirmation_metadata: null,
+      })
+      .eq('id', runId);
+
+    if (error) {
+      this.throwQueryError('mark run running from confirmation', error);
+    }
+  }
+
+  async findToolInvocationByRunAndProviderToolCallId(input: {
+    runId: string;
+    providerToolCallId: string;
+  }): Promise<ToolInvocationRow | null> {
+    const { data, error } = await this.client
+      .from('tool_invocations')
+      .select('*')
+      .eq('run_id', input.runId)
+      .eq('provider_tool_call_id', input.providerToolCallId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      this.throwQueryError('find tool invocation by provider call id', error);
+    }
+
+    return data ?? null;
+  }
+
   async markRunSucceeded(input: {
     runId: string;
     assistantMessageId: string;
@@ -1178,6 +1232,10 @@ export class ChatRuntimeRepository {
     }
 
     return data;
+  }
+
+  async findChatMessageById(messageId: string): Promise<ChatMessageRow | null> {
+    return this.findMessageById(messageId);
   }
 
   private async findMessageById(

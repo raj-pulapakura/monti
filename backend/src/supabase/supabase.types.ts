@@ -493,7 +493,15 @@ export interface Database {
           thread_id: string;
           user_message_id: string;
           assistant_message_id: string | null;
-          status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+          status:
+            | 'queued'
+            | 'running'
+            | 'awaiting_confirmation'
+            | 'succeeded'
+            | 'failed'
+            | 'cancelled';
+          confirmation_tool_call_id: string | null;
+          confirmation_metadata: Record<string, unknown> | null;
           router_tier: 'fast' | 'quality' | null;
           router_provider_hint: 'openai' | 'anthropic' | 'gemini' | null;
           router_confidence: number | null;
@@ -518,7 +526,15 @@ export interface Database {
           thread_id: string;
           user_message_id: string;
           assistant_message_id?: string | null;
-          status?: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+          status?:
+            | 'queued'
+            | 'running'
+            | 'awaiting_confirmation'
+            | 'succeeded'
+            | 'failed'
+            | 'cancelled';
+          confirmation_tool_call_id?: string | null;
+          confirmation_metadata?: Record<string, unknown> | null;
           router_tier?: 'fast' | 'quality' | null;
           router_provider_hint?: 'openai' | 'anthropic' | 'gemini' | null;
           router_confidence?: number | null;
@@ -540,7 +556,15 @@ export interface Database {
         };
         Update: {
           assistant_message_id?: string | null;
-          status?: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+          status?:
+            | 'queued'
+            | 'running'
+            | 'awaiting_confirmation'
+            | 'succeeded'
+            | 'failed'
+            | 'cancelled';
+          confirmation_tool_call_id?: string | null;
+          confirmation_metadata?: Record<string, unknown> | null;
           router_tier?: 'fast' | 'quality' | null;
           router_provider_hint?: 'openai' | 'anthropic' | 'gemini' | null;
           router_confidence?: number | null;

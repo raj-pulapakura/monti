@@ -7,14 +7,12 @@ import type { BillingMeResponse } from "@/lib/api/billing-me";
 import type { RedirectResponse } from "@/lib/api/types";
 import { writeHomePromptHandoff } from "@/lib/chat/prompt-handoff";
 import { writeThreadBootstrap } from "@/lib/chat/thread-bootstrap";
-import type { GenerationMode } from "@/lib/chat/generation-mode";
 import { useSupabaseClient } from "./hooks/use-supabase-client";
 import { toErrorMessage } from "@/lib/errors";
 import { AppTopbar } from "./components/app-topbar";
-import { GenerationModeDropdown } from "./components/generation-mode-segmented-control";
 import { MarketingLanding } from "./components/marketing-landing";
 import { BillingGate } from "./components/billing-gate";
-import { isBalanceSufficientForMode } from "@/lib/billing/is-balance-sufficient-for-mode";
+import { isBalanceSufficientForMinimumTier } from "@/lib/billing/is-balance-sufficient-for-mode";
 import { ConfirmModal } from "./components/confirm-modal";
 import { CreationCard } from "./components/creation-card";
 import { RenameCreationModal } from "./components/rename-creation-modal";
@@ -177,7 +175,6 @@ function HomeWorkspace(input: {
   const [renameDraft, setRenameDraft] = useState("");
   const [renamePending, setRenamePending] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
-  const [generationMode, setGenerationMode] = useState<GenerationMode>("auto");
   const [billingSummary, setBillingSummary] = useState<
     BillingMeResponse["data"] | null
   >(null);
@@ -338,7 +335,7 @@ function HomeWorkspace(input: {
   const balanceSufficient =
     billingSummary === null || !billingLoaded
       ? true
-      : isBalanceSufficientForMode(billingSummary, generationMode);
+      : isBalanceSufficientForMinimumTier(billingSummary);
 
   const softGateActive =
     billingLoaded &&
@@ -527,7 +524,7 @@ function HomeWorkspace(input: {
 
       const threadId = response.data.thread.id;
       writeThreadBootstrap(response.data.thread);
-      writeHomePromptHandoff(threadId, trimmedPrompt, generationMode);
+      writeHomePromptHandoff(threadId, trimmedPrompt);
       router.push(`/chat/${threadId}`);
     } catch (error) {
       setCreateError(toErrorMessage(error));
@@ -557,19 +554,6 @@ function HomeWorkspace(input: {
               disabled={creating}
             />
             <div className="home-create-actions">
-              <GenerationModeDropdown
-                value={generationMode}
-                onChange={setGenerationMode}
-                disabled={creating}
-                creditCosts={
-                  billingSummary?.billingEnabled
-                    ? {
-                        fast: billingSummary.costs.fastCredits,
-                        quality: billingSummary.costs.qualityCredits,
-                      }
-                    : null
-                }
-              />
               <button
                 type="submit"
                 className={`home-create-submit ${creating ? "is-busy" : ""}`}

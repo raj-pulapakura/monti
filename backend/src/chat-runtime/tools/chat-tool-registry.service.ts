@@ -1,38 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { AppError, ValidationError } from '../../common/errors/app-error';
 import type { QualityMode } from '../../llm/llm.types';
-import type { CanonicalToolDefinition } from '../../llm/tool-runtime/tool-runtime.types';
-import { GenerateExperienceToolService } from './generate-experience-tool.service';
-import {
-  parseGenerateExperienceToolArguments,
-  type GenerateExperienceToolResult,
-} from './generate-experience-tool.types';
-
-const GENERATE_EXPERIENCE_TOOL_DEFINITION: CanonicalToolDefinition = {
-  name: 'generate_experience',
-  description:
-    'Generate or refine an interactive learning experience in the sandbox. Use operation=generate for new experiences. Use operation=refine when the user wants to modify or improve the current experience — the system automatically uses the active experience as the starting point.',
-  inputSchema: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['prompt'],
-    properties: {
-      operation: {
-        type: 'string',
-        enum: ['generate', 'refine'],
-        description:
-          'Use generate for new experiences. Use refine when modifying the current experience in the sandbox.',
-      },
-      prompt: {
-        type: 'string',
-      },
-      refinementInstruction: {
-        type: 'string',
-        description: 'Required when operation=refine. Describe what to change.',
-      },
-    },
-  },
-};
+import { isGenerateExperienceToolEnabled } from './generate-experience.chat-tool';
+import type { ChatTool } from './chat-tool.interface';
+import type { GenerateExperienceToolResult } from './generate-experience-tool.types';
 
 export interface ChatToolExecutionResult {
   toolName: string;
@@ -42,18 +13,27 @@ export interface ChatToolExecutionResult {
 
 @Injectable()
 export class ChatToolRegistryService {
-  constructor(private readonly generateExperienceTool: GenerateExperienceToolService) {}
+  constructor(private readonly tools: ChatTool<unknown>[]) {}
 
-  getToolDefinitions(): CanonicalToolDefinition[] {
-    if (!isGenerateExperienceToolEnabled()) {
-      return [];
-    }
+  private get registeredTools(): ChatTool<unknown>[] {
+    return this.tools.filter((tool) => {
+      if (tool.name === 'generate_experience' && !isGenerateExperienceToolEnabled()) {
+        return false;
+      }
+      return true;
+    });
+  }
 
-    return [GENERATE_EXPERIENCE_TOOL_DEFINITION];
+  getToolDefinitions() {
+    return this.registeredTools.map((tool) => tool.definition);
   }
 
   hasTool(name: string): boolean {
-    return this.getToolDefinitions().some((tool) => tool.name === name);
+    return this.registeredTools.some((tool) => tool.name === name);
+  }
+
+  getTool(name: string): ChatTool<unknown> | undefined {
+    return this.registeredTools.find((tool) => tool.name === name);
   }
 
   async executeToolCall(input: {
@@ -67,24 +47,24 @@ export class ChatToolRegistryService {
     conversationContext?: string;
     requestedQualityMode?: QualityMode;
   }): Promise<ChatToolExecutionResult> {
-    if (input.name !== 'generate_experience' || !isGenerateExperienceToolEnabled()) {
+    const tool = this.getTool(input.name);
+    if (!tool) {
       throw new ValidationError(`Unknown or disabled tool: ${input.name}`);
     }
 
     let result: GenerateExperienceToolResult;
     try {
-      const parsedArguments = parseGenerateExperienceToolArguments(input.arguments);
-      result = await this.generateExperienceTool.execute({
+      result = (await tool.execute({
         invocationId: input.invocationId,
-        runId: input.runId,
         threadId: input.threadId,
+        runId: input.runId,
         userId: input.userId,
-        arguments: {
-          ...parsedArguments,
-          conversationContext: input.conversationContext,
-        },
+        toolCallId: input.toolCallId,
+        name: input.name,
+        arguments: input.arguments,
+        conversationContext: input.conversationContext,
         requestedQualityMode: input.requestedQualityMode,
-      });
+      })) as GenerateExperienceToolResult;
     } catch (error) {
       result = {
         status: 'failed',
@@ -104,11 +84,6 @@ export class ChatToolRegistryService {
       result,
     };
   }
-}
-
-function isGenerateExperienceToolEnabled(): boolean {
-  const flag = process.env.GENERATE_EXPERIENCE_TOOL_ENABLED?.trim().toLowerCase();
-  return !(flag === 'false' || flag === '0' || flag === 'off');
 }
 
 function toErrorCode(error: unknown): string {

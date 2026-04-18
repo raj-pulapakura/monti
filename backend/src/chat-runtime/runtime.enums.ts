@@ -4,6 +4,7 @@ export type ChatMessageRole = (typeof CHAT_MESSAGE_ROLES)[number];
 export const ASSISTANT_RUN_STATUSES = [
   'queued',
   'running',
+  'awaiting_confirmation',
   'succeeded',
   'failed',
   'cancelled',
@@ -27,5 +28,6 @@ export const RUNTIME_EVENT_TYPES = [
   'sandbox_updated',
   'run_failed',
   'run_completed',
+  'confirmation_required',
 ] as const;
 export type RuntimeEventType = (typeof RUNTIME_EVENT_TYPES)[number];

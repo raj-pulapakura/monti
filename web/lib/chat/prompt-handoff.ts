@@ -1,20 +1,10 @@
-import {
-  isGenerationMode,
-  type GenerationMode,
-} from '@/lib/chat/generation-mode';
-
 const HOME_PROMPT_HANDOFF_PREFIX = 'monti_home_prompt_handoff_v1';
 
 export type HomePromptHandoff = {
   prompt: string;
-  generationMode: GenerationMode;
 };
 
-export function writeHomePromptHandoff(
-  threadId: string,
-  prompt: string,
-  generationMode: GenerationMode,
-): void {
+export function writeHomePromptHandoff(threadId: string, prompt: string): void {
   if (typeof window === 'undefined') {
     return;
   }
@@ -29,7 +19,6 @@ export function writeHomePromptHandoff(
     handoffKey(normalizedThreadId),
     JSON.stringify({
       prompt: normalizedPrompt,
-      generationMode,
       createdAt: new Date().toISOString(),
     }),
   );
@@ -51,7 +40,6 @@ export function consumeHomePromptHandoff(threadId: string): HomePromptHandoff | 
   try {
     const parsed = JSON.parse(raw) as {
       prompt?: unknown;
-      generationMode?: unknown;
     };
 
     const prompt = typeof parsed.prompt === 'string' ? parsed.prompt.trim() : '';
@@ -59,12 +47,7 @@ export function consumeHomePromptHandoff(threadId: string): HomePromptHandoff | 
       return null;
     }
 
-    return {
-      prompt,
-      generationMode: isGenerationMode(parsed.generationMode)
-        ? parsed.generationMode
-        : 'auto',
-    };
+    return { prompt };
   } catch {
     return null;
   }

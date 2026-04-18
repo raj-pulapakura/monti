@@ -60,394 +60,20 @@ export class ConversationLoopService {
     const completedRoundUsages: LlmUsageTelemetry[] = [];
 
     try {
-      const requestedQualityMode = extractRequestedQualityMode(input.userMessage);
       const canonicalMessages = await this.buildConversationMessages({
         threadId: input.threadId,
         userId: input.userId,
       });
-      let roundMessages: CanonicalChatMessage[] = canonicalMessages;
-      let latestToolOperation: 'generate' | 'refine' | null = null;
-
-      for (let round = 0; round <= this.llmConfig.conversationMaxToolRounds; round += 1) {
-        const tools = this.toolRegistry.getToolDefinitions();
-        let streamedAssistantText = '';
-        let hasPublishedAssistantDraft = false;
-        this.logger.log(
-          JSON.stringify({
-            event: 'conversation_loop_round_started',
-            runId: input.run.id,
-            round,
-            toolsAvailable: tools.length,
-          }),
-        );
-        const response = await this.toolLlmRouter.runTurn({
-          requestId: input.run.id,
-          provider: this.llmConfig.conversationProvider,
-          qualityMode: 'quality',
-          model: this.llmConfig.conversationModel,
-          maxTokens: this.llmConfig.conversationMaxTokens,
-          messages: cloneCanonicalMessagesForProviderRequest(roundMessages),
-          tools,
-          onAssistantTextSnapshot: async (text) => {
-            const normalized = text.trim();
-            if (normalized.length === 0) {
-              return;
-            }
-
-            streamedAssistantText = normalized;
-            this.events.publish({
-              threadId: input.threadId,
-              runId: input.run.id,
-              type: hasPublishedAssistantDraft
-                ? 'assistant_message_updated'
-                : 'assistant_message_started',
-              payload: {
-                draftId: input.run.id,
-                content: normalized,
-              },
-            });
-            hasPublishedAssistantDraft = true;
-          },
-        });
-        completedRoundUsages.push(response.usage);
-        const roundToolOperation = extractGenerateExperienceOperation(response.toolCalls);
-        if (roundToolOperation) {
-          latestToolOperation = roundToolOperation;
-        }
-        const resolvedAssistantText = resolveAssistantText(
-          response.assistantText,
-          streamedAssistantText,
-        );
-
-        await this.repository.recordRunProviderTrace({
-          runId: input.run.id,
-          providerRequestRaw: appendMontiTrace(response.rawRequest, {
-            round,
-            tool_operation: latestToolOperation,
-          }),
-          providerResponseRaw: appendMontiTrace(response.rawResponse, {
-            round,
-            tool_operation: latestToolOperation,
-          }),
-        });
-
-        this.logger.log(
-          JSON.stringify({
-            event: 'conversation_loop_round_completed',
-            runId: input.run.id,
-            round,
-            finishReason: response.finishReason,
-            toolCalls: response.toolCalls.length,
-          }),
-        );
-
-        if (response.toolCalls.length > 0) {
-          canonicalMessages.push({
-            role: 'assistant',
-            content: resolvedAssistantText,
-            toolCalls: response.toolCalls,
-          });
-
-          const toolCallAssistantMessage = await this.repository.createToolCallMessage({
-            threadId: input.threadId,
-            userId: input.userId,
-            content: resolvedAssistantText,
-            toolCalls: response.toolCalls,
-            contentJson: {
-              phase: 'pre_tool',
-              round,
-              provider: response.provider,
-              model: response.model,
-            },
-          });
-          this.events.publish({
-            threadId: input.threadId,
-            runId: input.run.id,
-            type: 'assistant_message_created',
-            payload: toAssistantMessagePayload(toolCallAssistantMessage),
-          });
-        } else if (resolvedAssistantText.length > 0) {
-          canonicalMessages.push({
-            role: 'assistant',
-            content: resolvedAssistantText,
-          });
-        }
-
-        if (response.toolCalls.length === 0) {
-          const completedRun = await this.completeWithAssistantMessage({
-            runId: input.run.id,
-            threadId: input.threadId,
-            userId: input.userId,
-            conversationUsage: aggregateObservedUsage(completedRoundUsages),
-            content:
-              resolvedAssistantText.length > 0
-                ? resolvedAssistantText
-                : 'I finished that step. Tell me what you want to do next.',
-            contentJson: {
-              provider: response.provider,
-              model: response.model,
-              finishReason: response.finishReason,
-            },
-          });
-          this.logger.log(
-            JSON.stringify({
-              event: 'conversation_loop_completed',
-              runId: input.run.id,
-              durationMs: Date.now() - runStartedAt,
-              terminalStatus: completedRun.status,
-            }),
-          );
-          return completedRun;
-        }
-
-        for (const toolCall of response.toolCalls) {
-          const invocation = await this.repository.createToolInvocation({
-            threadId: input.threadId,
-            runId: input.run.id,
-            providerToolCallId: toolCall.id,
-            toolName: toolCall.name,
-            toolArguments: toolCall.arguments,
-          });
-
-          this.events.publish({
-            threadId: input.threadId,
-            runId: input.run.id,
-            type: 'tool_started',
-            payload: {
-              invocationId: invocation.id,
-              toolName: invocation.tool_name,
-            },
-          });
-
-          if (toolCall.name === 'generate_experience') {
-            await this.repository.updateSandboxState({
-              threadId: input.threadId,
-              status: 'creating',
-              lastErrorCode: null,
-              lastErrorMessage: null,
-            });
-            this.events.publish({
-              threadId: input.threadId,
-              runId: input.run.id,
-              type: 'sandbox_updated',
-              payload: {
-                status: 'creating',
-              },
-            });
-          }
-
-          if (!this.toolRegistry.hasTool(toolCall.name)) {
-            const errorResult = {
-              status: 'failed',
-              generationId: null,
-              experienceId: null,
-              experienceVersionId: null,
-              errorCode: 'UNKNOWN_TOOL',
-              errorMessage: `Unknown tool: ${toolCall.name}`,
-              sandboxStatus: 'error',
-              route: null,
-            };
-
-            await this.repository.markToolInvocationFailed({
-              invocationId: invocation.id,
-              errorCode: errorResult.errorCode,
-              errorMessage: errorResult.errorMessage,
-              toolResult: errorResult,
-              routerTier: null,
-              routerConfidence: null,
-              routerReason: null,
-              routerFallbackReason: null,
-              selectedProvider: null,
-              selectedModel: null,
-            });
-
-            this.events.publish({
-              threadId: input.threadId,
-              runId: input.run.id,
-              type: 'tool_failed',
-              payload: {
-                invocationId: invocation.id,
-                toolName: toolCall.name,
-                errorCode: errorResult.errorCode,
-                errorMessage: errorResult.errorMessage,
-              },
-            });
-
-            const llmToolContent = buildLlmFacingToolResultContent(
-              toolCall.name,
-              toolCall.arguments,
-              errorResult,
-            );
-            await this.repository.createToolResultMessage({
-              threadId: input.threadId,
-              userId: input.userId,
-              toolCallId: toolCall.id,
-              toolName: toolCall.name,
-              content: llmToolContent,
-            });
-
-            canonicalMessages.push({
-              role: 'tool',
-              toolCallId: toolCall.id,
-              toolName: toolCall.name,
-              content: llmToolContent,
-            });
-            continue;
-          }
-
-          const execution = await this.toolRegistry.executeToolCall({
-            invocationId: invocation.id,
-            threadId: input.threadId,
-            runId: input.run.id,
-            userId: input.userId,
-            toolCallId: toolCall.id,
-            name: toolCall.name,
-            arguments: toolCall.arguments,
-            conversationContext: buildBoundedConversationContext(canonicalMessages),
-            requestedQualityMode,
-          });
-
-          if (execution.result.status === 'succeeded') {
-            await this.repository.markToolInvocationSucceeded({
-              invocationId: invocation.id,
-              toolResult: execution.result as unknown as Record<string, unknown>,
-              generationId: execution.result.generationId,
-              experienceId: execution.result.experienceId,
-              experienceVersionId: execution.result.experienceVersionId,
-              routerTier: execution.result.route?.tier ?? null,
-              routerConfidence: execution.result.route?.confidence ?? null,
-              routerReason: execution.result.route?.reason ?? null,
-              routerFallbackReason: execution.result.route?.fallbackReason ?? null,
-              selectedProvider: execution.result.route?.selectedProvider ?? null,
-              selectedModel: execution.result.route?.selectedModel ?? null,
-            });
-
-            let resolvedExperienceId = execution.result.experienceId;
-            let resolvedExperienceVersionId = execution.result.experienceVersionId;
-            if (!resolvedExperienceVersionId && execution.result.generationId) {
-              const versionRef = await this.repository.findExperienceVersionByGenerationId(
-                execution.result.generationId,
-              );
-              resolvedExperienceId = versionRef?.experienceId ?? resolvedExperienceId;
-              resolvedExperienceVersionId =
-                versionRef?.versionId ?? resolvedExperienceVersionId;
-            }
-
-            this.events.publish({
-              threadId: input.threadId,
-              runId: input.run.id,
-              type: 'tool_succeeded',
-              payload: {
-                invocationId: invocation.id,
-                toolName: toolCall.name,
-                generationId: execution.result.generationId,
-              },
-            });
-
-            await this.repository.updateSandboxState({
-              threadId: input.threadId,
-              status: execution.result.sandboxStatus,
-              experienceId: resolvedExperienceId,
-              experienceVersionId: resolvedExperienceVersionId,
-              lastErrorCode: null,
-              lastErrorMessage: null,
-            });
-
-            this.events.publish({
-              threadId: input.threadId,
-              runId: input.run.id,
-              type: 'sandbox_updated',
-              payload: {
-                status: execution.result.sandboxStatus,
-                experienceId: resolvedExperienceId,
-                experienceVersionId: resolvedExperienceVersionId,
-                errorCode: null,
-                errorMessage: null,
-              },
-            });
-          } else {
-            await this.repository.markToolInvocationFailed({
-              invocationId: invocation.id,
-              errorCode: execution.result.errorCode ?? 'TOOL_EXECUTION_FAILED',
-              errorMessage:
-                execution.result.errorMessage ?? 'Tool execution failed.',
-              toolResult: execution.result as unknown as Record<string, unknown>,
-              routerTier: execution.result.route?.tier ?? null,
-              routerConfidence: execution.result.route?.confidence ?? null,
-              routerReason: execution.result.route?.reason ?? null,
-              routerFallbackReason: execution.result.route?.fallbackReason ?? null,
-              selectedProvider: execution.result.route?.selectedProvider ?? null,
-              selectedModel: execution.result.route?.selectedModel ?? null,
-            });
-
-            this.events.publish({
-              threadId: input.threadId,
-              runId: input.run.id,
-              type: 'tool_failed',
-              payload: {
-                invocationId: invocation.id,
-                toolName: toolCall.name,
-                errorCode: execution.result.errorCode,
-                errorMessage: execution.result.errorMessage,
-              },
-            });
-
-            await this.repository.updateSandboxState({
-              threadId: input.threadId,
-              status: execution.result.sandboxStatus,
-              ...(execution.result.experienceId != null
-                ? { experienceId: execution.result.experienceId }
-                : {}),
-              ...(execution.result.experienceVersionId != null
-                ? { experienceVersionId: execution.result.experienceVersionId }
-                : {}),
-              lastErrorCode: execution.result.errorCode,
-              lastErrorMessage: execution.result.errorMessage,
-            });
-
-            this.events.publish({
-              threadId: input.threadId,
-              runId: input.run.id,
-              type: 'sandbox_updated',
-              payload: {
-                status: execution.result.sandboxStatus,
-                experienceId: execution.result.experienceId,
-                experienceVersionId: execution.result.experienceVersionId,
-                errorCode: execution.result.errorCode,
-                errorMessage: execution.result.errorMessage,
-              },
-            });
-          }
-
-          const llmToolContent = buildLlmFacingToolResultContent(
-            toolCall.name,
-            toolCall.arguments,
-            execution.result as unknown as Record<string, unknown>,
-          );
-          await this.repository.createToolResultMessage({
-            threadId: input.threadId,
-            userId: input.userId,
-            toolCallId: toolCall.id,
-            toolName: toolCall.name,
-            content: llmToolContent,
-          });
-
-          canonicalMessages.push({
-            role: 'tool',
-            toolCallId: toolCall.id,
-            toolName: toolCall.name,
-            content: llmToolContent,
-          });
-        }
-
-        roundMessages = canonicalMessages;
-      }
-
-      throw new AppError(
-        'INTERNAL_ERROR',
-        'Conversation loop exceeded configured tool-call rounds.',
-        500,
-      );
+      return await this.runConversationRounds({
+        threadId: input.threadId,
+        userId: input.userId,
+        userMessage: input.userMessage,
+        runId: input.run.id,
+        canonicalMessages,
+        completedRoundUsages,
+        runStartedAt,
+        startRound: 0,
+      });
     } catch (error) {
       const code = toErrorCode(error);
       const message = toErrorMessage(error);
@@ -488,6 +114,659 @@ export class ConversationLoopService {
 
       return failedRun;
     }
+  }
+
+  async resumeTurn(input: {
+    threadId: string;
+    userId: string;
+    runId: string;
+    confirmedToolCallId: string;
+    decision: 'confirmed' | 'cancelled';
+    qualityMode?: QualityMode;
+    userMessage: ChatMessageRow;
+  }): Promise<ConversationRunRow> {
+    const runStartedAt = Date.now();
+    const completedRoundUsages: LlmUsageTelemetry[] = [];
+
+    const run = await this.repository.getRunById(input.runId);
+    if (!run || run.status !== 'awaiting_confirmation') {
+      throw new AppError(
+        'VALIDATION_ERROR',
+        'Run is not awaiting confirmation.',
+        400,
+      );
+    }
+    if (run.thread_id !== input.threadId) {
+      throw new AppError(
+        'VALIDATION_ERROR',
+        'Run does not belong to this thread.',
+        400,
+      );
+    }
+    if (run.confirmation_tool_call_id !== input.confirmedToolCallId) {
+      throw new AppError(
+        'VALIDATION_ERROR',
+        'Confirmation does not match the pending tool call.',
+        400,
+      );
+    }
+
+    await this.repository.assertThreadAccess({
+      threadId: input.threadId,
+      userId: input.userId,
+    });
+
+    await this.repository.markRunRunningFromConfirmation(input.runId);
+
+    try {
+      const canonicalMessages = await this.buildConversationMessages({
+        threadId: input.threadId,
+        userId: input.userId,
+      });
+
+      if (input.decision === 'cancelled') {
+        const context = findToolCallContext(canonicalMessages, input.confirmedToolCallId);
+        const toolName = context?.name ?? 'generate_experience';
+        const toolArguments = context?.arguments ?? {};
+
+        const invocation = await this.repository.findToolInvocationByRunAndProviderToolCallId({
+          runId: input.runId,
+          providerToolCallId: input.confirmedToolCallId,
+        });
+
+        const operation = toolOperationForLlmPayload(toolName, toolArguments);
+        const cancelPayload = { status: 'cancelled' as const, operation };
+
+        if (invocation) {
+          await this.repository.markToolInvocationFailed({
+            invocationId: invocation.id,
+            errorCode: 'USER_CANCELLED',
+            errorMessage: 'User cancelled before generation started.',
+            toolResult: cancelPayload,
+          });
+
+          this.events.publish({
+            threadId: input.threadId,
+            runId: input.runId,
+            type: 'tool_failed',
+            payload: {
+              invocationId: invocation.id,
+              toolName: invocation.tool_name,
+              errorCode: 'USER_CANCELLED',
+              errorMessage: 'User cancelled before generation started.',
+            },
+          });
+        }
+
+        const llmToolContent = JSON.stringify(cancelPayload);
+        await this.repository.createToolResultMessage({
+          threadId: input.threadId,
+          userId: input.userId,
+          toolCallId: input.confirmedToolCallId,
+          toolName,
+          content: llmToolContent,
+        });
+
+        canonicalMessages.push({
+          role: 'tool',
+          toolCallId: input.confirmedToolCallId,
+          toolName,
+          content: llmToolContent,
+        });
+      } else {
+        const pendingForSet = derivePendingToolCallsForRun(canonicalMessages);
+        if (pendingForSet.length === 0) {
+          throw new AppError('INTERNAL_ERROR', 'No pending tool calls found on resume.', 500);
+        }
+
+        const toolSetResult = await this.executeToolCallSet({
+          threadId: input.threadId,
+          userId: input.userId,
+          runId: input.runId,
+          toolCalls: pendingForSet,
+          canonicalMessages,
+          confirmationBypass: {
+            toolCallId: input.confirmedToolCallId,
+            qualityMode: input.qualityMode ?? 'fast',
+          },
+        });
+
+        if (toolSetResult.status === 'paused') {
+          const paused = await this.repository.getRunById(input.runId);
+          if (!paused) {
+            throw new AppError('INTERNAL_ERROR', 'Conversation run record was not found.', 500);
+          }
+          return paused;
+        }
+      }
+
+      const resumedRun = await this.repository.getRunById(input.runId);
+      if (!resumedRun) {
+        throw new AppError('INTERNAL_ERROR', 'Conversation run record was not found.', 500);
+      }
+
+      return await this.runConversationRounds({
+        threadId: input.threadId,
+        userId: input.userId,
+        userMessage: input.userMessage,
+        runId: input.runId,
+        canonicalMessages,
+        completedRoundUsages,
+        runStartedAt,
+        startRound: computeNextConversationRoundIndex(resumedRun),
+      });
+    } catch (error) {
+      const code = toErrorCode(error);
+      const message = toErrorMessage(error);
+      const conversationUsage = toUsageCounts(aggregateObservedUsage(completedRoundUsages));
+
+      await this.repository.markRunFailed({
+        runId: input.runId,
+        errorCode: code,
+        errorMessage: message,
+        conversationTokensIn: conversationUsage.tokensIn,
+        conversationTokensOut: conversationUsage.tokensOut,
+      });
+      this.events.publish({
+        threadId: input.threadId,
+        runId: input.runId,
+        type: 'run_failed',
+        payload: {
+          runId: input.runId,
+          errorCode: code,
+          errorMessage: message,
+        },
+      });
+
+      this.logger.error(
+        JSON.stringify({
+          event: 'conversation_loop_resume_failed',
+          threadId: input.threadId,
+          runId: input.runId,
+          errorCode: code,
+          errorMessage: message,
+        }),
+      );
+
+      const failedRun = await this.repository.getRunById(input.runId);
+      if (!failedRun) {
+        throw new AppError('INTERNAL_ERROR', 'Conversation run record was not found.', 500);
+      }
+
+      return failedRun;
+    }
+  }
+
+  private async runConversationRounds(input: {
+    threadId: string;
+    userId: string;
+    userMessage: ChatMessageRow;
+    runId: string;
+    canonicalMessages: CanonicalChatMessage[];
+    completedRoundUsages: LlmUsageTelemetry[];
+    runStartedAt: number;
+    startRound: number;
+  }): Promise<ConversationRunRow> {
+    const canonicalMessages = input.canonicalMessages;
+    let roundMessages: CanonicalChatMessage[] = canonicalMessages;
+    let latestToolOperation: 'generate' | 'refine' | null = null;
+    void input.userMessage;
+
+    for (
+      let round = input.startRound;
+      round <= this.llmConfig.conversationMaxToolRounds;
+      round += 1
+    ) {
+      const tools = this.toolRegistry.getToolDefinitions();
+      let streamedAssistantText = '';
+      let hasPublishedAssistantDraft = false;
+      this.logger.log(
+        JSON.stringify({
+          event: 'conversation_loop_round_started',
+          runId: input.runId,
+          round,
+          toolsAvailable: tools.length,
+        }),
+      );
+      const response = await this.toolLlmRouter.runTurn({
+        requestId: input.runId,
+        provider: this.llmConfig.conversationProvider,
+        qualityMode: 'quality',
+        model: this.llmConfig.conversationModel,
+        maxTokens: this.llmConfig.conversationMaxTokens,
+        messages: cloneCanonicalMessagesForProviderRequest(roundMessages),
+        tools,
+        onAssistantTextSnapshot: async (text) => {
+          const normalized = text.trim();
+          if (normalized.length === 0) {
+            return;
+          }
+
+          streamedAssistantText = normalized;
+          this.events.publish({
+            threadId: input.threadId,
+            runId: input.runId,
+            type: hasPublishedAssistantDraft
+              ? 'assistant_message_updated'
+              : 'assistant_message_started',
+            payload: {
+              draftId: input.runId,
+              content: normalized,
+            },
+          });
+          hasPublishedAssistantDraft = true;
+        },
+      });
+      input.completedRoundUsages.push(response.usage);
+      const roundToolOperation = extractGenerateExperienceOperation(response.toolCalls);
+      if (roundToolOperation) {
+        latestToolOperation = roundToolOperation;
+      }
+      const resolvedAssistantText = resolveAssistantText(
+        response.assistantText,
+        streamedAssistantText,
+      );
+
+      await this.repository.recordRunProviderTrace({
+        runId: input.runId,
+        providerRequestRaw: appendMontiTrace(response.rawRequest, {
+          round,
+          tool_operation: latestToolOperation,
+        }),
+        providerResponseRaw: appendMontiTrace(response.rawResponse, {
+          round,
+          tool_operation: latestToolOperation,
+        }),
+      });
+
+      this.logger.log(
+        JSON.stringify({
+          event: 'conversation_loop_round_completed',
+          runId: input.runId,
+          round,
+          finishReason: response.finishReason,
+          toolCalls: response.toolCalls.length,
+        }),
+      );
+
+      if (response.toolCalls.length > 0) {
+        canonicalMessages.push({
+          role: 'assistant',
+          content: resolvedAssistantText,
+          toolCalls: response.toolCalls,
+        });
+
+        const toolCallAssistantMessage = await this.repository.createToolCallMessage({
+          threadId: input.threadId,
+          userId: input.userId,
+          content: resolvedAssistantText,
+          toolCalls: response.toolCalls,
+          contentJson: {
+            phase: 'pre_tool',
+            round,
+            provider: response.provider,
+            model: response.model,
+          },
+        });
+        this.events.publish({
+          threadId: input.threadId,
+          runId: input.runId,
+          type: 'assistant_message_created',
+          payload: toAssistantMessagePayload(toolCallAssistantMessage),
+        });
+      } else if (resolvedAssistantText.length > 0) {
+        canonicalMessages.push({
+          role: 'assistant',
+          content: resolvedAssistantText,
+        });
+      }
+
+      if (response.toolCalls.length === 0) {
+        const completedRun = await this.completeWithAssistantMessage({
+          runId: input.runId,
+          threadId: input.threadId,
+          userId: input.userId,
+          conversationUsage: aggregateObservedUsage(input.completedRoundUsages),
+          content:
+            resolvedAssistantText.length > 0
+              ? resolvedAssistantText
+              : 'I finished that step. Tell me what you want to do next.',
+          contentJson: {
+            provider: response.provider,
+            model: response.model,
+            finishReason: response.finishReason,
+          },
+        });
+        this.logger.log(
+          JSON.stringify({
+            event: 'conversation_loop_completed',
+            runId: input.runId,
+            durationMs: Date.now() - input.runStartedAt,
+            terminalStatus: completedRun.status,
+          }),
+        );
+        return completedRun;
+      }
+
+      const toolSetResult = await this.executeToolCallSet({
+        threadId: input.threadId,
+        userId: input.userId,
+        runId: input.runId,
+        toolCalls: response.toolCalls,
+        canonicalMessages,
+      });
+
+      if (toolSetResult.status === 'paused') {
+        const pausedRun = await this.repository.getRunById(input.runId);
+        if (!pausedRun) {
+          throw new AppError('INTERNAL_ERROR', 'Conversation run record was not found.', 500);
+        }
+        this.logger.log(
+          JSON.stringify({
+            event: 'conversation_loop_paused_for_confirmation',
+            runId: input.runId,
+            durationMs: Date.now() - input.runStartedAt,
+          }),
+        );
+        return pausedRun;
+      }
+
+      roundMessages = canonicalMessages;
+    }
+
+    throw new AppError(
+      'INTERNAL_ERROR',
+      'Conversation loop exceeded configured tool-call rounds.',
+      500,
+    );
+  }
+
+  private async executeToolCallSet(input: {
+    threadId: string;
+    userId: string;
+    runId: string;
+    toolCalls: CanonicalToolCall[];
+    canonicalMessages: CanonicalChatMessage[];
+    confirmationBypass?: { toolCallId: string; qualityMode: QualityMode };
+  }): Promise<{ status: 'completed' } | { status: 'paused' }> {
+    for (const toolCall of input.toolCalls) {
+      const invocation = await this.repository.createToolInvocation({
+        threadId: input.threadId,
+        runId: input.runId,
+        providerToolCallId: toolCall.id,
+        toolName: toolCall.name,
+        toolArguments: toolCall.arguments,
+      });
+
+      const chatTool = this.toolRegistry.getTool(toolCall.name);
+
+      if (!chatTool) {
+        const errorResult = {
+          status: 'failed' as const,
+          generationId: null,
+          experienceId: null,
+          experienceVersionId: null,
+          errorCode: 'UNKNOWN_TOOL',
+          errorMessage: `Unknown tool: ${toolCall.name}`,
+          sandboxStatus: 'error' as const,
+          route: null,
+        };
+
+        await this.repository.markToolInvocationFailed({
+          invocationId: invocation.id,
+          errorCode: errorResult.errorCode,
+          errorMessage: errorResult.errorMessage,
+          toolResult: errorResult,
+          routerTier: null,
+          routerConfidence: null,
+          routerReason: null,
+          routerFallbackReason: null,
+          selectedProvider: null,
+          selectedModel: null,
+        });
+
+        this.events.publish({
+          threadId: input.threadId,
+          runId: input.runId,
+          type: 'tool_failed',
+          payload: {
+            invocationId: invocation.id,
+            toolName: toolCall.name,
+            errorCode: errorResult.errorCode,
+            errorMessage: errorResult.errorMessage,
+          },
+        });
+
+        const llmToolContent = buildLlmFacingToolResultContent(
+          toolCall.name,
+          toolCall.arguments,
+          errorResult,
+        );
+        await this.repository.createToolResultMessage({
+          threadId: input.threadId,
+          userId: input.userId,
+          toolCallId: toolCall.id,
+          toolName: toolCall.name,
+          content: llmToolContent,
+        });
+
+        input.canonicalMessages.push({
+          role: 'tool',
+          toolCallId: toolCall.id,
+          toolName: toolCall.name,
+          content: llmToolContent,
+        });
+        continue;
+      }
+
+      const shouldPauseForConfirmation =
+        chatTool.requiresConfirmation(toolCall.arguments) &&
+        !(
+          input.confirmationBypass &&
+          input.confirmationBypass.toolCallId === toolCall.id
+        );
+
+      if (shouldPauseForConfirmation) {
+        const metadata = chatTool.getConfirmationMetadata(toolCall.arguments);
+        await this.repository.markRunAwaitingConfirmation({
+          runId: input.runId,
+          confirmationToolCallId: toolCall.id,
+          confirmationMetadata: {
+            operation: metadata.operation,
+            estimatedCredits: metadata.estimatedCredits,
+          },
+        });
+        this.events.publish({
+          threadId: input.threadId,
+          runId: input.runId,
+          type: 'confirmation_required',
+          payload: {
+            toolCallId: toolCall.id,
+            operation: metadata.operation,
+            estimatedCredits: metadata.estimatedCredits,
+          },
+        });
+        return { status: 'paused' };
+      }
+
+      const requestedQualityMode =
+        input.confirmationBypass?.toolCallId === toolCall.id
+          ? input.confirmationBypass.qualityMode
+          : undefined;
+
+      this.events.publish({
+        threadId: input.threadId,
+        runId: input.runId,
+        type: 'tool_started',
+        payload: {
+          invocationId: invocation.id,
+          toolName: invocation.tool_name,
+        },
+      });
+
+      if (toolCall.name === 'generate_experience') {
+        await this.repository.updateSandboxState({
+          threadId: input.threadId,
+          status: 'creating',
+          lastErrorCode: null,
+          lastErrorMessage: null,
+        });
+        this.events.publish({
+          threadId: input.threadId,
+          runId: input.runId,
+          type: 'sandbox_updated',
+          payload: {
+            status: 'creating',
+          },
+        });
+      }
+
+      const execution = await this.toolRegistry.executeToolCall({
+        invocationId: invocation.id,
+        threadId: input.threadId,
+        runId: input.runId,
+        userId: input.userId,
+        toolCallId: toolCall.id,
+        name: toolCall.name,
+        arguments: toolCall.arguments,
+        conversationContext: buildBoundedConversationContext(input.canonicalMessages),
+        requestedQualityMode,
+      });
+
+      if (execution.result.status === 'succeeded') {
+        await this.repository.markToolInvocationSucceeded({
+          invocationId: invocation.id,
+          toolResult: execution.result as unknown as Record<string, unknown>,
+          generationId: execution.result.generationId,
+          experienceId: execution.result.experienceId,
+          experienceVersionId: execution.result.experienceVersionId,
+          routerTier: execution.result.route?.tier ?? null,
+          routerConfidence: execution.result.route?.confidence ?? null,
+          routerReason: execution.result.route?.reason ?? null,
+          routerFallbackReason: execution.result.route?.fallbackReason ?? null,
+          selectedProvider: execution.result.route?.selectedProvider ?? null,
+          selectedModel: execution.result.route?.selectedModel ?? null,
+        });
+
+        let resolvedExperienceId = execution.result.experienceId;
+        let resolvedExperienceVersionId = execution.result.experienceVersionId;
+        if (!resolvedExperienceVersionId && execution.result.generationId) {
+          const versionRef = await this.repository.findExperienceVersionByGenerationId(
+            execution.result.generationId,
+          );
+          resolvedExperienceId = versionRef?.experienceId ?? resolvedExperienceId;
+          resolvedExperienceVersionId =
+            versionRef?.versionId ?? resolvedExperienceVersionId;
+        }
+
+        this.events.publish({
+          threadId: input.threadId,
+          runId: input.runId,
+          type: 'tool_succeeded',
+          payload: {
+            invocationId: invocation.id,
+            toolName: toolCall.name,
+            generationId: execution.result.generationId,
+          },
+        });
+
+        await this.repository.updateSandboxState({
+          threadId: input.threadId,
+          status: execution.result.sandboxStatus,
+          experienceId: resolvedExperienceId,
+          experienceVersionId: resolvedExperienceVersionId,
+          lastErrorCode: null,
+          lastErrorMessage: null,
+        });
+
+        this.events.publish({
+          threadId: input.threadId,
+          runId: input.runId,
+          type: 'sandbox_updated',
+          payload: {
+            status: execution.result.sandboxStatus,
+            experienceId: resolvedExperienceId,
+            experienceVersionId: resolvedExperienceVersionId,
+            errorCode: null,
+            errorMessage: null,
+          },
+        });
+      } else {
+        await this.repository.markToolInvocationFailed({
+          invocationId: invocation.id,
+          errorCode: execution.result.errorCode ?? 'TOOL_EXECUTION_FAILED',
+          errorMessage:
+            execution.result.errorMessage ?? 'Tool execution failed.',
+          toolResult: execution.result as unknown as Record<string, unknown>,
+          routerTier: execution.result.route?.tier ?? null,
+          routerConfidence: execution.result.route?.confidence ?? null,
+          routerReason: execution.result.route?.reason ?? null,
+          routerFallbackReason: execution.result.route?.fallbackReason ?? null,
+          selectedProvider: execution.result.route?.selectedProvider ?? null,
+          selectedModel: execution.result.route?.selectedModel ?? null,
+        });
+
+        this.events.publish({
+          threadId: input.threadId,
+          runId: input.runId,
+          type: 'tool_failed',
+          payload: {
+            invocationId: invocation.id,
+            toolName: toolCall.name,
+            errorCode: execution.result.errorCode,
+            errorMessage: execution.result.errorMessage,
+          },
+        });
+
+        await this.repository.updateSandboxState({
+          threadId: input.threadId,
+          status: execution.result.sandboxStatus,
+          ...(execution.result.experienceId != null
+            ? { experienceId: execution.result.experienceId }
+            : {}),
+          ...(execution.result.experienceVersionId != null
+            ? { experienceVersionId: execution.result.experienceVersionId }
+            : {}),
+          lastErrorCode: execution.result.errorCode,
+          lastErrorMessage: execution.result.errorMessage,
+        });
+
+        this.events.publish({
+          threadId: input.threadId,
+          runId: input.runId,
+          type: 'sandbox_updated',
+          payload: {
+            status: execution.result.sandboxStatus,
+            experienceId: execution.result.experienceId,
+            experienceVersionId: execution.result.experienceVersionId,
+            errorCode: execution.result.errorCode,
+            errorMessage: execution.result.errorMessage,
+          },
+        });
+      }
+
+      const llmToolContent = buildLlmFacingToolResultContent(
+        toolCall.name,
+        toolCall.arguments,
+        execution.result as unknown as Record<string, unknown>,
+      );
+      await this.repository.createToolResultMessage({
+        threadId: input.threadId,
+        userId: input.userId,
+        toolCallId: toolCall.id,
+        toolName: toolCall.name,
+        content: llmToolContent,
+      });
+
+      input.canonicalMessages.push({
+        role: 'tool',
+        toolCallId: toolCall.id,
+        toolName: toolCall.name,
+        content: llmToolContent,
+      });
+    }
+
+    return { status: 'completed' };
   }
 
   private async buildConversationMessages(input: {
@@ -659,16 +938,14 @@ function buildLlmFacingToolResultContent(
   toolArguments: Record<string, unknown>,
   result: Record<string, unknown>,
 ): string {
-  const operation =
-    toolName === 'generate_experience' &&
-    (toolArguments.operation === 'generate' || toolArguments.operation === 'refine')
-      ? toolArguments.operation
-      : toolName === 'generate_experience'
-        ? 'generate'
-        : 'invoke';
+  const operation = toolOperationForLlmPayload(toolName, toolArguments);
 
   if (result.status === 'succeeded') {
     return JSON.stringify({ status: 'succeeded', operation });
+  }
+
+  if (result.status === 'cancelled') {
+    return JSON.stringify({ status: 'cancelled', operation });
   }
 
   const errorCode =
@@ -686,6 +963,84 @@ function buildLlmFacingToolResultContent(
     errorCode,
     errorMessage,
   });
+}
+
+function toolOperationForLlmPayload(
+  toolName: string,
+  toolArguments: Record<string, unknown>,
+): string {
+  if (
+    toolName === 'generate_experience' &&
+    (toolArguments.operation === 'generate' || toolArguments.operation === 'refine')
+  ) {
+    return toolArguments.operation;
+  }
+  if (toolName === 'generate_experience') {
+    return 'generate';
+  }
+  return 'invoke';
+}
+
+function computeNextConversationRoundIndex(run: ConversationRunRow): number {
+  const last = readLastTraceRoundFromRun(run);
+  return last == null ? 0 : last + 1;
+}
+
+function readLastTraceRoundFromRun(run: ConversationRunRow): number | null {
+  let last: number | null = null;
+  for (const raw of [run.provider_response_raw, run.provider_request_raw]) {
+    const r = extractTraceRound(raw);
+    if (r != null) {
+      last = r;
+    }
+  }
+  return last;
+}
+
+function extractTraceRound(raw: unknown): number | null {
+  if (!raw || typeof raw !== 'object' || raw === null) {
+    return null;
+  }
+  const trace = (raw as Record<string, unknown>)._montiTrace;
+  if (!trace || typeof trace !== 'object' || trace === null) {
+    return null;
+  }
+  const round = (trace as Record<string, unknown>).round;
+  return typeof round === 'number' ? round : null;
+}
+
+function derivePendingToolCallsForRun(messages: CanonicalChatMessage[]): CanonicalToolCall[] {
+  const completedIds = new Set(
+    messages
+      .filter((m) => m.role === 'tool' && m.toolCallId)
+      .map((m) => m.toolCallId as string),
+  );
+
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const m = messages[i];
+    if (m.role !== 'assistant' || !m.toolCalls?.length) {
+      continue;
+    }
+    return m.toolCalls.filter((tc) => !completedIds.has(tc.id));
+  }
+  return [];
+}
+
+function findToolCallContext(
+  messages: CanonicalChatMessage[],
+  toolCallId: string,
+): { name: string; arguments: Record<string, unknown> } | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const m = messages[i];
+    if (m.role !== 'assistant' || !m.toolCalls?.length) {
+      continue;
+    }
+    const hit = m.toolCalls.find((c) => c.id === toolCallId);
+    if (hit) {
+      return { name: hit.name, arguments: hit.arguments };
+    }
+  }
+  return null;
 }
 
 function toErrorCode(error: unknown): string {
@@ -729,8 +1084,12 @@ function buildBoundedConversationContext(messages: CanonicalChatMessage[]): stri
   return relevant.join('\n');
 }
 
-function extractRequestedQualityMode(message: ChatMessageRow): QualityMode | undefined {
+/** @deprecated Mode is chosen at the confirmation gate; kept for legacy rows. */
+export function extractRequestedQualityMode(message: ChatMessageRow): QualityMode | undefined {
   const value = message.content_json?.generationMode;
+  if (value === 'auto') {
+    return undefined;
+  }
   if (value === 'fast' || value === 'quality') {
     return value;
   }

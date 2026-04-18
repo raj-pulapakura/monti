@@ -174,7 +174,14 @@ create table if not exists public.assistant_runs (
   user_message_id uuid not null references public.chat_messages(id) on delete cascade,
   assistant_message_id uuid null references public.chat_messages(id) on delete set null,
   status text not null default 'queued' check (
-    status in ('queued', 'running', 'succeeded', 'failed', 'cancelled')
+    status in (
+      'queued',
+      'running',
+      'succeeded',
+      'failed',
+      'cancelled',
+      'awaiting_confirmation'
+    )
   ),
   router_tier text null check (router_tier in ('fast', 'quality')),
   router_provider_hint text null check (router_provider_hint in ('openai', 'anthropic', 'gemini')),
@@ -194,6 +201,8 @@ create table if not exists public.assistant_runs (
   started_at timestamptz null,
   completed_at timestamptz null,
   created_at timestamptz not null default now(),
+  confirmation_tool_call_id text null,
+  confirmation_metadata jsonb null,
   constraint assistant_runs_user_message_unique unique (user_message_id)
 );
 
@@ -274,7 +283,7 @@ create index if not exists idx_assistant_runs_conversation_provider
   on public.assistant_runs (conversation_provider);
 create unique index if not exists idx_assistant_runs_single_active_per_thread
   on public.assistant_runs (thread_id)
-  where status in ('queued', 'running');
+  where status in ('queued', 'running', 'awaiting_confirmation');
 
 create index if not exists idx_tool_invocations_run_id_created_at
   on public.tool_invocations (run_id, created_at);

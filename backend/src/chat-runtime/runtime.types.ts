@@ -6,6 +6,7 @@ import type {
   SandboxStatus,
   ToolInvocationStatus,
 } from './runtime.enums';
+import type { ToolConfirmationMetadata } from './tools/chat-tool.interface';
 
 export interface ChatMessageEnvelope {
   id: string;
@@ -43,6 +44,8 @@ export interface AssistantRunEnvelope {
   startedAt: string | null;
   completedAt: string | null;
   createdAt: string;
+  confirmationToolCallId: string | null;
+  confirmationMetadata: ToolConfirmationMetadata | null;
 }
 
 export interface ToolInvocationEnvelope {

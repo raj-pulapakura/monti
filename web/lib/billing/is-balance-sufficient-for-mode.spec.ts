@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { isBalanceSufficientForMode } from './is-balance-sufficient-for-mode';
+import {
+  isBalanceSufficientForMinimumTier,
+  isBalanceSufficientForMode,
+} from './is-balance-sufficient-for-mode';
 import type { BillingMeData } from '@/lib/api/billing-me';
 
 function baseBilling(overrides: Partial<BillingMeData> = {}): BillingMeData {
@@ -28,15 +31,22 @@ function baseBilling(overrides: Partial<BillingMeData> = {}): BillingMeData {
   return merged;
 }
 
-describe('isBalanceSufficientForMode', () => {
-  it('treats auto as requiring at least fast-tier credits', () => {
-    expect(isBalanceSufficientForMode(baseBilling({ includedCreditsAvailable: 0, topupCreditsAvailable: 0 }), 'auto')).toBe(
-      false,
-    );
-    expect(isBalanceSufficientForMode(baseBilling({ includedCreditsAvailable: 1, topupCreditsAvailable: 0 }), 'auto')).toBe(
-      true,
-    );
+describe('isBalanceSufficientForMinimumTier', () => {
+  it('requires at least fast-tier credits when billing is enabled', () => {
+    expect(
+      isBalanceSufficientForMinimumTier(
+        baseBilling({ includedCreditsAvailable: 0, topupCreditsAvailable: 0 }),
+      ),
+    ).toBe(false);
+    expect(
+      isBalanceSufficientForMinimumTier(
+        baseBilling({ includedCreditsAvailable: 1, topupCreditsAvailable: 0 }),
+      ),
+    ).toBe(true);
   });
+});
+
+describe('isBalanceSufficientForMode', () => {
 
   it('requires full quality cost for quality mode', () => {
     expect(

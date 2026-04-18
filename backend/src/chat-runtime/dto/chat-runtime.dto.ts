@@ -5,7 +5,6 @@ import type {
   SandboxStateEnvelope,
   ToolInvocationEnvelope,
 } from '../runtime.types';
-import type { GenerationMode } from '../../llm/llm.types';
 
 export interface CreateThreadRequest {
   title?: string;
@@ -14,7 +13,11 @@ export interface CreateThreadRequest {
 export interface SubmitMessageRequest {
   content: string;
   idempotencyKey?: string;
-  generationMode?: GenerationMode;
+}
+
+export interface ConfirmRunRequest {
+  decision: 'confirmed' | 'cancelled';
+  qualityMode?: 'fast' | 'quality';
 }
 
 export interface HydrateThreadRequest {
@@ -130,10 +133,43 @@ export function parseSubmitMessageRequest(
     request: {
       content: asRequiredString(object.content, 'content'),
       idempotencyKey: asOptionalString(object.idempotencyKey, 'idempotencyKey'),
-      generationMode: asOptionalGenerationMode(
-        object.generationMode,
-        'generationMode',
-      ),
+    },
+  };
+}
+
+export function parseConfirmRunRequest(
+  threadId: string,
+  runId: string,
+  body: unknown,
+): {
+  threadId: string;
+  runId: string;
+  request: ConfirmRunRequest;
+} {
+  if (!isUuidLike(threadId)) {
+    throw new ValidationError('threadId must be a UUID string.');
+  }
+  if (!isUuidLike(runId)) {
+    throw new ValidationError('runId must be a UUID string.');
+  }
+
+  const object = asRecord(body, 'Request body must be a JSON object.');
+  const decision = asRequiredString(object.decision, 'decision');
+  if (decision !== 'confirmed' && decision !== 'cancelled') {
+    throw new ValidationError(`decision must be "confirmed" or "cancelled".`);
+  }
+
+  const qualityMode =
+    decision === 'confirmed'
+      ? asOptionalQualityMode(object.qualityMode, 'qualityMode')
+      : undefined;
+
+  return {
+    threadId,
+    runId,
+    request: {
+      decision,
+      ...(decision === 'confirmed' ? { qualityMode: qualityMode ?? 'fast' } : {}),
     },
   };
 }
@@ -323,21 +359,19 @@ function asOptionalInteger(
   return parsed as number;
 }
 
-function asOptionalGenerationMode(
+function asOptionalQualityMode(
   value: unknown,
   fieldName: string,
-): GenerationMode | undefined {
+): 'fast' | 'quality' | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
 
-  if (value === 'auto' || value === 'fast' || value === 'quality') {
+  if (value === 'fast' || value === 'quality') {
     return value;
   }
 
-  throw new ValidationError(
-    `${fieldName} must be one of: auto, fast, quality.`,
-  );
+  throw new ValidationError(`${fieldName} must be one of: fast, quality.`);
 }
 
 function isUuidLike(value: string): boolean {

@@ -35,12 +35,25 @@ export function isUserFacingChatMessage(message: ChatMessage): boolean {
   return true;
 }
 
+export type ToolConfirmationMetadata = {
+  operation: string;
+  estimatedCredits: { fast: number; quality: number };
+};
+
 export type AssistantRun = {
   id: string;
   threadId: string;
   userMessageId: string;
   assistantMessageId: string | null;
-  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+  status:
+    | 'queued'
+    | 'running'
+    | 'awaiting_confirmation'
+    | 'succeeded'
+    | 'failed'
+    | 'cancelled';
+  confirmationToolCallId?: string | null;
+  confirmationMetadata?: ToolConfirmationMetadata | null;
   routerDecision: {
     tier: 'fast' | 'quality' | null;
     confidence: number | null;
@@ -120,7 +133,8 @@ export type RuntimeEventData = {
     | 'assistant_message_created'
     | 'sandbox_updated'
     | 'run_failed'
-    | 'run_completed';
+    | 'run_completed'
+    | 'confirmation_required';
   payload: Record<string, unknown>;
   createdAt: string;
 };
@@ -153,10 +167,40 @@ export function reduceRuntimeEvent(
     latestEventId: latestEventId ?? previous.latestEventId,
   };
 
+  if (event.type === 'confirmation_required' && next.activeRun && event.runId === next.activeRun.id) {
+    const operation =
+      typeof event.payload.operation === 'string' ? event.payload.operation : 'Generation';
+    const ec = event.payload.estimatedCredits;
+    const estimatedCredits =
+      ec &&
+      typeof ec === 'object' &&
+      ec !== null &&
+      !Array.isArray(ec) &&
+      typeof (ec as Record<string, unknown>).fast === 'number' &&
+      typeof (ec as Record<string, unknown>).quality === 'number'
+        ? {
+            fast: (ec as Record<string, unknown>).fast as number,
+            quality: (ec as Record<string, unknown>).quality as number,
+          }
+        : { fast: 0, quality: 0 };
+    next.activeRun = {
+      ...next.activeRun,
+      status: 'awaiting_confirmation',
+      confirmationToolCallId:
+        typeof event.payload.toolCallId === 'string' ? event.payload.toolCallId : null,
+      confirmationMetadata: {
+        operation,
+        estimatedCredits,
+      },
+    };
+  }
+
   if (event.type === 'run_started' && next.activeRun) {
     next.activeRun = {
       ...next.activeRun,
       status: 'running',
+      confirmationToolCallId: null,
+      confirmationMetadata: null,
       startedAt: next.activeRun.startedAt ?? event.createdAt,
       selectedProvider:
         event.payload.provider === 'openai' ||
@@ -252,6 +296,8 @@ export function reduceRuntimeEvent(
     next.activeRun = {
       ...next.activeRun,
       status: 'succeeded',
+      confirmationToolCallId: null,
+      confirmationMetadata: null,
       completedAt: event.createdAt,
     };
     next.activeToolInvocation = null;
@@ -271,6 +317,8 @@ export function reduceRuntimeEvent(
     next.activeRun = {
       ...next.activeRun,
       status: 'failed',
+      confirmationToolCallId: null,
+      confirmationMetadata: null,
       error: {
         code: errorCode,
         message: errorMessage,
@@ -370,6 +418,7 @@ export function reconcileHydrationState(
   const activeRunStillVisible =
     hydrated.activeRun?.status === 'queued' ||
     hydrated.activeRun?.status === 'running' ||
+    hydrated.activeRun?.status === 'awaiting_confirmation' ||
     hydrated.activeRun?.status === 'failed';
   const hasPersistedAssistantCopy =
     previous.assistantDraft !== null &&
@@ -420,6 +469,10 @@ export function getStatusLabel(
     return null;
   }
 
+  if (run?.status === 'awaiting_confirmation') {
+    return 'Confirm generation';
+  }
+
   if (
     assistantDraft ||
     sandbox?.status === 'creating' ||
@@ -446,7 +499,11 @@ export function getStatusLabel(
 }
 
 export function isRunActive(run: AssistantRun | null): boolean {
-  return run?.status === 'queued' || run?.status === 'running';
+  return (
+    run?.status === 'queued' ||
+    run?.status === 'running' ||
+    run?.status === 'awaiting_confirmation'
+  );
 }
 
 function toAssistantDraft(

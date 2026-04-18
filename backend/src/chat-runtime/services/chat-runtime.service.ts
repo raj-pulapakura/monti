@@ -21,10 +21,10 @@ import type {
   SandboxStateEnvelope,
   ToolInvocationEnvelope,
 } from '../runtime.types';
-import type { GenerationMode } from '../../llm/llm.types';
 import { ChatRuntimeRepository } from './chat-runtime.repository';
 import { ChatRuntimeEventService } from './chat-runtime-event.service';
 import { ConversationLoopService } from './conversation-loop.service';
+import type { ToolConfirmationMetadata } from '../tools/chat-tool.interface';
 
 @Injectable()
 export class ChatRuntimeService {
@@ -162,6 +162,95 @@ export class ChatRuntimeService {
     await this.repository.archiveThread(input);
   }
 
+  async confirmRun(input: {
+    threadId: string;
+    runId: string;
+    userId: string;
+    decision: 'confirmed' | 'cancelled';
+    qualityMode?: 'fast' | 'quality';
+  }): Promise<void> {
+    assertChatRuntimeEnabled();
+    const run = await this.repository.getRunById(input.runId);
+    if (!run || run.thread_id !== input.threadId) {
+      throw new ValidationError('Run not found for this thread.');
+    }
+    if (run.status !== 'awaiting_confirmation') {
+      throw new ValidationError('Run is not awaiting confirmation.');
+    }
+
+    const confirmedToolCallId = run.confirmation_tool_call_id;
+    if (!confirmedToolCallId) {
+      throw new ValidationError('Run has no pending tool confirmation.');
+    }
+
+    await this.repository.assertThreadAccess({
+      threadId: input.threadId,
+      userId: input.userId,
+    });
+
+    const userMessage = await this.repository.findChatMessageById(run.user_message_id);
+    if (!userMessage) {
+      throw new ValidationError('User message for this run was not found.');
+    }
+
+    void this.resumeConversationTurn({
+      threadId: input.threadId,
+      userId: input.userId,
+      runId: input.runId,
+      confirmedToolCallId,
+      decision: input.decision,
+      qualityMode: input.qualityMode,
+      userMessage,
+    });
+  }
+
+  private async resumeConversationTurn(input: {
+    threadId: string;
+    userId: string;
+    runId: string;
+    confirmedToolCallId: string;
+    decision: 'confirmed' | 'cancelled';
+    qualityMode?: 'fast' | 'quality';
+    userMessage: {
+      id: string;
+      thread_id: string;
+      user_id: string;
+      role: 'user' | 'assistant' | 'tool' | 'system';
+      content: string;
+      content_json: Record<string, unknown> | null;
+      idempotency_key: string | null;
+      created_at: string;
+    };
+  }): Promise<void> {
+    try {
+      const executedRun = await this.conversationLoop.resumeTurn({
+        threadId: input.threadId,
+        userId: input.userId,
+        runId: input.runId,
+        confirmedToolCallId: input.confirmedToolCallId,
+        decision: input.decision,
+        qualityMode: input.qualityMode,
+        userMessage: input.userMessage,
+      });
+      this.logger.log(
+        JSON.stringify({
+          event: 'chat_runtime_conversation_resume_completed',
+          runId: executedRun.id,
+          terminalStatus: executedRun.status,
+        }),
+      );
+    } catch (error) {
+      this.logger.error(
+        JSON.stringify({
+          event: 'chat_runtime_conversation_resume_unhandled_failure',
+          runId: input.runId,
+          errorMessage:
+            error instanceof Error ? error.message : 'Conversation resume failed.',
+        }),
+      );
+    }
+  }
+
   async submitMessage(input: {
     threadId: string;
     request: SubmitMessageRequest;
@@ -187,41 +276,28 @@ export class ChatRuntimeService {
           run,
           deduplicated: true as const,
         };
-        const message = await this.applyGenerationModeMetadata({
-          message: result.message,
-          generationMode: input.request.generationMode,
-          deduplicated: result.deduplicated,
-        });
         return this.finalizeSubmitMessage({
           threadId: input.threadId,
           userId: input.userId,
-          message,
+          message: result.message,
           run: result.run,
           deduplicated: result.deduplicated,
         });
       }
     }
 
-    const effectiveGenerationMode = await this.resolveGenerationModeForSubmit({
-      userId: input.userId,
-      generationMode: input.request.generationMode,
-    });
+    await this.assertMinimumFastTierCreditsForSubmit({ userId: input.userId });
 
     const result = await this.repository.submitUserMessage({
       threadId: input.threadId,
       content: input.request.content,
       idempotencyKey: input.request.idempotencyKey,
     });
-    const message = await this.applyGenerationModeMetadata({
-      message: result.message,
-      generationMode: effectiveGenerationMode,
-      deduplicated: result.deduplicated,
-    });
 
     return this.finalizeSubmitMessage({
       threadId: input.threadId,
       userId: input.userId,
-      message,
+      message: result.message,
       run: result.run,
       deduplicated: result.deduplicated,
     });
@@ -266,58 +342,31 @@ export class ChatRuntimeService {
     return this.billingConfig.billingEnabled && this.billingConfig.creditEnforcementEnabled;
   }
 
-  private async resolveGenerationModeForSubmit(input: {
-    userId: string;
-    generationMode: GenerationMode | undefined;
-  }): Promise<GenerationMode | undefined> {
+  private async assertMinimumFastTierCreditsForSubmit(input: { userId: string }): Promise<void> {
     if (!this.shouldEnforceCreditPrecheck()) {
-      return input.generationMode;
+      return;
     }
 
     const balance = await this.entitlements.readSpendableBalance(input.userId);
     if (balance === null) {
-      return input.generationMode;
+      return;
     }
 
     const snapshot = await this.billingRepository.findPricingRuleSnapshotByVersionKey(
       this.billingConfig.launchPricingVersionKey,
     );
     if (!snapshot) {
-      return input.generationMode;
+      return;
     }
 
-    const pricing = resolvePricingFromSnapshot(snapshot.rules_json, this.billingConfig.launchCatalog);
+    const pricing = resolvePricingFromSnapshot(
+      snapshot.rules_json,
+      this.billingConfig.launchCatalog,
+    );
     const total = balance.fast;
-    const requested: GenerationMode = input.generationMode ?? 'auto';
-
-    if (requested === 'quality') {
-      if (total < pricing.qualityCredits) {
-        throw new InsufficientCreditsError();
-      }
-      return 'quality';
+    if (total < pricing.fastCredits) {
+      throw new InsufficientCreditsError();
     }
-    if (requested === 'fast') {
-      if (total < pricing.fastCredits) {
-        throw new InsufficientCreditsError();
-      }
-      return 'fast';
-    }
-    if (total >= pricing.qualityCredits) {
-      return 'auto';
-    }
-    if (total >= pricing.fastCredits) {
-      this.logger.log(
-        JSON.stringify({
-          event: 'chat_runtime.auto_mode_downgraded_to_fast',
-          userId: input.userId,
-          spendableCredits: total,
-          qualityCreditsRequired: pricing.qualityCredits,
-          fastCreditsRequired: pricing.fastCredits,
-        }),
-      );
-      return 'fast';
-    }
-    throw new InsufficientCreditsError();
   }
 
   async recordRunProviderTrace(input: {
@@ -373,45 +422,6 @@ export class ChatRuntimeService {
     }
   }
 
-  private async applyGenerationModeMetadata(input: {
-    message: {
-      id: string;
-      thread_id: string;
-      user_id: string;
-      role: 'user' | 'assistant' | 'tool' | 'system';
-      content: string;
-      content_json: Record<string, unknown> | null;
-      idempotency_key: string | null;
-      created_at: string;
-    };
-    generationMode?: GenerationMode;
-    deduplicated: boolean;
-  }): Promise<{
-    id: string;
-    thread_id: string;
-    user_id: string;
-    role: 'user' | 'assistant' | 'tool' | 'system';
-    content: string;
-    content_json: Record<string, unknown> | null;
-    idempotency_key: string | null;
-    created_at: string;
-  }> {
-    if (
-      input.deduplicated ||
-      input.generationMode === undefined ||
-      input.generationMode === 'auto'
-    ) {
-      return input.message;
-    }
-
-    return this.repository.updateMessageContentJson({
-      messageId: input.message.id,
-      contentJson: {
-        ...(input.message.content_json ?? {}),
-        generationMode: input.generationMode,
-      },
-    });
-  }
 }
 
 function mapThread(row: {
@@ -491,7 +501,15 @@ function mapRun(row: {
   thread_id: string;
   user_message_id: string;
   assistant_message_id: string | null;
-  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+  status:
+    | 'queued'
+    | 'running'
+    | 'awaiting_confirmation'
+    | 'succeeded'
+    | 'failed'
+    | 'cancelled';
+  confirmation_tool_call_id?: string | null;
+  confirmation_metadata?: unknown;
   router_tier: 'fast' | 'quality' | null;
   router_provider_hint: 'openai' | 'anthropic' | 'gemini' | null;
   router_confidence: number | null;
@@ -532,6 +550,37 @@ function mapRun(row: {
     startedAt: row.started_at,
     completedAt: row.completed_at,
     createdAt: row.created_at,
+    confirmationToolCallId: row.confirmation_tool_call_id ?? null,
+    confirmationMetadata: parseToolConfirmationMetadata(row.confirmation_metadata),
+  };
+}
+
+function parseToolConfirmationMetadata(value: unknown): ToolConfirmationMetadata | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  const operation = typeof record.operation === 'string' ? record.operation : null;
+  const estimated = record.estimatedCredits;
+  if (
+    !operation ||
+    !estimated ||
+    typeof estimated !== 'object' ||
+    estimated === null ||
+    Array.isArray(estimated)
+  ) {
+    return null;
+  }
+  const credits = estimated as Record<string, unknown>;
+  const fast = typeof credits.fast === 'number' ? credits.fast : Number(credits.fast);
+  const quality =
+    typeof credits.quality === 'number' ? credits.quality : Number(credits.quality);
+  if (!Number.isFinite(fast) || !Number.isFinite(quality)) {
+    return null;
+  }
+  return {
+    operation,
+    estimatedCredits: { fast, quality },
   };
 }
 

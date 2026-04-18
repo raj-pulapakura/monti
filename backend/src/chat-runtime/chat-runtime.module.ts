@@ -12,6 +12,7 @@ import { ChatRuntimeRepository } from './services/chat-runtime.repository';
 import { ChatRuntimeService } from './services/chat-runtime.service';
 import { RefinementSuggestionService } from './services/refinement-suggestion.service';
 import { ChatToolRegistryService } from './tools/chat-tool-registry.service';
+import { GenerateExperienceChatTool } from './tools/generate-experience.chat-tool';
 import { GenerateExperienceToolService } from './tools/generate-experience-tool.service';
 
 @Module({
@@ -23,7 +24,13 @@ import { GenerateExperienceToolService } from './tools/generate-experience-tool.
     ConversationLoopService,
     ChatRuntimeEventService,
     RefinementSuggestionService,
-    ChatToolRegistryService,
+    GenerateExperienceChatTool,
+    {
+      provide: ChatToolRegistryService,
+      useFactory: (generateExperienceChatTool: GenerateExperienceChatTool) =>
+        new ChatToolRegistryService([generateExperienceChatTool]),
+      inject: [GenerateExperienceChatTool],
+    },
     GenerateExperienceToolService,
     UserIdThrottlerGuard,
   ],

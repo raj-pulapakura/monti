@@ -1,4 +1,4 @@
-export type GenerationMode = 'auto' | 'fast' | 'quality';
+export type GenerationMode = 'fast' | 'quality';
 
 export const GENERATION_MODE_OPTIONS: Array<{
   value: GenerationMode;
@@ -6,24 +6,19 @@ export const GENERATION_MODE_OPTIONS: Array<{
   description: string;
 }> = [
   {
-    value: 'auto',
-    label: 'Auto',
-    description: 'Let Monti choose',
-  },
-  {
     value: 'fast',
-    label: 'Fast',
-    description: 'Lower latency',
+    label: 'Draft',
+    description: 'Lower credit cost',
   },
   {
     value: 'quality',
-    label: 'Quality',
+    label: 'High quality',
     description: 'Best result',
   },
 ];
 
 export function isGenerationMode(value: unknown): value is GenerationMode {
-  return value === 'auto' || value === 'fast' || value === 'quality';
+  return value === 'fast' || value === 'quality';
 }
 
 export function generationModeMenuLabel(mode: GenerationMode): string {

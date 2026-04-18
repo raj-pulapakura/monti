@@ -8,6 +8,8 @@ function createRunRow(overrides: Record<string, unknown> = {}) {
     user_message_id: 'message-1',
     assistant_message_id: null,
     status: 'queued' as const,
+    confirmation_tool_call_id: null,
+    confirmation_metadata: null,
     router_tier: null,
     router_provider_hint: null,
     router_confidence: null,
@@ -112,7 +114,7 @@ describe('ChatRuntimeService credit pre-check', () => {
     await service.submitMessage({
       threadId: 'thread-1',
       userId: 'client-1',
-      request: { content: 'hi', generationMode: 'fast' },
+      request: { content: 'hi' },
     });
 
     expect(repository.submitUserMessage).toHaveBeenCalled();
@@ -158,7 +160,7 @@ describe('ChatRuntimeService credit pre-check', () => {
       service.submitMessage({
         threadId: 'thread-1',
         userId: 'client-1',
-        request: { content: 'hi', generationMode: 'fast' },
+        request: { content: 'hi' },
       }),
     ).rejects.toBeInstanceOf(InsufficientCreditsError);
 
@@ -200,7 +202,7 @@ describe('ChatRuntimeService credit pre-check', () => {
     await service.submitMessage({
       threadId: 'thread-1',
       userId: 'client-1',
-      request: { content: 'hi', generationMode: 'fast' },
+      request: { content: 'hi' },
     });
 
     expect(entitlements.readSpendableBalance).not.toHaveBeenCalled();
@@ -246,13 +248,13 @@ describe('ChatRuntimeService credit pre-check', () => {
     await service.submitMessage({
       threadId: 'thread-1',
       userId: 'client-1',
-      request: { content: 'hi', generationMode: 'fast' },
+      request: { content: 'hi' },
     });
 
     expect(repository.submitUserMessage).toHaveBeenCalled();
   });
 
-  it('auto + insufficient quality + sufficient fast persists fast mode', async () => {
+  it('allows submit when balance covers fast minimum without persisting generation mode', async () => {
     const repository = createRepositoryMock();
     const entitlements = {
       readSpendableBalance: jest.fn(async () => ({ fast: 3, quality: 3 })),
@@ -291,18 +293,14 @@ describe('ChatRuntimeService credit pre-check', () => {
     await service.submitMessage({
       threadId: 'thread-1',
       userId: 'client-1',
-      request: { content: 'hi', generationMode: 'auto' },
+      request: { content: 'hi' },
     });
 
-    expect(repository.updateMessageContentJson).toHaveBeenCalledWith({
-      messageId: 'message-1',
-      contentJson: {
-        generationMode: 'fast',
-      },
-    });
+    expect(repository.submitUserMessage).toHaveBeenCalled();
+    expect(repository.updateMessageContentJson).not.toHaveBeenCalled();
   });
 
-  it('auto + insufficient fast throws InsufficientCreditsError', async () => {
+  it('insufficient fast balance throws InsufficientCreditsError', async () => {
     const repository = createRepositoryMock();
     const entitlements = {
       readSpendableBalance: jest.fn(async () => ({ fast: 0, quality: 0 })),
@@ -342,14 +340,14 @@ describe('ChatRuntimeService credit pre-check', () => {
       service.submitMessage({
         threadId: 'thread-1',
         userId: 'client-1',
-        request: { content: 'hi', generationMode: 'auto' },
+        request: { content: 'hi' },
       }),
     ).rejects.toBeInstanceOf(InsufficientCreditsError);
 
     expect(repository.submitUserMessage).not.toHaveBeenCalled();
   });
 
-  it('auto + sufficient quality keeps auto (no content_json update)', async () => {
+  it('sufficient balance does not persist generation mode on submit', async () => {
     const repository = createRepositoryMock();
     const entitlements = {
       readSpendableBalance: jest.fn(async () => ({ fast: 10, quality: 10 })),
@@ -388,7 +386,7 @@ describe('ChatRuntimeService credit pre-check', () => {
     await service.submitMessage({
       threadId: 'thread-1',
       userId: 'client-1',
-      request: { content: 'hi', generationMode: 'auto' },
+      request: { content: 'hi' },
     });
 
     expect(repository.updateMessageContentJson).not.toHaveBeenCalled();

@@ -2,21 +2,15 @@
 
 import { FormEvent } from 'react';
 import { ArrowUp, LoaderCircle } from 'lucide-react';
-import { GenerationModeDropdown } from '@/app/components/generation-mode-segmented-control';
-import type { GenerationMode } from '@/lib/chat/generation-mode';
 
 export function ChatComposer(input: {
   value: string;
   onChange: (value: string) => void;
   onSubmit: (event: FormEvent) => void;
-  generationMode: GenerationMode;
-  onGenerationModeChange: (mode: GenerationMode) => void;
   generationInFlight: boolean;
   submitPending: boolean;
   disabled: boolean;
   softGateActive: boolean;
-  billingEnabled: boolean;
-  creditCosts?: { fast: number | null; quality: number | null } | null;
 }) {
   const isBusy = input.submitPending || input.generationInFlight;
 
@@ -34,15 +28,6 @@ export function ChatComposer(input: {
           disabled={input.disabled}
         />
         <div className="composer-actions">
-          <GenerationModeDropdown
-            value={input.generationMode}
-            onChange={input.onGenerationModeChange}
-            disabled={input.disabled}
-            menuPlacement="up"
-            creditCosts={
-              input.billingEnabled ? (input.creditCosts ?? null) : null
-            }
-          />
           <button
             type="submit"
             className={`home-create-submit ${isBusy ? 'is-busy' : ''}`}

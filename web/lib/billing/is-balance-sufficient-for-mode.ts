@@ -2,8 +2,7 @@ import type { BillingMeData } from '@/lib/api/billing-me';
 import type { GenerationMode } from '@/lib/chat/generation-mode';
 
 /**
- * Whether the user can submit for the selected mode. For `auto`, matches server behavior:
- * fast tier is the minimum needed (quality may downgrade to fast server-side).
+ * Whether the user can submit for the selected mode.
  */
 export function isBalanceSufficientForMode(
   billingData: BillingMeData,
@@ -33,8 +32,10 @@ export function isBalanceSufficientForMode(
   if (selectedMode === 'fast') {
     return total >= fast;
   }
-  if (selectedMode === 'quality') {
-    return total >= quality;
-  }
-  return total >= fast;
+  return total >= quality;
+}
+
+/** Pre-submit gate: user must afford at least the Draft (fast) tier. */
+export function isBalanceSufficientForMinimumTier(billingData: BillingMeData): boolean {
+  return isBalanceSufficientForMode(billingData, 'fast');
 }

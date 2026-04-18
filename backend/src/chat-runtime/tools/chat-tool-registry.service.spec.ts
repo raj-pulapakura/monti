@@ -1,12 +1,37 @@
 import { ChatToolRegistryService } from './chat-tool-registry.service';
+import type { ToolExecuteInput } from './chat-tool.interface';
+import { parseGenerateExperienceToolArguments } from './generate-experience-tool.types';
 
 describe('ChatToolRegistryService', () => {
   it('returns a failed tool result instead of throwing for invalid refine arguments', async () => {
-    const service = new ChatToolRegistryService({
-      execute: jest.fn(async () => {
-        throw new Error('should not execute');
+    const generateTool = {
+      name: 'generate_experience',
+      definition: {
+        name: 'generate_experience',
+        description: 'generate',
+        inputSchema: { type: 'object' },
+      },
+      requiresConfirmation: () => false,
+      getConfirmationMetadata: () => ({
+        operation: 'Refine experience',
+        estimatedCredits: { fast: 1, quality: 5 },
       }),
-    } as never);
+      execute: jest.fn(async (input: ToolExecuteInput) => {
+        parseGenerateExperienceToolArguments(input.arguments);
+        return {
+          status: 'succeeded' as const,
+          generationId: 'gen-1',
+          experienceId: null,
+          experienceVersionId: null,
+          errorCode: null,
+          errorMessage: null,
+          sandboxStatus: 'ready' as const,
+          route: null,
+        };
+      }),
+    };
+
+    const service = new ChatToolRegistryService([generateTool as never]);
 
     const result = await service.executeToolCall({
       invocationId: 'invocation-1',

@@ -32,6 +32,8 @@ function createRunRow(overrides: Record<string, unknown> = {}) {
     user_message_id: 'message-1',
     assistant_message_id: null,
     status: 'queued' as const,
+    confirmation_tool_call_id: null,
+    confirmation_metadata: null,
     router_tier: null,
     router_provider_hint: null,
     router_confidence: null,
@@ -310,7 +312,7 @@ describe('ChatRuntimeService', () => {
     expect(conversationLoop.executeTurn).not.toHaveBeenCalled();
   });
 
-  it('persists explicit generation mode and passes it into the queued conversation turn', async () => {
+  it('does not persist generation mode and still queues the conversation turn', async () => {
     const repository = {
       findUserMessageByIdempotencyKey: jest.fn(async () => null),
       findLatestRunForUserMessage: jest.fn(),
@@ -351,28 +353,18 @@ describe('ChatRuntimeService', () => {
       userId: 'client-1',
       request: {
         content: 'Build a quiz',
-        generationMode: 'fast',
       },
     });
 
-    expect(repository.updateMessageContentJson).toHaveBeenCalledWith({
-      messageId: 'message-fast',
-      contentJson: {
-        generationMode: 'fast',
-      },
-    });
+    expect(repository.updateMessageContentJson).not.toHaveBeenCalled();
     expect(conversationLoop.executeTurn).toHaveBeenCalledWith(
       expect.objectContaining({
         userMessage: expect.objectContaining({
           id: 'message-fast',
-          content_json: {
-            generationMode: 'fast',
-          },
+          content_json: null,
         }),
       }),
     );
-    expect(result.message.contentJson).toEqual({
-      generationMode: 'fast',
-    });
+    expect(result.message.contentJson).toBeNull();
   });
 });

@@ -51,10 +51,11 @@ import {
 import { ConfirmModal } from '../../components/confirm-modal';
 import { AppTopbar } from '../../components/app-topbar';
 import { ChatComposer } from './components/chat-composer';
+import { ConfirmationGate } from './components/confirmation-gate';
 import { SuggestionChips } from './components/suggestion-chips';
 import { SandboxHeader } from './components/sandbox-header';
 import { ConversationTimeline } from './components/conversation-timeline';
-import { isBalanceSufficientForMode } from '@/lib/billing/is-balance-sufficient-for-mode';
+import { isBalanceSufficientForMinimumTier } from '@/lib/billing/is-balance-sufficient-for-mode';
 import { BillingGate } from '@/app/components/billing-gate';
 import { useCreditsBalance } from '@/app/context/credits-balance-context';
 
@@ -175,7 +176,7 @@ export default function ChatThreadPage() {
   const [streamConnectionState, setStreamConnectionState] =
     useState<StreamConnectionState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [generationMode, setGenerationMode] = useState<GenerationMode>('auto');
+  const [confirmRunPending, setConfirmRunPending] = useState(false);
   const latestEventIdRef = useRef<string | null>(null);
   const handoffAttemptedThreadRef = useRef<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -469,10 +470,8 @@ export default function ChatThreadPage() {
       return;
     }
 
-    setGenerationMode(handoff.generationMode);
     void submitPrompt({
       prompt: handoff.prompt,
-      generationMode: handoff.generationMode,
       token: accessToken,
       activeThread: thread,
       resetComposerOnSuccess: false,
@@ -480,9 +479,10 @@ export default function ChatThreadPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- prompt handoff should run once per resolved thread.
   }, [accessToken, thread?.id]);
 
+  const confirmationGateOpen = runtimeState.activeRun?.status === 'awaiting_confirmation';
   const liveRunActive = isRunActive(runtimeState.activeRun);
   const generationInFlight =
-    liveRunActive ||
+    (liveRunActive && !confirmationGateOpen) ||
     runtimeState.assistantDraft !== null ||
     runtimeState.activeToolInvocation?.status === 'running';
   const showChatBuildIndicator =
@@ -580,7 +580,7 @@ export default function ChatThreadPage() {
   const balanceSufficient =
     billingData === null || !billingLoaded
       ? true
-      : isBalanceSufficientForMode(billingData, generationMode);
+      : isBalanceSufficientForMinimumTier(billingData);
   const softGateActive =
     billingLoaded && Boolean(billingData?.billingEnabled) && !balanceSufficient;
 
@@ -637,6 +637,7 @@ export default function ChatThreadPage() {
       'sandbox_updated',
       'run_failed',
       'run_completed',
+      'confirmation_required',
     ]);
 
     void fetchEventSource(streamUrl, {
@@ -769,6 +770,46 @@ export default function ChatThreadPage() {
     setRuntimeState((previous) => reconcileHydrationState(previous, hydrated));
   }
 
+  async function handleConfirmationConfirm(mode: GenerationMode) {
+    if (!accessToken || !thread?.id || !runtimeState.activeRun?.id) {
+      return;
+    }
+    setConfirmRunPending(true);
+    setErrorMessage(null);
+    try {
+      await createAuthenticatedApiClient(accessToken).postJson<{ ok: true }>(
+        `/api/chat/threads/${thread.id}/runs/${runtimeState.activeRun.id}/confirm`,
+        { decision: 'confirmed', qualityMode: mode },
+      );
+      await refreshThreadSnapshot(thread.id, accessToken);
+    } catch (error) {
+      setErrorMessage(toErrorMessage(error));
+      await refreshThreadSnapshot(thread.id, accessToken);
+    } finally {
+      setConfirmRunPending(false);
+    }
+  }
+
+  async function handleConfirmationCancel() {
+    if (!accessToken || !thread?.id || !runtimeState.activeRun?.id) {
+      return;
+    }
+    setConfirmRunPending(true);
+    setErrorMessage(null);
+    try {
+      await createAuthenticatedApiClient(accessToken).postJson<{ ok: true }>(
+        `/api/chat/threads/${thread.id}/runs/${runtimeState.activeRun.id}/confirm`,
+        { decision: 'cancelled' },
+      );
+      await refreshThreadSnapshot(thread.id, accessToken);
+    } catch (error) {
+      setErrorMessage(toErrorMessage(error));
+      await refreshThreadSnapshot(thread.id, accessToken);
+    } finally {
+      setConfirmRunPending(false);
+    }
+  }
+
   async function refreshSandboxPreview(threadId: string, token: string) {
     const response = await createAuthenticatedApiClient(token).getJson<SandboxPreviewResponse>(
       `/api/chat/threads/${threadId}/sandbox`,
@@ -820,7 +861,7 @@ export default function ChatThreadPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
 
-    if (!accessToken || submitPending || generationInFlight || !thread?.id) {
+    if (!accessToken || submitPending || generationInFlight || confirmationGateOpen || !thread?.id) {
       return;
     }
 
@@ -831,7 +872,6 @@ export default function ChatThreadPage() {
 
     await submitPrompt({
       prompt: trimmed,
-      generationMode,
       token: accessToken,
       activeThread: thread,
       resetComposerOnSuccess: true,
@@ -840,7 +880,6 @@ export default function ChatThreadPage() {
 
   async function submitPrompt(input: {
     prompt: string;
-    generationMode?: GenerationMode;
     token: string;
     activeThread: ThreadEnvelope;
     resetComposerOnSuccess: boolean;
@@ -869,12 +908,7 @@ export default function ChatThreadPage() {
         userId: input.activeThread.userId,
         role: 'user',
         content: trimmed,
-        contentJson:
-          input.generationMode && input.generationMode !== 'auto'
-            ? {
-                generationMode: input.generationMode,
-              }
-            : null,
+        contentJson: null,
         idempotencyKey: null,
         createdAt: new Date().toISOString(),
       };
@@ -894,10 +928,6 @@ export default function ChatThreadPage() {
         {
           content: trimmed,
           idempotencyKey: createIdempotencyKey(),
-          generationMode:
-            input.generationMode && input.generationMode !== 'auto'
-              ? input.generationMode
-              : undefined,
         },
       );
 
@@ -1083,29 +1113,36 @@ export default function ChatThreadPage() {
 
           <SuggestionChips
             suggestions={suggestions}
-            disabled={submitPending || !thread?.id || !threadIdIsValid}
+            disabled={submitPending || confirmationGateOpen || !thread?.id || !threadIdIsValid}
             onSelect={(prompt) => setComposerText(prompt)}
           />
+
+          {confirmationGateOpen && runtimeState.activeRun?.confirmationMetadata ? (
+            <ConfirmationGate
+              operation={runtimeState.activeRun.confirmationMetadata.operation}
+              estimatedCredits={runtimeState.activeRun.confirmationMetadata.estimatedCredits}
+              billingEnabled={Boolean(billingData?.billingEnabled)}
+              confirmPending={confirmRunPending}
+              onConfirm={(mode) => void handleConfirmationConfirm(mode)}
+              onCancel={() => void handleConfirmationCancel()}
+            />
+          ) : null}
 
           <ChatComposer
             value={composerText}
             onChange={setComposerText}
             onSubmit={handleSubmit}
-            generationMode={generationMode}
-            onGenerationModeChange={setGenerationMode}
             generationInFlight={generationInFlight}
             submitPending={submitPending}
-            disabled={!accessToken || submitPending || generationInFlight || !thread?.id || !threadIdIsValid}
-            softGateActive={softGateActive}
-            billingEnabled={Boolean(billingData?.billingEnabled)}
-            creditCosts={
-              billingData?.billingEnabled
-                ? {
-                    fast: billingData.costs.fastCredits,
-                    quality: billingData.costs.qualityCredits,
-                  }
-                : null
+            disabled={
+              !accessToken ||
+              submitPending ||
+              generationInFlight ||
+              confirmationGateOpen ||
+              !thread?.id ||
+              !threadIdIsValid
             }
+            softGateActive={softGateActive}
           />
 
           {softGateActive && billingData ? (

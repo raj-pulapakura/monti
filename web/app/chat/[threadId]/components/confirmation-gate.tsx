@@ -1,0 +1,66 @@
+'use client';
+
+import { useState } from 'react';
+import type { GenerationMode } from '@/lib/chat/generation-mode';
+import { GENERATION_MODE_OPTIONS } from '@/lib/chat/generation-mode';
+
+export function ConfirmationGate(input: {
+  operation: string;
+  estimatedCredits: { fast: number; quality: number };
+  billingEnabled: boolean;
+  confirmPending: boolean;
+  onConfirm: (mode: GenerationMode) => void;
+  onCancel: () => void;
+}) {
+  const [mode, setMode] = useState<GenerationMode>('fast');
+
+  return (
+    <div className="confirmation-gate" role="dialog" aria-labelledby="confirmation-gate-title">
+      <h3 id="confirmation-gate-title" className="confirmation-gate-title">
+        {input.operation}
+      </h3>
+      <p className="confirmation-gate-subtitle">
+        Choose how Monti should generate. You can cancel if you are not ready to spend credits.
+      </p>
+      <div className="confirmation-gate-modes" role="radiogroup" aria-label="Generation quality">
+        {GENERATION_MODE_OPTIONS.map((opt) => (
+          <label key={opt.value} className="confirmation-gate-mode">
+            <input
+              type="radio"
+              name="confirmation-quality"
+              value={opt.value}
+              checked={mode === opt.value}
+              onChange={() => setMode(opt.value)}
+            />
+            <span className="confirmation-gate-mode-label">{opt.label}</span>
+            {input.billingEnabled ? (
+              <span className="confirmation-gate-mode-credits">
+                {opt.value === 'fast'
+                  ? `${input.estimatedCredits.fast} credits`
+                  : `${input.estimatedCredits.quality} credits`}
+              </span>
+            ) : null}
+          </label>
+        ))}
+      </div>
+      <div className="confirmation-gate-actions">
+        <button
+          type="button"
+          className="confirmation-gate-cancel"
+          disabled={input.confirmPending}
+          onClick={() => input.onCancel()}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="confirmation-gate-confirm"
+          disabled={input.confirmPending}
+          onClick={() => input.onConfirm(mode)}
+        >
+          {input.confirmPending ? 'Starting…' : 'Confirm'}
+        </button>
+      </div>
+    </div>
+  );
+}

@@ -26,6 +26,7 @@ import {
   parseRefinementSuggestionsRequest,
   parseStreamEventsRequestWithHeader,
   parseSubmitMessageRequest,
+  parseConfirmRunRequest,
   parseVersionContentRequest,
   parseUpdateExperienceTitleRequest,
   parseToggleExperienceFavouriteRequest,
@@ -98,6 +99,27 @@ export class ChatRuntimeController {
       ok: true,
       data: payload,
     };
+  }
+
+  @Post(':threadId/runs/:runId/confirm')
+  @UseGuards(UserIdThrottlerGuard)
+  @Throttle({ default: { limit: chatRateLimitPerMinute(), ttl: 60_000 } })
+  async confirmRun(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('threadId') threadId: string,
+    @Param('runId') runId: string,
+    @Body() body: unknown,
+  ): Promise<{ ok: true }> {
+    const parsed = parseConfirmRunRequest(threadId, runId, body);
+    await this.chatRuntimeService.confirmRun({
+      threadId: parsed.threadId,
+      runId: parsed.runId,
+      userId: user.id,
+      decision: parsed.request.decision,
+      qualityMode: parsed.request.qualityMode,
+    });
+
+    return { ok: true };
   }
 
   @Post(':threadId/messages')

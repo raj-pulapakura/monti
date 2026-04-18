@@ -1,0 +1,116 @@
+/* ── Auth pages ── */
+
+.auth-shell {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  padding-top: calc(2rem + 60px);
+}
+
+.auth-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  width: min(500px, 100%);
+  margin: 0 auto;
+}
+
+.auth-card {
+  width: 100%;
+  padding: 1.75rem;
+  gap: 1.1rem;
+  display: grid;
+}
+
+.auth-card h1 {
+  font-size: clamp(1.4rem, 4vw, 2.1rem);
+  color: var(--content-strong);
+  margin-bottom: 0.25rem;
+}
+
+.auth-oauth-list,
+.auth-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.prompt-controls select,
+.auth-form input {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-paper);
+  color: var(--content-default);
+}
+
+.auth-oauth-list button,
+.auth-form input,
+.prompt-controls select {
+  padding: 0.64rem 0.74rem;
+}
+
+.auth-oauth-list button {
+  width: 100%;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-paper);
+  font-weight: 600;
+  color: #613725;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 0.34rem;
+  font-size: 0.95rem;
+  color: var(--content-default);
+}
+
+.auth-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.auth-links a {
+  color: #8d4b2f;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.auth-error,
+.auth-success {
+  border-radius: var(--radius-sm);
+  padding: 0.58rem 0.66rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.auth-error {
+  border: 1px solid rgba(154, 63, 50, 0.32);
+  background: var(--state-danger-soft);
+  color: var(--state-danger-500);
+}
+
+.auth-success {
+  border: 1px solid rgba(47, 125, 97, 0.34);
+  background: var(--state-success-soft);
+  color: var(--state-success-500);
+}
+
+/* ── Checkout ── */
+
+.checkout-shell {
+  padding: 1.25rem;
+}
+
+.checkout-card {
+  width: min(540px, 100%);
+  justify-items: start;
+}

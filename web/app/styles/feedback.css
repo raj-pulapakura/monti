@@ -1,0 +1,597 @@
+/* -------------------------------------------------------------------------- */
+/* Feedback: floating general + message thumbs                                */
+/* -------------------------------------------------------------------------- */
+
+@keyframes floating-feedback-backdrop-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes floating-feedback-expanded-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes app-modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes app-modal-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes floating-feedback-backdrop-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes floating-feedback-expanded-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+}
+
+@keyframes app-modal-backdrop-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes app-modal-dialog-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+}
+
+/* ── Floating feedback widget ── */
+
+.floating-feedback-root {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  /* Above profile controls (80) and landing sticky header (90) */
+  z-index: 100;
+  pointer-events: none;
+}
+
+.floating-feedback-root * {
+  pointer-events: auto;
+}
+
+.floating-feedback-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(62, 38, 24, 0.18);
+  cursor: pointer;
+  animation: floating-feedback-backdrop-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.floating-feedback-backdrop.is-collapsing {
+  animation: floating-feedback-backdrop-out 0.22s cubic-bezier(0.4, 0, 0.67, 0) forwards;
+  pointer-events: none;
+}
+
+.floating-feedback-panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.55rem;
+}
+
+.floating-feedback-panel.is-expanded {
+  width: min(22rem, calc(100vw - 2.5rem));
+}
+
+.floating-feedback-trigger {
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+  box-shadow: var(--elevation-2);
+  cursor: pointer;
+  transition:
+    transform var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.floating-feedback-trigger:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--elevation-3);
+}
+
+.floating-feedback-expanded {
+  width: 100%;
+  padding: 0.75rem 0.82rem 0.82rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-2);
+  transform-origin: 100% 100%;
+  animation: floating-feedback-expanded-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.floating-feedback-expanded.is-collapsing {
+  animation: floating-feedback-expanded-out 0.26s cubic-bezier(0.4, 0, 0.67, 0) forwards;
+  pointer-events: none;
+}
+
+.floating-feedback-expanded-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+
+.floating-feedback-title {
+  font-size: 0.92rem;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+  color: #5c331c;
+}
+
+.floating-feedback-icon-dismiss {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: #7a4a30;
+  cursor: pointer;
+}
+
+.floating-feedback-icon-dismiss:hover {
+  border-color: var(--border-soft);
+  background: rgba(255, 248, 240, 0.85);
+}
+
+.floating-feedback-textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 5.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(188, 120, 72, 0.35);
+  background: rgba(255, 252, 248, 0.95);
+  color: var(--content-default);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  padding: 0.55rem 0.62rem;
+}
+
+.floating-feedback-textarea::placeholder {
+  color: rgba(92, 55, 32, 0.45);
+}
+
+.floating-feedback-textarea:focus-visible {
+  outline: 2px solid rgba(188, 81, 39, 0.45);
+  outline-offset: 1px;
+}
+
+.floating-feedback-error {
+  margin-top: 0.45rem;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: #a14c2a;
+}
+
+.floating-feedback-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.62rem;
+}
+
+.floating-feedback-submit {
+  border-radius: var(--radius-pill);
+  padding: 0.48rem 1.05rem;
+  font-weight: 700;
+  font-size: 0.88rem;
+  border: 1px solid rgba(188, 81, 39, 0.42);
+  background: linear-gradient(135deg, #e86a35, #d14e22);
+  color: #fffaf6;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(180, 72, 32, 0.22);
+}
+
+.floating-feedback-submit:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ── Message thumbs ── */
+
+.message-thumbs-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.2rem 0.08rem 0;
+}
+
+.message-thumb-button {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: rgba(255, 248, 240, 0.55);
+  color: rgba(92, 55, 32, 0.45);
+  cursor: pointer;
+  transition:
+    color var(--motion-fast) var(--ease-standard),
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+
+.message-thumb-button:hover {
+  color: #7a4428;
+  border-color: rgba(188, 120, 72, 0.35);
+  background: rgba(255, 240, 226, 0.95);
+}
+
+/* ── App modal shell ── */
+/* Full-screen modal shell: shared by message thumbs feedback, confirm/rename, etc.
+   Floating "Share feedback" keeps its own lighter `.floating-feedback-backdrop`. */
+
+.app-modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-app-modal);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  isolation: isolate;
+}
+
+.app-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(42, 28, 18, 0.42);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  cursor: pointer;
+  animation: app-modal-backdrop-in var(--app-modal-backdrop-duration) var(--app-modal-ease-in) both;
+}
+
+.app-modal-root.is-exiting .app-modal-backdrop {
+  animation: app-modal-backdrop-out var(--app-modal-backdrop-duration) var(--app-modal-ease-out) forwards;
+  pointer-events: none;
+}
+
+.app-modal-dialog {
+  position: relative;
+  z-index: 1;
+  transform-origin: 50% 60%;
+  animation: app-modal-dialog-in var(--app-modal-dialog-duration) var(--app-modal-ease-in) both;
+}
+
+.app-modal-root.is-exiting .app-modal-dialog {
+  animation: app-modal-dialog-out var(--app-modal-dialog-duration) var(--app-modal-ease-out) forwards;
+  pointer-events: none;
+}
+
+/* ── Message feedback modal ── */
+
+.message-feedback-modal-dialog {
+  width: min(26rem, 100%);
+  max-height: min(80vh, 28rem);
+  overflow: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-2), 0 22px 48px rgba(62, 38, 24, 0.18);
+  padding: 1rem 1.05rem 1.05rem;
+}
+
+.message-feedback-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 0.55rem;
+}
+
+.message-feedback-modal-title {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 750;
+  line-height: 1.32;
+  letter-spacing: 0.01em;
+  color: #5c331c;
+}
+
+.message-feedback-modal-label {
+  display: block;
+  margin-bottom: 0.42rem;
+  font-size: 0.88rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: rgba(92, 51, 28, 0.82);
+}
+
+.message-feedback-modal-dismiss {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: #7a4a30;
+  cursor: pointer;
+}
+
+.message-feedback-modal-dismiss:hover {
+  border-color: var(--border-soft);
+  background: rgba(255, 248, 240, 0.85);
+}
+
+.message-feedback-modal-textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 5.25rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(188, 120, 72, 0.35);
+  background: rgba(255, 252, 248, 0.95);
+  color: var(--content-default);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  padding: 0.55rem 0.62rem;
+}
+
+.message-feedback-modal-textarea::placeholder {
+  color: rgba(92, 55, 32, 0.45);
+}
+
+.message-feedback-modal-textarea:focus-visible {
+  outline: 2px solid rgba(188, 81, 39, 0.45);
+  outline-offset: 1px;
+}
+
+.message-feedback-modal-error {
+  margin-top: 0.45rem;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: #a14c2a;
+}
+
+.message-feedback-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.message-feedback-modal-secondary {
+  border-radius: var(--radius-pill);
+  padding: 0.45rem 0.85rem;
+  font-weight: 650;
+  font-size: 0.86rem;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-soft);
+  color: #6b3d24;
+  cursor: pointer;
+}
+
+.message-feedback-modal-primary {
+  border-radius: var(--radius-pill);
+  padding: 0.45rem 1rem;
+  font-weight: 700;
+  font-size: 0.86rem;
+  border: 1px solid rgba(188, 81, 39, 0.42);
+  background: linear-gradient(135deg, #e86a35, #d14e22);
+  color: #fffaf6;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(180, 72, 32, 0.2);
+}
+
+.message-feedback-modal-primary:disabled,
+.message-feedback-modal-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Confirm modal ── */
+
+.confirm-modal-dialog {
+  width: min(100%, 22rem);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1.15rem 1rem;
+  background: linear-gradient(180deg, #fffaf6, #fff3e8);
+  border: 1px solid rgba(156, 126, 104, 0.28);
+  box-shadow:
+    0 14px 40px rgba(62, 35, 20, 0.18),
+    0 2px 8px rgba(62, 35, 20, 0.06);
+}
+
+.confirm-modal-title {
+  margin: 0 0 0.45rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #3d2a1f;
+}
+
+.confirm-modal-message {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #6b5344;
+}
+
+.confirm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.confirm-modal-secondary {
+  border-radius: var(--radius-pill);
+  padding: 0.45rem 0.85rem;
+  font-weight: 650;
+  font-size: 0.86rem;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-soft);
+  color: #6b3d24;
+  cursor: pointer;
+}
+
+.confirm-modal-primary-destructive {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: var(--radius-pill);
+  padding: 0.45rem 1rem;
+  font-weight: 700;
+  font-size: 0.86rem;
+  border: 1px solid rgba(160, 48, 48, 0.45);
+  background: linear-gradient(135deg, #c94a3c, #a83228);
+  color: #fffaf6;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(140, 48, 40, 0.22);
+}
+
+.confirm-modal-secondary:disabled,
+.confirm-modal-primary-destructive:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Rename creation modal ── */
+
+.rename-creation-modal-dialog {
+  width: min(100%, 24rem);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1.15rem 1rem;
+  background: linear-gradient(180deg, #fffaf6, #fff3e8);
+  border: 1px solid rgba(156, 126, 104, 0.28);
+  box-shadow:
+    0 14px 40px rgba(62, 35, 20, 0.18),
+    0 2px 8px rgba(62, 35, 20, 0.06);
+}
+
+.rename-creation-modal-hint {
+  margin: 0 0 0.65rem;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: #7a6558;
+}
+
+.rename-creation-modal-input {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(156, 126, 104, 0.35);
+  padding: 0.52rem 0.62rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #3d2a1f;
+  background: #fffefb;
+}
+
+.rename-creation-modal-input:focus-visible {
+  outline: none;
+  border-color: rgba(188, 81, 39, 0.55);
+  box-shadow: 0 0 0 2px rgba(188, 81, 39, 0.2);
+}
+
+.rename-creation-modal-input:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.rename-creation-modal-error {
+  margin: 0.45rem 0 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #a83228;
+}
+
+.rename-creation-modal-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: var(--radius-pill);
+  padding: 0.45rem 1rem;
+  font-weight: 700;
+  font-size: 0.86rem;
+  border: 1px solid rgba(188, 81, 39, 0.42);
+  background: linear-gradient(135deg, #e86a35, #d14e22);
+  color: #fffaf6;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(180, 72, 32, 0.2);
+}
+
+.rename-creation-modal-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

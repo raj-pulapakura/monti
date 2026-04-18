@@ -1,0 +1,55 @@
+:root {
+  color-scheme: light;
+
+  --surface-canvas: #f8efe3;
+  --surface-paper: #fffaf2;
+  --surface-elevated: #fffdf8;
+  --surface-muted: #f4e6d2;
+  --surface-soft: #f8ecde;
+
+  --content-strong: #1d2b2a;
+  --content-default: #2d3b39;
+  --content-muted: #5b706b;
+  --content-subtle: #7b8d89;
+
+  --border-soft: #dcc8b2;
+  --border-strong: #cfa98a;
+
+  --brand-500: #bc5127;
+  --brand-600: #a8421d;
+  --brand-700: #913719;
+  --brand-soft: #f7dcc8;
+
+  --state-success-500: #2b755b;
+  --state-success-soft: #e8f4ee;
+  --state-warning-500: #9b5a31;
+  --state-warning-soft: #f7eadf;
+  --state-danger-500: #9a3f32;
+  --state-danger-soft: #f9e9e6;
+
+  --elevation-1: 0 8px 22px rgba(64, 43, 26, 0.09);
+  --elevation-2: 0 14px 34px rgba(64, 43, 26, 0.14);
+
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-pill: 999px;
+
+  --motion-fast: 160ms;
+  --motion-medium: 240ms;
+  --motion-slow: 360ms;
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* App shell: chat thread, home, settings, top nav */
+  --page-max-width: 1480px;
+
+  /* Full-screen overlays (feedback, confirm, rename) — above floating feedback (100) */
+  --z-app-modal: 150;
+
+  /* App modal motion (backdrop + dialog; shared by thumbs feedback, confirm, rename) */
+  --app-modal-backdrop-duration: 0.22s;
+  --app-modal-dialog-duration: 0.28s;
+  --app-modal-ease-in: cubic-bezier(0.22, 1, 0.36, 1);
+  --app-modal-ease-out: cubic-bezier(0.4, 0, 0.67, 0);
+}

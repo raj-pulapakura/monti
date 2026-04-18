@@ -1,6 +1,13 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  FormEvent,
+  KeyboardEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { createAuthenticatedApiClient } from "@/lib/api/authenticated-api-client";
 import type { BillingMeResponse } from "@/lib/api/billing-me";
@@ -19,6 +26,7 @@ import { RenameCreationModal } from "./components/rename-creation-modal";
 import {
   pickHomeExamplePrompts,
 } from "@/lib/home-example-prompts";
+import { appendSuggestionToComposer } from "@/lib/chat/append-suggestion-to-composer";
 import { toggleExperienceFavourite } from "@/lib/chat/experience-favourite";
 import { ArrowUp, LoaderCircle, Search, Star } from "lucide-react";
 
@@ -145,7 +153,7 @@ function HomeWorkspace(input: {
   onSignOut: () => void;
 }) {
   const router = useRouter();
-  const createInputRef = useRef<HTMLInputElement | null>(null);
+  const createInputRef = useRef<HTMLTextAreaElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [prompt, setPrompt] = useState("");
   const [threads, setThreads] = useState<ThreadCard[]>([]);
@@ -546,12 +554,32 @@ function HomeWorkspace(input: {
       <form className="home-create-form" onSubmit={handleCreate}>
         <div className="home-create-row">
           <div className="home-create-input-shell">
-            <input
+            <textarea
               ref={createInputRef}
+              className="home-create-prompt"
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
+              onKeyDown={(event: KeyboardEvent<HTMLTextAreaElement>) => {
+                if (event.nativeEvent.isComposing) {
+                  return;
+                }
+                if (event.key !== "Enter") {
+                  return;
+                }
+                if (!event.metaKey && !event.ctrlKey) {
+                  return;
+                }
+                event.preventDefault();
+                const form = event.currentTarget.form;
+                if (!form) {
+                  return;
+                }
+                form.requestSubmit();
+              }}
               placeholder="A fractions challenge with playful mini rounds..."
               disabled={creating}
+              spellCheck
+              aria-label="Describe the learning experience you want"
             />
             <div className="home-create-actions">
               <button
@@ -598,7 +626,9 @@ function HomeWorkspace(input: {
               title={item.prompt}
               aria-label={`Use example prompt: ${item.prompt}`}
               onClick={() => {
-                setPrompt(item.prompt);
+                setPrompt((previous) =>
+                  appendSuggestionToComposer(previous, item.prompt),
+                );
                 queueMicrotask(() => {
                   createInputRef.current?.focus();
                 });

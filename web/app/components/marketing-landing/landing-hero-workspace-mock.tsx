@@ -119,10 +119,12 @@ export function LandingHeroWorkspaceMock(input: {
 
             <div className="composer-row landing-hero-mock-composer" aria-hidden="true">
               <div className="composer-input-shell">
-                <input
+                <textarea
+                  className="composer-prompt"
                   disabled
                   readOnly
                   tabIndex={-1}
+                  rows={1}
                   placeholder="Send a message..."
                 />
                 <div className="composer-actions">

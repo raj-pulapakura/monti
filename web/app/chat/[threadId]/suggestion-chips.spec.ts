@@ -1,27 +1,18 @@
 import { describe, expect, it } from 'vitest';
+import { appendSuggestionToComposer } from '../../../lib/chat/append-suggestion-to-composer';
 
 /**
  * Focused tests for the stale-version guard and chip click behavior
  * that back the contextual refinement suggestions feature.
  *
- * The production logic lives inline in page.tsx. These tests verify the
- * key invariants independently of React rendering.
+ * The stale-response guard lives inline in page.tsx. Chip merge behavior
+ * uses `appendSuggestionToComposer` from `@/lib/chat/append-suggestion-to-composer`.
  */
-
-// Mirrors the stale-response guard from page.tsx
 function shouldApplySuggestions(
   latestTrackedVersionId: string | null,
   responseVersionId: string,
 ): boolean {
   return latestTrackedVersionId === responseVersionId;
-}
-
-// Mirrors the chip click handler from page.tsx
-function applyChipToComposer(
-  _currentText: string,
-  suggestionPrompt: string,
-): string {
-  return suggestionPrompt;
 }
 
 describe('contextual refinement suggestion chips', () => {
@@ -39,24 +30,27 @@ describe('contextual refinement suggestion chips', () => {
     });
   });
 
-  describe('chip click replaces composer text', () => {
-    it('replaces an empty composer with the suggestion prompt', () => {
-      expect(applyChipToComposer('', 'Add a countdown timer.')).toBe(
+  describe('chip click appends to composer text', () => {
+    it('uses only the suggestion when the composer is empty', () => {
+      expect(appendSuggestionToComposer('', 'Add a countdown timer.')).toBe(
         'Add a countdown timer.',
       );
     });
 
-    it('replaces existing composer text with the suggestion prompt', () => {
+    it('appends after existing draft with a blank line separator', () => {
       expect(
-        applyChipToComposer('some draft text', 'Make the questions harder.'),
-      ).toBe('Make the questions harder.');
+        appendSuggestionToComposer('some draft text', 'Make the questions harder.'),
+      ).toBe('some draft text\n\nMake the questions harder.');
+    });
+
+    it('trims trailing whitespace on the existing draft before appending', () => {
+      expect(
+        appendSuggestionToComposer('draft with spaces   \n', 'Next idea.'),
+      ).toBe('draft with spaces\n\nNext idea.');
     });
 
     it('does not auto-submit — result is only the new composer value, not a submitted prompt', () => {
-      // Selecting a chip returns the replacement text; submission requires a
-      // separate user action (pressing send). This test documents that the
-      // chip handler only returns a string and does not trigger a side effect.
-      const result = applyChipToComposer('', 'Add images to each question.');
+      const result = appendSuggestionToComposer('', 'Add images to each question.');
       expect(typeof result).toBe('string');
       expect(result).toBe('Add images to each question.');
     });

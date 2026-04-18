@@ -1246,8 +1246,9 @@ button:disabled {
   line-height: 1.38;
 }
 
-.landing-hero-mock-composer .composer-row input {
+.landing-hero-mock-composer .composer-row .composer-prompt {
   min-height: 2.85rem;
+  max-height: 2.85rem;
   padding-block: 0.62rem;
   font-size: 0.84rem;
 }
@@ -2979,9 +2980,7 @@ button:disabled {
 }
 
 .prompt-controls select,
-.composer-row input,
-.auth-form input,
-.home-create-row input {
+.auth-form input {
   width: 100%;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-soft);
@@ -2991,9 +2990,7 @@ button:disabled {
 
 .auth-oauth-list button,
 .auth-form input,
-.home-create-row input,
-.prompt-controls select,
-.composer-row input {
+.prompt-controls select {
   padding: 0.64rem 0.74rem;
 }
 
@@ -3095,56 +3092,77 @@ button:disabled {
 
 .home-create-input-shell {
   position: relative;
-}
-
-.home-create-row input {
-  width: 100%;
+  display: flex;
+  flex-direction: column;
   border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
   background: var(--surface-paper);
-  border-color: var(--border-strong);
-  min-height: 3.45rem;
-  padding-block: 0.88rem;
-  padding-inline: 1rem 10.9rem;
+  overflow: hidden;
   transition:
     border-color var(--motion-fast) var(--ease-standard),
     box-shadow var(--motion-fast) var(--ease-standard),
     background-color var(--motion-fast) var(--ease-standard);
 }
 
-.home-create-row input::placeholder {
-  color: #9a8e83;
-}
-
-.home-create-row input:hover:not(:disabled) {
+.home-create-input-shell:hover:has(.home-create-prompt:not(:disabled)) {
   border-color: #cf936f;
   background: #fffdf8;
 }
 
-.home-create-row input:focus,
-.home-create-row input:focus-visible {
-  outline: none;
+.home-create-input-shell:focus-within {
   border-color: var(--brand-500);
   background: var(--surface-elevated);
-  box-shadow:
-    0 0 0 3px rgba(188, 81, 39, 0.18),
-    0 6px 14px rgba(145, 55, 25, 0.12);
+  box-shadow: inset 0 0 0 3px rgba(188, 81, 39, 0.18);
 }
 
-.home-create-row input:disabled {
+.home-create-input-shell:has(.home-create-prompt:disabled) {
   opacity: 0.72;
 }
 
-.home-create-actions,
+.home-create-row .home-create-prompt {
+  width: 100%;
+  box-sizing: border-box;
+  display: block;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--content-default);
+  font: inherit;
+  line-height: 1.45;
+  /* Two-line viewport; scroll when content exceeds (1.45em ≈ one line at line-height 1.45) */
+  min-height: calc(0.88rem * 2 + 2 * 1.45em);
+  max-height: calc(0.88rem * 2 + 2 * 1.45em);
+  padding: 0.88rem 1rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  resize: none;
+}
+
+.home-create-row .home-create-prompt::placeholder {
+  color: #9a8e83;
+}
+
+.home-create-row .home-create-prompt:focus,
+.home-create-row .home-create-prompt:focus-visible {
+  outline: none;
+}
+
 .composer-actions {
-  /* Above .app-topbar (80) so the mode menu isn’t covered by the credits pill */
-  z-index: 90;
-  position: absolute;
-  top: 50%;
-  right: 0.56rem;
-  transform: translateY(-50%);
-  display: inline-flex;
+  display: flex;
+  justify-content: flex-end;
   align-items: center;
   gap: 0.5rem;
+  flex-shrink: 0;
+  padding: 0.42rem 0.56rem 0.52rem;
+}
+
+.home-create-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding: 0.42rem 0.56rem 0.52rem;
 }
 
 .generation-mode-dropdown {
@@ -3242,8 +3260,8 @@ button:disabled {
 }
 
 .home-create-submit {
-  width: 2.65rem;
-  height: 2.65rem;
+  width: 2.28rem;
+  height: 2.28rem;
   padding: 0;
   border-radius: var(--radius-pill);
   border: 1px solid rgba(167, 70, 33, 0.28);
@@ -4060,41 +4078,58 @@ button:disabled {
 
 .composer-input-shell {
   position: relative;
-}
-
-.composer-row input {
-  width: 100%;
-  min-height: 3.45rem;
+  display: flex;
+  flex-direction: column;
   border-radius: var(--radius-md);
-  padding-block: 0.86rem;
-  padding-inline: 1rem 10.9rem;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-paper);
+  overflow: hidden;
   transition:
     border-color var(--motion-fast) var(--ease-standard),
     box-shadow var(--motion-fast) var(--ease-standard),
     background-color var(--motion-fast) var(--ease-standard);
 }
 
-.composer-row input::placeholder {
-  color: #9a8e83;
-}
-
-.composer-row input:hover:not(:disabled) {
+.composer-input-shell:hover:has(.composer-prompt:not(:disabled)) {
   border-color: #cf936f;
   background: #fffdf8;
 }
 
-.composer-row input:focus,
-.composer-row input:focus-visible {
-  outline: none;
+.composer-input-shell:focus-within {
   border-color: var(--brand-500);
   background: var(--surface-elevated);
-  box-shadow:
-    0 0 0 3px rgba(188, 81, 39, 0.18),
-    0 6px 14px rgba(145, 55, 25, 0.12);
+  box-shadow: inset 0 0 0 3px rgba(188, 81, 39, 0.18);
 }
 
-.composer-row input:disabled {
+.composer-input-shell:has(.composer-prompt:disabled) {
   opacity: 0.72;
+}
+
+.composer-row .composer-prompt {
+  width: 100%;
+  box-sizing: border-box;
+  display: block;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--content-default);
+  font: inherit;
+  line-height: 1.45;
+  min-height: calc(0.86rem * 2 + 1.45em);
+  max-height: calc(0.86rem * 2 + 3 * 1.45em);
+  padding: 0.86rem 1rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  resize: none;
+}
+
+.composer-row .composer-prompt::placeholder {
+  color: #9a8e83;
+}
+
+.composer-row .composer-prompt:focus,
+.composer-row .composer-prompt:focus-visible {
+  outline: none;
 }
 
 .composer-credit-cost {
@@ -4819,9 +4854,10 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .home-create-row input {
-    min-height: 3.9rem;
-    padding-inline-end: 10.7rem;
+  .home-create-row .home-create-prompt {
+    min-height: calc(1rem * 2 + 2 * 1.45em);
+    max-height: calc(1rem * 2 + 2 * 1.45em);
+    padding: 1rem;
   }
 
   .home-example-prompts {

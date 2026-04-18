@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { appendSuggestionToComposer } from '@/lib/chat/append-suggestion-to-composer';
 import { toggleExperienceFavourite } from '@/lib/chat/experience-favourite';
 import {
   API_BASE_URL,
@@ -213,6 +214,7 @@ export default function ChatThreadPage() {
   // Runs synchronously after DOM updates, before the browser paints — avoids a one-frame
   // skeleton flash when sessionStorage has a thread bootstrap (new chat from home).
   useLayoutEffect(() => {
+    latestEventIdRef.current = null;
     setRuntimeState(INITIAL_RUNTIME_STATE);
     setActiveExperience(null);
     setStreamConnectionState('idle');
@@ -499,8 +501,8 @@ export default function ChatThreadPage() {
     (Boolean(runtimeState.activeRun?.id) &&
       serverAwaitingConfirmation &&
       confirmationGateDismissedRunId === runtimeState.activeRun?.id) ||
-    runtimeState.assistantDraft !== null ||
-    runtimeState.activeToolInvocation?.status === 'running';
+    (runtimeState.assistantDraft !== null && liveRunActive) ||
+    (runtimeState.activeToolInvocation?.status === 'running' && liveRunActive);
   // The model sometimes issues a second `generate_experience` after the closing reply.
   // Sandbox is already `ready` then — do not treat running tool state as a new "build".
   const sandboxAlreadyReady = runtimeState.sandboxState?.status === 'ready';
@@ -521,6 +523,39 @@ export default function ChatThreadPage() {
       setConfirmationGateDismissedRunId(null);
     }
   }, [runtimeState.activeRun?.status]);
+
+  // SSE replay can briefly resurrect a draft or "running" tool after hydration already
+  // reflected a terminal run (truncated in-memory buffer / ordering). Drop those artefacts.
+  useEffect(() => {
+    const run = runtimeState.activeRun;
+    const status = run?.status ?? null;
+
+    const invocation = runtimeState.activeToolInvocation;
+    const orphanBusyTool =
+      invocation !== null &&
+      (invocation.status === 'running' || invocation.status === 'pending') &&
+      !isRunActive(run);
+
+    const staleLiveDraft =
+      runtimeState.assistantDraft !== null &&
+      (run === null || status === 'succeeded' || status === 'cancelled');
+
+    if (!orphanBusyTool && !staleLiveDraft) {
+      return;
+    }
+
+    setRuntimeState((prev) => ({
+      ...prev,
+      ...(staleLiveDraft ? { assistantDraft: null } : {}),
+      ...(orphanBusyTool ? { activeToolInvocation: null } : {}),
+    }));
+  }, [
+    runtimeState.activeRun?.id,
+    runtimeState.activeRun?.status,
+    runtimeState.assistantDraft?.draftId,
+    runtimeState.activeToolInvocation?.id,
+    runtimeState.activeToolInvocation?.status,
+  ]);
 
   useEffect(() => {
     const container = chatScrollRef.current;
@@ -778,15 +813,27 @@ export default function ChatThreadPage() {
     const hydrated = await fetchThreadHydration(threadId, token);
 
     setThread(hydrated.thread);
-    setRuntimeState((previous) => ({
-      ...previous,
-      messages: mergeHydratedMessagesWithOptimistic(previous.messages, hydrated.messages),
-      activeRun: hydrated.activeRun,
-      activeToolInvocation: hydrated.activeToolInvocation,
-      sandboxState: mergeSandboxStateByRecency(previous.sandboxState, hydrated.sandboxState),
-      assistantDraft: null,
-      latestEventId: hydrated.latestEventId ?? previous.latestEventId,
-    }));
+    setRuntimeState((previous) => {
+      const preserveEventCursor =
+        previous.messages.length > 0 ||
+        previous.activeRun != null ||
+        previous.activeToolInvocation != null ||
+        previous.assistantDraft != null;
+      return {
+        ...previous,
+        messages: mergeHydratedMessagesWithOptimistic(previous.messages, hydrated.messages),
+        activeRun: hydrated.activeRun,
+        activeToolInvocation: hydrated.activeToolInvocation,
+        sandboxState: mergeSandboxStateByRecency(previous.sandboxState, hydrated.sandboxState),
+        assistantDraft: null,
+        latestEventId:
+          hydrated.latestEventId != null
+            ? hydrated.latestEventId
+            : preserveEventCursor
+              ? previous.latestEventId
+              : null,
+      };
+    });
 
     await refreshSandboxPreview(hydrated.thread.id, token);
     return hydrated.thread;
@@ -1154,7 +1201,9 @@ export default function ChatThreadPage() {
           <SuggestionChips
             suggestions={suggestions}
             disabled={submitPending || serverAwaitingConfirmation || !thread?.id || !threadIdIsValid}
-            onSelect={(prompt) => setComposerText(prompt)}
+            onSelect={(prompt) =>
+              setComposerText((previous) => appendSuggestionToComposer(previous, prompt))
+            }
           />
 
           {confirmationGateVisible &&

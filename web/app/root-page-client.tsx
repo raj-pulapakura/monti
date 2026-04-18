@@ -782,10 +782,47 @@ function HomeWorkspace(input: {
         ) : null}
 
         {!loadingThreads && !threadsError && threads.length === 0 ? (
-          <p className="empty-state">
-            No creations yet. Start with one idea above and Monti will draft the
-            first version.
-          </p>
+          <div className="library-empty-state" role="status">
+            <div className="library-empty-state-icon" aria-hidden>
+              <svg
+                viewBox="0 0 96 96"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <g
+                  fill="none"
+                  stroke="#b5a08e"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  {/* Ring behind planet: outside arcs + inner arc occluded by disk */}
+                  <path d="M36.20,63.42L31.64,64.43L27.39,65.12L23.56,65.47L20.20,65.47L17.39,65.13L15.18,64.46L13.62,63.46L12.74,62.16L12.54,60.57L13.05,58.74L14.24,56.70L16.10,54.49L18.59,52.15L21.65,49.73L25.23,47.28L29.27,44.84" />
+                  <path d="M29.27,44.84L31.23,43.74L33.26,42.66L35.35,41.61L37.50,40.58L39.69,39.58L41.91,38.62L44.15,37.69L46.41,36.81L48.68,35.97L50.95,35.18L53.20,34.44L55.43,33.76L57.64,33.14L59.80,32.58" />
+                  <path d="M59.80,32.58L62.42,31.97L64.96,31.46L67.38,31.05L69.69,30.76L71.85,30.57L73.86,30.49L75.71,30.52L77.39,30.67L78.88,30.92L80.17,31.29L81.26,31.76L82.13,32.33L82.79,33.00L83.23,33.76L83.47,35.01L83.26,36.41L82.60,37.97L81.49,39.65L79.96,41.44L78.02,43.32L75.69,45.25L73.01,47.22L70.01,49.20L66.74,51.16" />
+                </g>
+                <circle
+                  cx="48"
+                  cy="48"
+                  r="19"
+                  fill="#f3ece4"
+                  stroke="#dccfbf"
+                  strokeWidth="2.2"
+                />
+                <path
+                  d="M66.74,51.16L64.77,52.26L62.74,53.34L60.65,54.39L58.50,55.42L56.31,56.42L54.09,57.38L51.85,58.31L49.59,59.19L47.32,60.03L45.05,60.82L42.80,61.56L40.57,62.24L38.36,62.86L36.20,63.42"
+                  fill="none"
+                  stroke="#b5a08e"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <p className="library-empty-state-copy">
+              Your library is empty for now. Try one of the prompts above!
+            </p>
+          </div>
         ) : null}
 
         {!loadingThreads &&

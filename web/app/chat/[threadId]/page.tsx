@@ -182,6 +182,14 @@ export default function ChatThreadPage() {
   const [cancelRunPending, setCancelRunPending] = useState(false);
   /** Hide the gate immediately after Confirm/Cancel; cleared when the run leaves `awaiting_confirmation`. */
   const [confirmationGateDismissedRunId, setConfirmationGateDismissedRunId] = useState<string | null>(null);
+  /**
+   * While the server still reports `awaiting_confirmation` after a dismiss, we know whether the user
+   * confirmed (show build when the tool spins up) or cancelled (show thinking — not build — until hydration catches up).
+   */
+  const [confirmationGateDismissInterstitial, setConfirmationGateDismissInterstitial] = useState<{
+    runId: string;
+    kind: 'confirmed' | 'cancelled';
+  } | null>(null);
   const latestEventIdRef = useRef<string | null>(null);
   const handoffAttemptedThreadRef = useRef<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -206,6 +214,16 @@ export default function ChatThreadPage() {
   const [favouriteActionError, setFavouriteActionError] = useState<string | null>(null);
   const [sandboxDeleteConfirmOpen, setSandboxDeleteConfirmOpen] = useState(false);
   const [sandboxDeletePending, setSandboxDeletePending] = useState(false);
+  /** Drives gate mount + leave animation; snapshot keeps copy during `leaving`. */
+  const [confirmationGateUi, setConfirmationGateUi] = useState<
+    'closed' | 'open' | 'leaving'
+  >('closed');
+  const [confirmationGateSnapshot, setConfirmationGateSnapshot] = useState<{
+    operation: string;
+    estimatedCredits: { fast: number; quality: number };
+  } | null>(null);
+  /** Bumped when the gate finishes closing so the composer slot can play a short enter motion. */
+  const [composerRevealGeneration, setComposerRevealGeneration] = useState(0);
 
   useEffect(() => {
     latestEventIdRef.current = runtimeState.latestEventId;
@@ -238,6 +256,10 @@ export default function ChatThreadPage() {
     setConfirmRunPending(false);
     setCancelRunPending(false);
     setConfirmationGateDismissedRunId(null);
+    setConfirmationGateDismissInterstitial(null);
+    setConfirmationGateUi('closed');
+    setConfirmationGateSnapshot(null);
+    setComposerRevealGeneration(0);
 
     if (isUuidLike(routeThreadId)) {
       const bootstrap = consumeThreadBootstrap(routeThreadId);
@@ -506,14 +528,27 @@ export default function ChatThreadPage() {
   // The model sometimes issues a second `generate_experience` after the closing reply.
   // Sandbox is already `ready` then — do not treat running tool state as a new "build".
   const sandboxAlreadyReady = runtimeState.sandboxState?.status === 'ready';
+  const suppressBuildAfterCancelledGateDismiss =
+    Boolean(
+      serverAwaitingConfirmation &&
+        runtimeState.activeRun &&
+        confirmationGateDismissedRunId === runtimeState.activeRun.id &&
+        confirmationGateDismissInterstitial?.runId === runtimeState.activeRun.id &&
+        confirmationGateDismissInterstitial.kind === 'cancelled',
+    );
+  // Hydration/SSE can still carry `generate_experience` as running while the run is
+  // `awaiting_confirmation`; the user has not spent credits yet — hide stream progress.
   const showChatBuildIndicator =
     Boolean(thread?.id) &&
+    !confirmationGateVisible &&
+    !suppressBuildAfterCancelledGateDismiss &&
     (runtimeState.sandboxState?.status === 'creating' ||
       (!sandboxAlreadyReady &&
         runtimeState.activeToolInvocation?.status === 'running' &&
         runtimeState.activeToolInvocation.toolName === 'generate_experience'));
   const showThinkingIndicator =
     Boolean(thread?.id) &&
+    !confirmationGateVisible &&
     liveRunActive &&
     runtimeState.assistantDraft === null &&
     !showChatBuildIndicator;
@@ -521,8 +556,47 @@ export default function ChatThreadPage() {
   useEffect(() => {
     if (runtimeState.activeRun?.status !== 'awaiting_confirmation') {
       setConfirmationGateDismissedRunId(null);
+      setConfirmationGateDismissInterstitial(null);
     }
   }, [runtimeState.activeRun?.status]);
+
+  useEffect(() => {
+    const meta = runtimeState.activeRun?.confirmationMetadata;
+    if (confirmationGateVisible && meta && runtimeState.activeRun) {
+      setConfirmationGateSnapshot((previous) => {
+        const next = {
+          operation: meta.operation,
+          estimatedCredits: meta.estimatedCredits,
+        };
+        if (
+          previous &&
+          previous.operation === next.operation &&
+          previous.estimatedCredits.fast === next.estimatedCredits.fast &&
+          previous.estimatedCredits.quality === next.estimatedCredits.quality
+        ) {
+          return previous;
+        }
+        return next;
+      });
+      setConfirmationGateUi('open');
+      return;
+    }
+    setConfirmationGateUi((previous) =>
+      previous === 'closed' ? 'closed' : 'leaving',
+    );
+  }, [confirmationGateVisible, runtimeState.activeRun]);
+
+  useEffect(() => {
+    if (confirmationGateUi !== 'leaving') {
+      return;
+    }
+    const id = window.setTimeout(() => {
+      setConfirmationGateUi('closed');
+      setConfirmationGateSnapshot(null);
+      setComposerRevealGeneration((generation) => generation + 1);
+    }, 280);
+    return () => window.clearTimeout(id);
+  }, [confirmationGateUi]);
 
   // SSE replay can briefly resurrect a draft or "running" tool after hydration already
   // reflected a terminal run (truncated in-memory buffer / ordering). Drop those artefacts.
@@ -853,6 +927,7 @@ export default function ChatThreadPage() {
       return;
     }
     const runId = runtimeState.activeRun.id;
+    setConfirmationGateDismissInterstitial({ runId, kind: 'confirmed' });
     setConfirmationGateDismissedRunId(runId);
     setConfirmRunPending(true);
     setErrorMessage(null);
@@ -864,6 +939,7 @@ export default function ChatThreadPage() {
       await refreshThreadSnapshot(thread.id, accessToken);
     } catch (error) {
       setConfirmationGateDismissedRunId(null);
+      setConfirmationGateDismissInterstitial(null);
       setErrorMessage(toErrorMessage(error));
       await refreshThreadSnapshot(thread.id, accessToken);
     } finally {
@@ -879,6 +955,7 @@ export default function ChatThreadPage() {
       return;
     }
     const runId = runtimeState.activeRun.id;
+    setConfirmationGateDismissInterstitial({ runId, kind: 'cancelled' });
     setConfirmationGateDismissedRunId(runId);
     setCancelRunPending(true);
     setErrorMessage(null);
@@ -890,6 +967,7 @@ export default function ChatThreadPage() {
       await refreshThreadSnapshot(thread.id, accessToken);
     } catch (error) {
       setConfirmationGateDismissedRunId(null);
+      setConfirmationGateDismissInterstitial(null);
       setErrorMessage(toErrorMessage(error));
       await refreshThreadSnapshot(thread.id, accessToken);
     } finally {
@@ -1206,35 +1284,50 @@ export default function ChatThreadPage() {
             }
           />
 
-          {confirmationGateVisible &&
-          runtimeState.activeRun?.confirmationMetadata &&
-          runtimeState.activeRun ? (
-            <ConfirmationGate
-              operation={runtimeState.activeRun.confirmationMetadata.operation}
-              estimatedCredits={runtimeState.activeRun.confirmationMetadata.estimatedCredits}
-              confirmPending={confirmRunPending}
-              cancelPending={cancelRunPending}
-              onConfirm={(mode) => void handleConfirmationConfirm(mode)}
-              onCancel={() => void handleConfirmationCancel()}
-            />
-          ) : null}
-
-          <ChatComposer
-            value={composerText}
-            onChange={setComposerText}
-            onSubmit={handleSubmit}
-            generationInFlight={generationInFlight}
-            submitPending={submitPending}
-            disabled={
-              !accessToken ||
-              submitPending ||
-              generationInFlight ||
-              serverAwaitingConfirmation ||
-              !thread?.id ||
-              !threadIdIsValid
-            }
-            softGateActive={softGateActive}
-          />
+          {confirmationGateUi !== 'closed' && confirmationGateSnapshot ? (
+            <div
+              className={
+                confirmationGateUi === 'leaving'
+                  ? 'confirmation-gate-shell confirmation-gate-shell-leaving'
+                  : 'confirmation-gate-shell'
+              }
+            >
+              <ConfirmationGate
+                operation={confirmationGateSnapshot.operation}
+                estimatedCredits={confirmationGateSnapshot.estimatedCredits}
+                confirmPending={confirmRunPending}
+                cancelPending={cancelRunPending}
+                onConfirm={(mode) => void handleConfirmationConfirm(mode)}
+                onCancel={() => void handleConfirmationCancel()}
+              />
+            </div>
+          ) : (
+            <div
+              key={composerRevealGeneration}
+              className={
+                composerRevealGeneration > 0
+                  ? 'chat-composer-slot-wrap chat-composer-slot-wrap-entering'
+                  : 'chat-composer-slot-wrap'
+              }
+            >
+              <ChatComposer
+                value={composerText}
+                onChange={setComposerText}
+                onSubmit={handleSubmit}
+                generationInFlight={generationInFlight}
+                submitPending={submitPending}
+                disabled={
+                  !accessToken ||
+                  submitPending ||
+                  generationInFlight ||
+                  serverAwaitingConfirmation ||
+                  !thread?.id ||
+                  !threadIdIsValid
+                }
+                softGateActive={softGateActive}
+              />
+            </div>
+          )}
 
           {softGateActive && billingData ? (
             <BillingGate
@@ -1339,7 +1432,7 @@ export default function ChatThreadPage() {
             </div>
           ) : (
             <div className="sandbox-empty">
-              <p>Your interactive experience appears here after the first draft.</p>
+              <p>No experience yet</p>
             </div>
           )}
 

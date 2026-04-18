@@ -518,6 +518,44 @@
   opacity: 0.55;
 }
 
+.library-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.15rem;
+  min-height: 11.5rem;
+  padding: 2rem 1rem 2.25rem;
+  text-align: center;
+}
+
+.library-empty-state-icon {
+  display: grid;
+  place-items: center;
+  padding: 1.1rem 1.2rem 1.25rem;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle at 50% 38%,
+    rgba(255, 252, 247, 0.98) 0%,
+    rgba(248, 239, 227, 0.55) 42%,
+    rgba(248, 239, 227, 0) 72%
+  );
+}
+
+.library-empty-state-icon svg {
+  width: clamp(4.75rem, 11vw, 6.75rem);
+  height: auto;
+  display: block;
+}
+
+.library-empty-state-copy {
+  max-width: 26rem;
+  margin: 0;
+  font-size: clamp(0.94rem, 1.6vw, 1.05rem);
+  line-height: 1.5;
+  color: var(--content-muted);
+}
+
 .library-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -228,6 +228,65 @@
   display: block;
 }
 
+@keyframes confirmation-gate-shell-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes confirmation-gate-shell-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes chat-composer-slot-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.confirmation-gate-shell {
+  margin-top: 0.65rem;
+  margin-bottom: 0.35rem;
+  animation: confirmation-gate-shell-in 0.32s var(--ease-out) both;
+}
+
+.confirmation-gate-shell .confirmation-gate {
+  margin: 0;
+}
+
+.confirmation-gate-shell-leaving {
+  animation: confirmation-gate-shell-out 0.26s var(--ease-standard) forwards;
+  pointer-events: none;
+}
+
+.chat-composer-slot-wrap {
+  min-width: 0;
+}
+
+.chat-composer-slot-wrap-entering {
+  animation: chat-composer-slot-in 0.3s var(--ease-out) both;
+}
+
 .composer-input-shell {
   position: relative;
   display: flex;

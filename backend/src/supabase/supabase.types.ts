@@ -701,6 +701,73 @@ export interface Database {
         };
         Relationships: [];
       };
+      user_profiles: {
+        Row: {
+          user_id: string;
+          role:
+            | 'educator'
+            | 'tutor'
+            | 'student'
+            | 'parent'
+            | 'learning_on_my_own'
+            | 'other';
+          context:
+            | 'k12_elementary'
+            | 'k12_middle'
+            | 'k12_high'
+            | 'k12_mixed'
+            | 'higher_ed'
+            | 'corporate'
+            | 'personal';
+          role_other_text: string | null;
+          onboarding_completed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          role:
+            | 'educator'
+            | 'tutor'
+            | 'student'
+            | 'parent'
+            | 'learning_on_my_own'
+            | 'other';
+          context:
+            | 'k12_elementary'
+            | 'k12_middle'
+            | 'k12_high'
+            | 'k12_mixed'
+            | 'higher_ed'
+            | 'corporate'
+            | 'personal';
+          role_other_text?: string | null;
+          onboarding_completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          role?:
+            | 'educator'
+            | 'tutor'
+            | 'student'
+            | 'parent'
+            | 'learning_on_my_own'
+            | 'other';
+          context?:
+            | 'k12_elementary'
+            | 'k12_middle'
+            | 'k12_high'
+            | 'k12_mixed'
+            | 'higher_ed'
+            | 'corporate'
+            | 'personal';
+          role_other_text?: string | null;
+          onboarding_completed_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

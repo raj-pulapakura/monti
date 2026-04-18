@@ -29,6 +29,8 @@ import {
 import { appendSuggestionToComposer } from "@/lib/chat/append-suggestion-to-composer";
 import { toggleExperienceFavourite } from "@/lib/chat/experience-favourite";
 import { ArrowUp, LoaderCircle, Search, Star } from "lucide-react";
+import { OnboardingScreen } from "./components/onboarding-screen";
+import { useUserProfile } from "./hooks/use-user-profile";
 
 type ThreadCard = {
   id: string;
@@ -155,7 +157,7 @@ export function RootPageClient(input: RootPageClientProps) {
 
   if (mode === "home" && accessToken) {
     return (
-      <HomeWorkspace
+      <AuthenticatedHomeGate
         accessToken={accessToken}
         userId={userId ?? ""}
         onSignOut={() => void handleSignOut()}
@@ -164,6 +166,59 @@ export function RootPageClient(input: RootPageClientProps) {
   }
 
   return <MarketingLanding authError={authError} />;
+}
+
+function AuthenticatedHomeGate(input: {
+  accessToken: string;
+  userId: string;
+  onSignOut: () => void;
+}) {
+  const { state, refresh } = useUserProfile(input.accessToken);
+
+  if (state.status === "loading" || state.status === "idle") {
+    return (
+      <div className="onboarding-root-gate" aria-busy="true">
+        <p className="settings-hub-loading">Loading…</p>
+      </div>
+    );
+  }
+
+  if (state.status === "error") {
+    return (
+      <div className="onboarding-root-gate">
+        <p className="error-banner" role="status">
+          {state.message}
+        </p>
+        <button
+          type="button"
+          className="settings-btn settings-btn--primary"
+          onClick={() => void refresh()}
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  const needsOnboarding =
+    !state.profile || state.profile.onboardingCompletedAt === null;
+
+  if (needsOnboarding) {
+    return (
+      <OnboardingScreen
+        accessToken={input.accessToken}
+        onCompleted={() => void refresh({ silent: true })}
+      />
+    );
+  }
+
+  return (
+    <HomeWorkspace
+      accessToken={input.accessToken}
+      userId={input.userId}
+      onSignOut={input.onSignOut}
+    />
+  );
 }
 
 function HomeWorkspace(input: {

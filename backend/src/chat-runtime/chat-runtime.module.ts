@@ -4,6 +4,7 @@ import { BillingModule } from '../billing/billing.module';
 import { ExperienceModule } from '../experience/experience.module';
 import { LlmModule } from '../llm/llm.module';
 import { SupabaseModule } from '../supabase/supabase.module';
+import { UserProfileModule } from '../user-profile/user-profile.module';
 import { UserIdThrottlerGuard } from '../common/guards/user-id-throttler.guard';
 import { ChatRuntimeController } from './chat-runtime.controller';
 import { ConversationLoopService } from './services/conversation-loop.service';
@@ -16,7 +17,14 @@ import { GenerateExperienceChatTool } from './tools/generate-experience.chat-too
 import { GenerateExperienceToolService } from './tools/generate-experience-tool.service';
 
 @Module({
-  imports: [AuthModule, SupabaseModule, LlmModule, ExperienceModule, BillingModule],
+  imports: [
+    AuthModule,
+    SupabaseModule,
+    LlmModule,
+    ExperienceModule,
+    BillingModule,
+    UserProfileModule,
+  ],
   controllers: [ChatRuntimeController],
   providers: [
     ChatRuntimeRepository,

@@ -22,6 +22,12 @@ export function createAuthenticatedApiClient(accessToken: string) {
         accessToken,
       });
     },
+    getJsonOrNotFound<TResponse>(path: string): Promise<TResponse | null> {
+      return requestJsonAllowingNotFound<TResponse>({
+        path,
+        accessToken,
+      });
+    },
     postJson<TResponse>(path: string, body: unknown): Promise<TResponse> {
       return requestJson<TResponse>({
         method: 'POST',
@@ -46,6 +52,41 @@ export function createAuthenticatedApiClient(accessToken: string) {
       });
     },
   };
+}
+
+async function requestJsonAllowingNotFound<TResponse>(input: {
+  path: string;
+  accessToken: string;
+}): Promise<TResponse | null> {
+  const response = await fetch(`${API_BASE_URL}${input.path}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${input.accessToken}`,
+    },
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  const responseBody = (await response.json().catch(() => null)) as
+    | TResponse
+    | ErrorResponse
+    | null;
+
+  if (!response.ok) {
+    const message =
+      responseBody && typeof responseBody === 'object' && 'error' in responseBody
+        ? responseBody.error.message
+        : `Request failed with status ${response.status}`;
+    throw new Error(message);
+  }
+
+  if (!responseBody) {
+    throw new Error('Server returned an empty response.');
+  }
+
+  return responseBody as TResponse;
 }
 
 async function requestJson<TResponse>(input: {

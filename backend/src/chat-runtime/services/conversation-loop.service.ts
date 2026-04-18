@@ -20,6 +20,10 @@ import {
 import { ChatToolRegistryService } from '../tools/chat-tool-registry.service';
 import { ChatRuntimeEventService } from './chat-runtime-event.service';
 import { ChatRuntimeRepository } from './chat-runtime.repository';
+import {
+  buildUserProfileSystemAddendum,
+  UserProfileService,
+} from '../../user-profile/user-profile.service';
 
 type ConversationRunRow = Database['public']['Tables']['assistant_runs']['Row'];
 type ChatMessageRow = Database['public']['Tables']['chat_messages']['Row'];
@@ -34,6 +38,7 @@ export class ConversationLoopService {
     private readonly toolRegistry: ChatToolRegistryService,
     private readonly toolLlmRouter: ToolLlmRouterService,
     private readonly llmConfig: LlmConfigService,
+    private readonly userProfiles: UserProfileService,
   ) {}
 
   async executeTurn(input: {
@@ -884,10 +889,16 @@ export class ConversationLoopService {
       baseMessages,
       this.llmConfig.conversationContextWindowSize,
     );
+    const profileRow = await this.userProfiles.getByUserId(input.userId);
+    const supplement = buildUserProfileSystemAddendum(profileRow);
+    const systemContent = supplement
+      ? `${supplement}\n\n${this.llmConfig.conversationSystemPrompt}`
+      : this.llmConfig.conversationSystemPrompt;
+
     return [
       {
         role: 'system',
-        content: this.llmConfig.conversationSystemPrompt,
+        content: systemContent,
       },
       ...windowedMessages,
     ];

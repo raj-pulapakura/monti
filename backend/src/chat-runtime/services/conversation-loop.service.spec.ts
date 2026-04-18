@@ -4,6 +4,10 @@ import {
   ConversationLoopService,
 } from './conversation-loop.service';
 
+const stubUserProfiles = () => ({
+  getByUserId: jest.fn().mockResolvedValue(null),
+});
+
 function createRun(overrides: Record<string, unknown> = {}) {
   return {
     id: 'run-1',
@@ -135,6 +139,7 @@ describe('ConversationLoopService', () => {
       toolRegistry as never,
       toolLlmRouter as never,
       llmConfig as never,
+      stubUserProfiles() as never,
     );
 
     const result = await service.executeTurn({
@@ -351,6 +356,7 @@ describe('ConversationLoopService', () => {
       toolRegistry as never,
       toolLlmRouter as never,
       llmConfig as never,
+      stubUserProfiles() as never,
     );
 
     const result = await service.executeTurn({
@@ -573,6 +579,7 @@ describe('ConversationLoopService', () => {
       toolRegistry as never,
       toolLlmRouter as never,
       llmConfig as never,
+      stubUserProfiles() as never,
     );
 
     const result = await service.executeTurn({
@@ -758,6 +765,7 @@ describe('ConversationLoopService', () => {
       toolRegistry as never,
       toolLlmRouter as never,
       llmConfig as never,
+      stubUserProfiles() as never,
     );
 
     await service.executeTurn({
@@ -873,6 +881,7 @@ describe('ConversationLoopService', () => {
       toolRegistry as never,
       toolLlmRouter as never,
       llmConfig as never,
+      stubUserProfiles() as never,
     );
 
     await service.executeTurn({
@@ -975,6 +984,7 @@ describe('ConversationLoopService', () => {
       toolRegistry as never,
       toolLlmRouter as never,
       llmConfig as never,
+      stubUserProfiles() as never,
     );
 
     await service.executeTurn({
@@ -1108,6 +1118,7 @@ describe('ConversationLoopService', () => {
       toolRegistry as never,
       toolLlmRouter as never,
       llmConfig as never,
+      stubUserProfiles() as never,
     );
 
     const result = await service.executeTurn({
@@ -1306,6 +1317,7 @@ describe('ConversationLoopService', () => {
       toolRegistry as never,
       toolLlmRouter as never,
       llmConfig as never,
+      stubUserProfiles() as never,
     );
 
     const result = await service.resumeTurn({
@@ -1463,6 +1475,7 @@ describe('ConversationLoopService', () => {
       toolRegistry as never,
       toolLlmRouter as never,
       llmConfig as never,
+      stubUserProfiles() as never,
     );
 
     const result = await service.resumeTurn({
@@ -1694,6 +1707,7 @@ describe('ConversationLoopService', () => {
       toolRegistry as never,
       toolLlmRouter as never,
       llmConfig as never,
+      stubUserProfiles() as never,
     );
 
     const first = await service.executeTurn({
@@ -1839,6 +1853,122 @@ describe('ConversationLoopService', () => {
 
     expect(toolRegistry.executeToolCall).toHaveBeenCalledTimes(2);
     expect(repository.markRunSucceeded).toHaveBeenCalled();
+  });
+
+  it('prepends completed user profile to the system prompt for the model turn', async () => {
+    const repository = {
+      markRunRunning: jest.fn(async () => undefined),
+      hydrateThread: jest.fn(async () => ({
+        thread: { id: 'thread-1' },
+        messages: [
+          {
+            id: 'message-1',
+            thread_id: 'thread-1',
+            user_id: 'client-1',
+            role: 'user',
+            content: 'Hi',
+            content_json: null,
+          },
+        ],
+        sandboxState: { thread_id: 'thread-1', status: 'empty' },
+        activeRun: null,
+        activeToolInvocation: null,
+      })),
+      recordRunProviderTrace: jest.fn(async () => undefined),
+      createAssistantMessage: jest.fn(async () =>
+        createAssistantMessage({ content: 'ok' }),
+      ),
+      markRunSucceeded: jest.fn(async () => undefined),
+      getRunById: jest.fn(async () =>
+        createRun({
+          status: 'succeeded',
+          assistant_message_id: 'assistant-1',
+        }),
+      ),
+      markRunFailed: jest.fn(async () => undefined),
+    };
+
+    const events = { publish: jest.fn() };
+
+    const toolRegistry = {
+      getToolDefinitions: jest.fn(() => []),
+      hasTool: jest.fn(() => false),
+      getTool: jest.fn(() => undefined),
+      executeToolCall: jest.fn(async () => {
+        throw new Error('should not be called');
+      }),
+    };
+
+    const toolLlmRouter = {
+      runTurn: jest.fn(async () => ({
+        provider: 'openai' as const,
+        model: 'gpt-5.4',
+        assistantText: 'ok',
+        toolCalls: [],
+        finishReason: 'stop' as const,
+        usage: observedUsage({ inputTokens: 10, outputTokens: 2 }),
+        rawRequest: {},
+        rawResponse: {},
+      })),
+    };
+
+    const llmConfig = {
+      conversationProvider: 'openai' as const,
+      conversationModel: 'gpt-5.4',
+      conversationMaxTokens: 2048,
+      conversationMaxToolRounds: 3,
+      conversationSystemPrompt: 'You are Monti',
+      conversationContextWindowSize: 20,
+    };
+
+    const userProfiles = {
+      getByUserId: jest.fn().mockResolvedValue({
+        user_id: 'client-1',
+        role: 'educator' as const,
+        context: 'k12_elementary' as const,
+        role_other_text: 'DROP TABLE students;--',
+        onboarding_completed_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }),
+    };
+
+    const service = new ConversationLoopService(
+      repository as never,
+      events as never,
+      toolRegistry as never,
+      toolLlmRouter as never,
+      llmConfig as never,
+      userProfiles as never,
+    );
+
+    await service.executeTurn({
+      threadId: 'thread-1',
+      userId: 'client-1',
+      userMessage: {
+        id: 'message-1',
+        thread_id: 'thread-1',
+        user_id: 'client-1',
+        role: 'user',
+        content: 'Hi',
+        content_json: null,
+        idempotency_key: null,
+        created_at: new Date().toISOString(),
+      },
+      run: createRun(),
+    });
+
+    expect(toolLlmRouter.runTurn).toHaveBeenCalled();
+    const runTurnMock = toolLlmRouter.runTurn as jest.Mock;
+    const firstArg = runTurnMock.mock.calls[0][0] as unknown as {
+      messages: { role: string; content: string }[];
+    };
+    expect(firstArg.messages[0]).toMatchObject({
+      role: 'system',
+      content: expect.stringContaining('User context:'),
+    });
+    expect(firstArg.messages[0].content).toContain('You are Monti');
+    expect(firstArg.messages[0].content).not.toContain('DROP TABLE');
   });
 
   it('snaps the context window to a preceding user message when the slice would start on a tool turn', () => {

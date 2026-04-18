@@ -1,19 +1,24 @@
 export type GenerationMode = 'fast' | 'quality';
 
-export const GENERATION_MODE_OPTIONS: Array<{
+export type GenerationModeOption = {
   value: GenerationMode;
   label: string;
-  description: string;
-}> = [
+  /** Shown in the confirmation gate info control (hover / keyboard focus). */
+  tooltip: string;
+};
+
+export const GENERATION_MODE_OPTIONS: GenerationModeOption[] = [
   {
     value: 'fast',
     label: 'Draft',
-    description: 'Lower credit cost',
+    tooltip:
+      'Uses fewer credits. Best for early drafts, quick iterations or a lighter preview before committing to a full-quality pass. Typically takes 1-2 minutes.',
   },
   {
     value: 'quality',
     label: 'High quality',
-    description: 'Best result',
+    tooltip:
+      'Uses more credits for a richer, more polished result, best for experiences that require a high level of detail and complexity. Typically takes 5 minutes.',
   },
 ];
 

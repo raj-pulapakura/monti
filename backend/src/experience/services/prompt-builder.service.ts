@@ -46,6 +46,19 @@ const OUTPUT_CONTRACT = [
   'Keep on-screen instructional text concise.',
 ];
 
+const SAFETY_RULES = [
+  'Do not use external libraries.',
+  'Do not include links to external resources.',
+  'Do not use external network requests.',
+];
+
+const REFINEMENT_GOALS = [
+  'Try to only make the changes that the user requested.',
+  'Do not make changes that are not explicitly requested.',
+  'Keep the core learning goal unless the instruction explicitly changes it.',
+  'Avoid regressions in usability, focus, educational value, and completion arc.',
+];
+
 @Injectable()
 export class PromptBuilderService {
   buildGenerationPrompt(request: GenerateExperienceRequest): string {
@@ -61,6 +74,8 @@ export class PromptBuilderService {
       '',
       renderBulletSection('Output contract', OUTPUT_CONTRACT),
       '',
+      renderBulletSection('Safety rules', SAFETY_RULES),
+      '',
       'User request:',
       `- Topic request: ${request.prompt}`,
     ].join('\n');
@@ -73,18 +88,15 @@ export class PromptBuilderService {
       'You are refining an existing Monti experience.',
       'Regenerate a complete replacement payload that preserves intent and applies the requested edits.',
       '',
-      renderBulletSection('Refinement goals', [
-        'Keep the core learning goal unless the instruction explicitly changes it.',
-        'Preserve the strongest parts of the prior experience when they still support the goal.',
-        'Improve interaction, feedback, clarity, and polish rather than only rewriting text.',
-        'Avoid regressions in usability, focus, educational value, and completion arc.',
-      ]),
+      renderBulletSection('Refinement goals', REFINEMENT_GOALS),
       '',
       renderBulletSection('Monti philosophy', MONTI_PHILOSOPHY),
       '',
       renderBulletSection('Quality bar', QUALITY_BAR),
       '',
       renderBulletSection('Anti-patterns to avoid', ANTI_PATTERNS),
+      '',
+      renderBulletSection('Safety rules', SAFETY_RULES),
       '',
       renderBulletSection('Output contract', OUTPUT_CONTRACT),
       '',

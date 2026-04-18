@@ -1,5 +1,6 @@
 'use client';
 
+import { Info } from 'lucide-react';
 import { useState } from 'react';
 import type { GenerationMode } from '@/lib/chat/generation-mode';
 import { GENERATION_MODE_OPTIONS } from '@/lib/chat/generation-mode';
@@ -20,7 +21,7 @@ export function ConfirmationGate(input: {
         {input.operation}
       </h3>
       <p className="confirmation-gate-subtitle">
-        Choose how Monti should generate. You can cancel if you are not ready to spend credits.
+        Choose the mode you want to use to generate the experience.
       </p>
       <div className="confirmation-gate-modes" role="radiogroup" aria-label="Generation quality">
         {GENERATION_MODE_OPTIONS.map((opt) => (
@@ -33,7 +34,19 @@ export function ConfirmationGate(input: {
               disabled={input.confirmPending || input.cancelPending}
               onChange={() => setMode(opt.value)}
             />
-            <span className="confirmation-gate-mode-label">{opt.label}</span>
+            <span className="confirmation-gate-mode-label-row">
+              <span className="confirmation-gate-mode-label">{opt.label}</span>
+              <button
+                type="button"
+                className="confirmation-gate-mode-info"
+                data-tooltip={opt.tooltip}
+                title={opt.tooltip}
+                aria-label={`${opt.label}. ${opt.tooltip}`}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <Info size={14} strokeWidth={2.25} aria-hidden />
+              </button>
+            </span>
             <span className="confirmation-gate-mode-credits">
               {opt.value === 'fast'
                 ? `${input.estimatedCredits.fast} credits`

@@ -3,7 +3,23 @@ import { resolveAuthRouteRedirect } from '@/lib/auth/route-access';
 import { resolveRequestOrigin } from '@/lib/http/request-origin';
 import { createSupabaseProxyClient } from '@/lib/supabase/proxy';
 
-export async function proxy(request: NextRequest) {
+function mergeRefreshedCookies(from: NextResponse, to: NextResponse) {
+  const setCookies = from.headers.getSetCookie?.();
+  if (setCookies?.length) {
+    for (const cookie of setCookies) {
+      to.headers.append('set-cookie', cookie);
+    }
+    return;
+  }
+
+  for (const { name, value } of from.cookies.getAll()) {
+    to.cookies.set(name, value);
+  }
+}
+
+export async function runSupabaseAuthMiddleware(
+  request: NextRequest,
+): Promise<NextResponse> {
   const pathname = request.nextUrl.pathname;
 
   const { response, supabase } = createSupabaseProxyClient(request);
@@ -20,14 +36,13 @@ export async function proxy(request: NextRequest) {
     search: request.nextUrl.search,
     hasUser: Boolean(user),
   });
+
   if (redirectTarget) {
     const redirectUrl = new URL(redirectTarget, resolveRequestOrigin(request));
-    return NextResponse.redirect(redirectUrl);
+    const redirectResponse = NextResponse.redirect(redirectUrl);
+    mergeRefreshedCookies(response, redirectResponse);
+    return redirectResponse;
   }
 
   return response;
 }
-
-export const config = {
-  matcher: ['/', '/chat/:path*', '/auth', '/auth/:path*'],
-};

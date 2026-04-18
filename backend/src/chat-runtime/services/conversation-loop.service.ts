@@ -13,6 +13,10 @@ import type {
   CanonicalToolCall,
 } from '../../llm/tool-runtime/tool-runtime.types';
 import type { Database } from '../../supabase/supabase.types';
+import {
+  parseGenerateExperienceToolArguments,
+  type GenerateExperienceToolResult,
+} from '../tools/generate-experience-tool.types';
 import { ChatToolRegistryService } from '../tools/chat-tool-registry.service';
 import { ChatRuntimeEventService } from './chat-runtime-event.service';
 import { ChatRuntimeRepository } from './chat-runtime.repository';
@@ -594,6 +598,103 @@ export class ConversationLoopService {
           ? input.confirmationBypass.qualityMode
           : undefined;
 
+      if (toolCall.name === 'generate_experience') {
+        try {
+          const parsedArgs = parseGenerateExperienceToolArguments(toolCall.arguments);
+          if (parsedArgs.operation === 'generate') {
+            const sandboxRow = await this.repository.findSandboxStateRowByThreadId(input.threadId);
+            if (
+              sandboxRow?.status === 'ready' &&
+              sandboxRow.experience_id &&
+              sandboxRow.experience_version_id
+            ) {
+              this.logger.log(
+                JSON.stringify({
+                  event: 'duplicate_generate_experience_skipped',
+                  runId: input.runId,
+                  threadId: input.threadId,
+                  invocationId: invocation.id,
+                }),
+              );
+
+              this.events.publish({
+                threadId: input.threadId,
+                runId: input.runId,
+                type: 'tool_started',
+                payload: {
+                  invocationId: invocation.id,
+                  toolName: invocation.tool_name,
+                },
+              });
+
+              const generationId = await this.repository.findGenerationIdForExperienceVersion(
+                sandboxRow.experience_version_id,
+              );
+
+              const noopResult: GenerateExperienceToolResult = {
+                status: 'succeeded',
+                generationId,
+                experienceId: sandboxRow.experience_id,
+                experienceVersionId: sandboxRow.experience_version_id,
+                errorCode: null,
+                errorMessage: null,
+                sandboxStatus: 'ready',
+                route: null,
+              };
+
+              await this.repository.markToolInvocationSucceeded({
+                invocationId: invocation.id,
+                toolResult: noopResult as unknown as Record<string, unknown>,
+                generationId,
+                experienceId: sandboxRow.experience_id,
+                experienceVersionId: sandboxRow.experience_version_id,
+                routerTier: null,
+                routerConfidence: null,
+                routerReason: null,
+                routerFallbackReason: null,
+                selectedProvider: null,
+                selectedModel: null,
+              });
+
+              this.events.publish({
+                threadId: input.threadId,
+                runId: input.runId,
+                type: 'tool_succeeded',
+                payload: {
+                  invocationId: invocation.id,
+                  toolName: toolCall.name,
+                  generationId,
+                },
+              });
+
+              const noopLlmContent = buildLlmFacingToolResultContent(
+                toolCall.name,
+                toolCall.arguments,
+                noopResult as unknown as Record<string, unknown>,
+              );
+              await this.repository.createToolResultMessage({
+                threadId: input.threadId,
+                userId: input.userId,
+                toolCallId: toolCall.id,
+                toolName: toolCall.name,
+                content: noopLlmContent,
+              });
+
+              input.canonicalMessages.push({
+                role: 'tool',
+                toolCallId: toolCall.id,
+                toolName: toolCall.name,
+                content: noopLlmContent,
+              });
+
+              continue;
+            }
+          }
+        } catch {
+          // Invalid tool args — fall through to normal execution.
+        }
+      }
+
       this.events.publish({
         threadId: input.threadId,
         runId: input.runId,
@@ -807,13 +908,6 @@ export class ConversationLoopService {
       contentJson: input.contentJson ?? null,
     });
 
-    this.events.publish({
-      threadId: input.threadId,
-      runId: input.runId,
-      type: 'assistant_message_created',
-      payload: toAssistantMessagePayload(assistantMessage),
-    });
-
     const conversationUsage = toUsageCounts(input.conversationUsage);
     await this.repository.markRunSucceeded({
       runId: input.runId,
@@ -822,6 +916,8 @@ export class ConversationLoopService {
       conversationTokensOut: conversationUsage.tokensOut,
     });
 
+    // Emit `run_completed` before `assistant_message_created` so clients can clear
+    // `running` run state before the final message renders (avoids a one-beat "Thinking…" row).
     this.events.publish({
       threadId: input.threadId,
       runId: input.runId,
@@ -829,6 +925,13 @@ export class ConversationLoopService {
       payload: {
         runId: input.runId,
       },
+    });
+
+    this.events.publish({
+      threadId: input.threadId,
+      runId: input.runId,
+      type: 'assistant_message_created',
+      payload: toAssistantMessagePayload(assistantMessage),
     });
 
     const completedRun = await this.repository.getRunById(input.runId);

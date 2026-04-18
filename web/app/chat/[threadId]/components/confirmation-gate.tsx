@@ -7,8 +7,8 @@ import { GENERATION_MODE_OPTIONS } from '@/lib/chat/generation-mode';
 export function ConfirmationGate(input: {
   operation: string;
   estimatedCredits: { fast: number; quality: number };
-  billingEnabled: boolean;
   confirmPending: boolean;
+  cancelPending: boolean;
   onConfirm: (mode: GenerationMode) => void;
   onCancel: () => void;
 }) {
@@ -30,16 +30,15 @@ export function ConfirmationGate(input: {
               name="confirmation-quality"
               value={opt.value}
               checked={mode === opt.value}
+              disabled={input.confirmPending || input.cancelPending}
               onChange={() => setMode(opt.value)}
             />
             <span className="confirmation-gate-mode-label">{opt.label}</span>
-            {input.billingEnabled ? (
-              <span className="confirmation-gate-mode-credits">
-                {opt.value === 'fast'
-                  ? `${input.estimatedCredits.fast} credits`
-                  : `${input.estimatedCredits.quality} credits`}
-              </span>
-            ) : null}
+            <span className="confirmation-gate-mode-credits">
+              {opt.value === 'fast'
+                ? `${input.estimatedCredits.fast} credits`
+                : `${input.estimatedCredits.quality} credits`}
+            </span>
           </label>
         ))}
       </div>
@@ -47,15 +46,15 @@ export function ConfirmationGate(input: {
         <button
           type="button"
           className="confirmation-gate-cancel"
-          disabled={input.confirmPending}
+          disabled={input.confirmPending || input.cancelPending}
           onClick={() => input.onCancel()}
         >
-          Cancel
+          {input.cancelPending ? 'Cancelling…' : 'Cancel'}
         </button>
         <button
           type="button"
           className="confirmation-gate-confirm"
-          disabled={input.confirmPending}
+          disabled={input.confirmPending || input.cancelPending}
           onClick={() => input.onConfirm(mode)}
         >
           {input.confirmPending ? 'Starting…' : 'Confirm'}

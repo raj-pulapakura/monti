@@ -666,6 +666,34 @@ export class ChatRuntimeRepository {
     this.assertThreadNotArchived(thread);
   }
 
+  async findSandboxStateRowByThreadId(threadId: string): Promise<SandboxStateRow | null> {
+    const { data, error } = await this.client
+      .from('sandbox_states')
+      .select('*')
+      .eq('thread_id', threadId)
+      .maybeSingle();
+
+    if (error) {
+      this.throwQueryError('load sandbox state row', error);
+    }
+
+    return data ?? null;
+  }
+
+  async findGenerationIdForExperienceVersion(experienceVersionId: string): Promise<string | null> {
+    const { data, error } = await this.client
+      .from('experience_versions')
+      .select('generation_id')
+      .eq('id', experienceVersionId)
+      .maybeSingle();
+
+    if (error) {
+      this.throwQueryError('load generation id for experience version', error);
+    }
+
+    return data?.generation_id ?? null;
+  }
+
   async getSandboxPreview(input: {
     threadId: string;
     userId: string;

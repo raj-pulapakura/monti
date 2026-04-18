@@ -347,7 +347,7 @@ export function reduceRuntimeEvent(
           lastErrorMessage: null,
           updatedAt: event.createdAt,
         } satisfies SandboxState);
-      next.sandboxState = {
+      const candidate: SandboxState = {
         ...previousSandbox,
         status: incomingStatus,
         experienceId:
@@ -368,6 +368,7 @@ export function reduceRuntimeEvent(
             : previousSandbox.lastErrorMessage,
         updatedAt: event.createdAt,
       };
+      next.sandboxState = mergeSandboxStateByRecency(next.sandboxState, candidate);
     }
   }
 
@@ -379,6 +380,36 @@ export function reduceRuntimeEvent(
  * returns before the server lists the new message, keep those pending rows so the UI does not
  * flash the empty-thread state.
  */
+/**
+ * Merges sandbox rows when multiple async sources (SSE, hydration, /sandbox) can race.
+ * Prefers newer `updatedAt`; on ties prefers a more settled status (`ready` / `error` over `creating`).
+ */
+export function mergeSandboxStateByRecency(
+  previous: SandboxState | null,
+  incoming: SandboxState,
+): SandboxState {
+  if (!previous) {
+    return incoming;
+  }
+  const prevT = Date.parse(previous.updatedAt);
+  const nextT = Date.parse(incoming.updatedAt);
+  if (Number.isFinite(nextT) && Number.isFinite(prevT)) {
+    if (nextT > prevT) {
+      return incoming;
+    }
+    if (nextT < prevT) {
+      return previous;
+    }
+  }
+  const rank: Record<SandboxState['status'], number> = {
+    ready: 4,
+    error: 3,
+    empty: 2,
+    creating: 1,
+  };
+  return rank[incoming.status] >= rank[previous.status] ? incoming : previous;
+}
+
 export function mergeHydratedMessagesWithOptimistic(
   previousMessages: ChatMessage[],
   hydratedMessages: ChatMessage[],
@@ -433,7 +464,7 @@ export function reconcileHydrationState(
     messages: mergeHydratedMessagesWithOptimistic(previous.messages, hydrated.messages),
     activeRun: hydrated.activeRun,
     activeToolInvocation: hydrated.activeToolInvocation,
-    sandboxState: hydrated.sandboxState,
+    sandboxState: mergeSandboxStateByRecency(previous.sandboxState, hydrated.sandboxState),
     assistantDraft:
       previous.assistantDraft && activeRunStillVisible && !hasPersistedAssistantCopy
         ? previous.assistantDraft

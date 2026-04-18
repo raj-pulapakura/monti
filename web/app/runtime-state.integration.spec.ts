@@ -1,6 +1,7 @@
 import {
   getRetryComposerValue,
   INITIAL_RUNTIME_STATE,
+  isRunActive,
   isUserFacingChatMessage,
   reconcileHydrationState,
   reduceRuntimeEvent,
@@ -339,6 +340,80 @@ describe('runtime-state integration', () => {
 
     expect(failedRunValue).toBe('Build a solar system quiz');
     expect(succeededRunValue).toBeNull();
+  });
+
+  it('does not return retry composer content when the active run was cancelled', () => {
+    const base = createBaseRuntimeState();
+    const cancelledValue = getRetryComposerValue(
+      {
+        ...base.activeRun!,
+        status: 'cancelled',
+      },
+      base.messages,
+    );
+    expect(cancelledValue).toBeNull();
+  });
+
+  it('applies run_cancelled by clearing draft and tool invocation', () => {
+    const base = createBaseRuntimeState();
+    const withDraft: RuntimeState = {
+      ...base,
+      activeRun: {
+        ...base.activeRun!,
+        status: 'running',
+      },
+      assistantDraft: {
+        draftId: 'run-1',
+        threadId: 'thread-1',
+        runId: 'run-1',
+        content: 'Streaming…',
+        createdAt: '2026-03-15T10:00:01.000Z',
+        updatedAt: '2026-03-15T10:00:02.000Z',
+      },
+      activeToolInvocation: {
+        id: 'tool-1',
+        threadId: 'thread-1',
+        runId: 'run-1',
+        providerToolCallId: 'call-1',
+        toolName: 'generate_experience',
+        toolArguments: {},
+        toolResult: null,
+        generationId: null,
+        experienceId: null,
+        experienceVersionId: null,
+        status: 'running',
+        error: { code: null, message: null },
+        startedAt: '2026-03-15T10:00:02.000Z',
+        completedAt: null,
+        createdAt: '2026-03-15T10:00:02.000Z',
+      },
+    };
+
+    const next = reduceRuntimeEvent(
+      withDraft,
+      {
+        threadId: 'thread-1',
+        runId: 'run-1',
+        type: 'run_cancelled',
+        payload: { runId: 'run-1' },
+        createdAt: '2026-03-15T10:00:05.000Z',
+      },
+      '7',
+    );
+
+    expect(next.activeRun?.status).toBe('cancelled');
+    expect(next.assistantDraft).toBeNull();
+    expect(next.activeToolInvocation).toBeNull();
+  });
+
+  it('treats cancelled runs as inactive for isRunActive', () => {
+    const base = createBaseRuntimeState();
+    expect(
+      isRunActive({
+        ...base.activeRun!,
+        status: 'cancelled',
+      }),
+    ).toBe(false);
   });
 });
 

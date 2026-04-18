@@ -20,6 +20,7 @@ import {
 import { ChatToolRegistryService } from '../tools/chat-tool-registry.service';
 import { ChatRuntimeEventService } from './chat-runtime-event.service';
 import { ChatRuntimeRepository } from './chat-runtime.repository';
+import { RunAbortRegistryService } from './run-abort-registry.service';
 import {
   buildUserProfileSystemAddendum,
   UserProfileService,
@@ -39,6 +40,7 @@ export class ConversationLoopService {
     private readonly toolLlmRouter: ToolLlmRouterService,
     private readonly llmConfig: LlmConfigService,
     private readonly userProfiles: UserProfileService,
+    private readonly runAbortRegistry: RunAbortRegistryService,
   ) {}
 
   async executeTurn(input: {
@@ -47,26 +49,32 @@ export class ConversationLoopService {
     userMessage: ChatMessageRow;
     run: ConversationRunRow;
   }): Promise<ConversationRunRow> {
-    if (input.run.status !== 'queued') {
-      return input.run;
+    const liveRun = await this.repository.getRunById(input.run.id);
+    if (!liveRun) {
+      throw new AppError('INTERNAL_ERROR', 'Conversation run record was not found.', 500);
+    }
+    if (liveRun.status !== 'queued') {
+      return liveRun;
     }
 
     const runStartedAt = Date.now();
-    await this.repository.markRunRunning(input.run.id, {
+    await this.repository.markRunRunning(liveRun.id, {
       conversationProvider: this.llmConfig.conversationProvider,
       conversationModel: this.llmConfig.conversationModel,
     });
     this.events.publish({
       threadId: input.threadId,
-      runId: input.run.id,
+      runId: liveRun.id,
       type: 'run_started',
       payload: {
-        runId: input.run.id,
+        runId: liveRun.id,
         provider: this.llmConfig.conversationProvider,
         model: this.llmConfig.conversationModel,
       },
     });
     const completedRoundUsages: LlmUsageTelemetry[] = [];
+    const streamedAssistantTextRef = { current: '' };
+    const signal = this.runAbortRegistry.register(liveRun.id);
 
     try {
       const canonicalMessages = await this.buildConversationMessages({
@@ -77,19 +85,31 @@ export class ConversationLoopService {
         threadId: input.threadId,
         userId: input.userId,
         userMessage: input.userMessage,
-        runId: input.run.id,
+        runId: liveRun.id,
         canonicalMessages,
         completedRoundUsages,
         runStartedAt,
         startRound: 0,
+        signal,
+        streamedAssistantTextRef,
       });
     } catch (error) {
+      if (isAbortError(error)) {
+        return await this.handleCancelledRun({
+          threadId: input.threadId,
+          userId: input.userId,
+          runId: liveRun.id,
+          partialAssistantText: streamedAssistantTextRef.current.trim(),
+          completedRoundUsages,
+        });
+      }
+
       const code = toErrorCode(error);
       const message = toErrorMessage(error);
       const conversationUsage = toUsageCounts(aggregateObservedUsage(completedRoundUsages));
 
       await this.repository.markRunFailed({
-        runId: input.run.id,
+        runId: liveRun.id,
         errorCode: code,
         errorMessage: message,
         conversationTokensIn: conversationUsage.tokensIn,
@@ -97,10 +117,10 @@ export class ConversationLoopService {
       });
       this.events.publish({
         threadId: input.threadId,
-        runId: input.run.id,
+        runId: liveRun.id,
         type: 'run_failed',
         payload: {
-          runId: input.run.id,
+          runId: liveRun.id,
           errorCode: code,
           errorMessage: message,
         },
@@ -110,18 +130,20 @@ export class ConversationLoopService {
         JSON.stringify({
           event: 'conversation_loop_failed',
           threadId: input.threadId,
-          runId: input.run.id,
+          runId: liveRun.id,
           errorCode: code,
           errorMessage: message,
         }),
       );
 
-      const failedRun = await this.repository.getRunById(input.run.id);
+      const failedRun = await this.repository.getRunById(liveRun.id);
       if (!failedRun) {
         throw new AppError('INTERNAL_ERROR', 'Conversation run record was not found.', 500);
       }
 
       return failedRun;
+    } finally {
+      this.runAbortRegistry.release(liveRun.id);
     }
   }
 
@@ -166,6 +188,9 @@ export class ConversationLoopService {
     });
 
     await this.repository.markRunRunningFromConfirmation(input.runId);
+
+    const streamedAssistantTextRef = { current: '' };
+    const signal = this.runAbortRegistry.register(input.runId);
 
     try {
       const canonicalMessages = await this.buildConversationMessages({
@@ -234,6 +259,7 @@ export class ConversationLoopService {
           runId: input.runId,
           toolCalls: pendingForSet,
           canonicalMessages,
+          signal,
           confirmationBypass: {
             toolCallId: input.confirmedToolCallId,
             qualityMode: input.qualityMode ?? 'fast',
@@ -263,8 +289,20 @@ export class ConversationLoopService {
         completedRoundUsages,
         runStartedAt,
         startRound: computeNextConversationRoundIndex(resumedRun),
+        signal,
+        streamedAssistantTextRef,
       });
     } catch (error) {
+      if (isAbortError(error)) {
+        return await this.handleCancelledRun({
+          threadId: input.threadId,
+          userId: input.userId,
+          runId: input.runId,
+          partialAssistantText: streamedAssistantTextRef.current.trim(),
+          completedRoundUsages,
+        });
+      }
+
       const code = toErrorCode(error);
       const message = toErrorMessage(error);
       const conversationUsage = toUsageCounts(aggregateObservedUsage(completedRoundUsages));
@@ -303,7 +341,130 @@ export class ConversationLoopService {
       }
 
       return failedRun;
+    } finally {
+      this.runAbortRegistry.release(input.runId);
     }
+  }
+
+  private async handleCancelledRun(input: {
+    threadId: string;
+    userId: string;
+    runId: string;
+    partialAssistantText: string;
+    completedRoundUsages: LlmUsageTelemetry[];
+  }): Promise<ConversationRunRow> {
+    const conversationUsage = toUsageCounts(aggregateObservedUsage(input.completedRoundUsages));
+
+    const runningInvocation = await this.repository.findRunningToolInvocationForRun(input.runId);
+    if (runningInvocation) {
+      const toolName = runningInvocation.tool_name;
+      const toolArguments =
+        typeof runningInvocation.tool_arguments === 'object' &&
+        runningInvocation.tool_arguments !== null &&
+        !Array.isArray(runningInvocation.tool_arguments)
+          ? (runningInvocation.tool_arguments as Record<string, unknown>)
+          : {};
+      const operation = toolOperationForLlmPayload(toolName, toolArguments);
+      const cancelPayload = { status: 'cancelled' as const, operation };
+
+      await this.repository.markToolInvocationFailed({
+        invocationId: runningInvocation.id,
+        errorCode: 'USER_CANCELLED',
+        errorMessage: 'User stopped the reply.',
+        toolResult: cancelPayload,
+      });
+
+      this.events.publish({
+        threadId: input.threadId,
+        runId: input.runId,
+        type: 'tool_failed',
+        payload: {
+          invocationId: runningInvocation.id,
+          toolName,
+          errorCode: 'USER_CANCELLED',
+          errorMessage: 'User stopped the reply.',
+        },
+      });
+
+      const providerToolCallId = runningInvocation.provider_tool_call_id;
+      if (providerToolCallId) {
+        const llmToolContent = JSON.stringify(cancelPayload);
+        await this.repository.createToolResultMessage({
+          threadId: input.threadId,
+          userId: input.userId,
+          toolCallId: providerToolCallId,
+          toolName,
+          content: llmToolContent,
+        });
+      }
+    }
+
+    const sandboxRow = await this.repository.findSandboxStateRowByThreadId(input.threadId);
+    if (sandboxRow?.status === 'creating') {
+      const snapshot = this.runAbortRegistry.getPreGenerateSandboxSnapshot(input.runId);
+      if (snapshot) {
+        await this.repository.updateSandboxState({
+          threadId: input.threadId,
+          status: snapshot.status,
+          experienceId: snapshot.experienceId,
+          experienceVersionId: snapshot.experienceVersionId,
+          lastErrorCode: null,
+          lastErrorMessage: null,
+        });
+        this.events.publish({
+          threadId: input.threadId,
+          runId: input.runId,
+          type: 'sandbox_updated',
+          payload: {
+            status: snapshot.status,
+            experienceId: snapshot.experienceId,
+            experienceVersionId: snapshot.experienceVersionId,
+            errorCode: null,
+            errorMessage: null,
+          },
+        });
+      }
+    }
+
+    let assistantMessageId: string | null = null;
+    if (input.partialAssistantText.length > 0) {
+      const assistantMessage = await this.repository.createAssistantMessage({
+        threadId: input.threadId,
+        userId: input.userId,
+        content: input.partialAssistantText,
+        contentJson: null,
+      });
+      assistantMessageId = assistantMessage.id;
+      this.events.publish({
+        threadId: input.threadId,
+        runId: input.runId,
+        type: 'assistant_message_created',
+        payload: toAssistantMessagePayload(assistantMessage),
+      });
+    }
+
+    await this.repository.markRunCancelled({
+      runId: input.runId,
+      assistantMessageId,
+      conversationTokensIn: conversationUsage.tokensIn,
+      conversationTokensOut: conversationUsage.tokensOut,
+    });
+
+    this.events.publish({
+      threadId: input.threadId,
+      runId: input.runId,
+      type: 'run_cancelled',
+      payload: {
+        runId: input.runId,
+      },
+    });
+
+    const cancelledRun = await this.repository.getRunById(input.runId);
+    if (!cancelledRun) {
+      throw new AppError('INTERNAL_ERROR', 'Conversation run record was not found.', 500);
+    }
+
+    return cancelledRun;
   }
 
   private async runConversationRounds(input: {
@@ -315,6 +476,8 @@ export class ConversationLoopService {
     completedRoundUsages: LlmUsageTelemetry[];
     runStartedAt: number;
     startRound: number;
+    signal: AbortSignal;
+    streamedAssistantTextRef: { current: string };
   }): Promise<ConversationRunRow> {
     const canonicalMessages = input.canonicalMessages;
     let roundMessages: CanonicalChatMessage[] = canonicalMessages;
@@ -326,6 +489,7 @@ export class ConversationLoopService {
       round <= this.llmConfig.conversationMaxToolRounds;
       round += 1
     ) {
+      assertNotAborted(input.signal);
       const tools = this.toolRegistry.getToolDefinitions();
       let streamedAssistantText = '';
       let hasPublishedAssistantDraft = false;
@@ -345,6 +509,7 @@ export class ConversationLoopService {
         maxTokens: this.llmConfig.conversationMaxTokens,
         messages: cloneCanonicalMessagesForProviderRequest(roundMessages),
         tools,
+        signal: input.signal,
         onAssistantTextSnapshot: async (text) => {
           const normalized = text.trim();
           if (normalized.length === 0) {
@@ -352,6 +517,7 @@ export class ConversationLoopService {
           }
 
           streamedAssistantText = normalized;
+          input.streamedAssistantTextRef.current = normalized;
           this.events.publish({
             threadId: input.threadId,
             runId: input.runId,
@@ -463,6 +629,7 @@ export class ConversationLoopService {
         runId: input.runId,
         toolCalls: response.toolCalls,
         canonicalMessages,
+        signal: input.signal,
       });
 
       if (toolSetResult.status === 'paused') {
@@ -496,9 +663,11 @@ export class ConversationLoopService {
     runId: string;
     toolCalls: CanonicalToolCall[];
     canonicalMessages: CanonicalChatMessage[];
+    signal: AbortSignal;
     confirmationBypass?: { toolCallId: string; qualityMode: QualityMode };
   }): Promise<{ status: 'completed' } | { status: 'paused' }> {
     for (const toolCall of input.toolCalls) {
+      assertNotAborted(input.signal);
       const invocation = await this.repository.createToolInvocation({
         threadId: input.threadId,
         runId: input.runId,
@@ -711,6 +880,12 @@ export class ConversationLoopService {
       });
 
       if (toolCall.name === 'generate_experience') {
+        const preSandboxRow = await this.repository.findSandboxStateRowByThreadId(input.threadId);
+        this.runAbortRegistry.setPreGenerateSandboxSnapshot(input.runId, {
+          status: preSandboxRow?.status ?? 'empty',
+          experienceId: preSandboxRow?.experience_id ?? null,
+          experienceVersionId: preSandboxRow?.experience_version_id ?? null,
+        });
         await this.repository.updateSandboxState({
           threadId: input.threadId,
           status: 'creating',
@@ -727,6 +902,7 @@ export class ConversationLoopService {
         });
       }
 
+      assertNotAborted(input.signal);
       const execution = await this.toolRegistry.executeToolCall({
         invocationId: invocation.id,
         threadId: input.threadId,
@@ -737,6 +913,7 @@ export class ConversationLoopService {
         arguments: toolCall.arguments,
         conversationContext: buildBoundedConversationContext(input.canonicalMessages),
         requestedQualityMode,
+        signal: input.signal,
       });
 
       if (execution.result.status === 'succeeded') {
@@ -1155,6 +1332,22 @@ function findToolCallContext(
     }
   }
   return null;
+}
+
+function isAbortError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const name = (error as Error).name;
+  return name === 'AbortError';
+}
+
+function assertNotAborted(signal: AbortSignal): void {
+  if (signal.aborted) {
+    const err = new Error('aborted');
+    err.name = 'AbortError';
+    throw err;
+  }
 }
 
 function toErrorCode(error: unknown): string {

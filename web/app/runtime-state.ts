@@ -134,6 +134,7 @@ export type RuntimeEventData = {
     | 'sandbox_updated'
     | 'run_failed'
     | 'run_completed'
+    | 'run_cancelled'
     | 'confirmation_required';
   payload: Record<string, unknown>;
   createdAt: string;
@@ -326,6 +327,22 @@ export function reduceRuntimeEvent(
       completedAt: event.createdAt,
     };
     next.activeToolInvocation = null;
+  }
+
+  if (event.type === 'run_cancelled' && next.activeRun) {
+    next.activeRun = {
+      ...next.activeRun,
+      status: 'cancelled',
+      confirmationToolCallId: null,
+      confirmationMetadata: null,
+      error: {
+        code: null,
+        message: null,
+      },
+      completedAt: event.createdAt,
+    };
+    next.activeToolInvocation = null;
+    next.assistantDraft = null;
   }
 
   if (event.type === 'sandbox_updated') {

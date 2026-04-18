@@ -8,6 +8,7 @@ import { UserProfileModule } from '../user-profile/user-profile.module';
 import { UserIdThrottlerGuard } from '../common/guards/user-id-throttler.guard';
 import { ChatRuntimeController } from './chat-runtime.controller';
 import { ConversationLoopService } from './services/conversation-loop.service';
+import { RunAbortRegistryService } from './services/run-abort-registry.service';
 import { ChatRuntimeEventService } from './services/chat-runtime-event.service';
 import { ChatRuntimeRepository } from './services/chat-runtime.repository';
 import { ChatRuntimeService } from './services/chat-runtime.service';
@@ -28,6 +29,7 @@ import { GenerateExperienceToolService } from './tools/generate-experience-tool.
   controllers: [ChatRuntimeController],
   providers: [
     ChatRuntimeRepository,
+    RunAbortRegistryService,
     ChatRuntimeService,
     ConversationLoopService,
     ChatRuntimeEventService,

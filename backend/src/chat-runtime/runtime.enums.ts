@@ -28,6 +28,7 @@ export const RUNTIME_EVENT_TYPES = [
   'sandbox_updated',
   'run_failed',
   'run_completed',
+  'run_cancelled',
   'confirmation_required',
 ] as const;
 export type RuntimeEventType = (typeof RUNTIME_EVENT_TYPES)[number];

@@ -20,6 +20,8 @@ export interface RoutedGenerationRequest {
   maxTokens: number;
   provider?: ProviderKind;
   responseSchema?: Record<string, unknown>;
+  /** When aborted (e.g. user stopped the chat run), aborts the provider call before route timeout. */
+  cancelSignal?: AbortSignal;
 }
 
 @Injectable()
@@ -65,8 +67,21 @@ export class LlmRouterService {
       }),
     );
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
+    const timeoutController = new AbortController();
+    const cancelSignal = request.cancelSignal;
+    const linked = new AbortController();
+    const abortLinked = () => linked.abort();
+    const timeoutMs = this.config.timeoutMs;
+    const timeout = setTimeout(() => timeoutController.abort(), timeoutMs);
+
+    if (cancelSignal) {
+      if (cancelSignal.aborted) {
+        abortLinked();
+      } else {
+        cancelSignal.addEventListener('abort', abortLinked, { once: true });
+      }
+    }
+    timeoutController.signal.addEventListener('abort', abortLinked, { once: true });
 
     try {
       const result = await provider.generate({
@@ -77,7 +92,7 @@ export class LlmRouterService {
         maxTokens: request.maxTokens,
         qualityMode: request.qualityMode,
         model,
-        signal: controller.signal,
+        signal: linked.signal,
         responseSchema: request.responseSchema,
       });
 
@@ -95,6 +110,11 @@ export class LlmRouterService {
       return result;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
+        if (cancelSignal?.aborted) {
+          const err = new Error('aborted');
+          err.name = 'AbortError';
+          throw err;
+        }
         this.logger.warn(
           logEvent('llm_route_timeout', {
             requestId: request.requestId ?? null,
@@ -124,6 +144,7 @@ export class LlmRouterService {
       throw error;
     } finally {
       clearTimeout(timeout);
+      cancelSignal?.removeEventListener('abort', abortLinked);
     }
   }
 

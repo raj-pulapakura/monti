@@ -46,6 +46,7 @@ export class ChatToolRegistryService {
     arguments: Record<string, unknown>;
     conversationContext?: string;
     requestedQualityMode?: QualityMode;
+    signal?: AbortSignal;
   }): Promise<ChatToolExecutionResult> {
     const tool = this.getTool(input.name);
     if (!tool) {
@@ -64,8 +65,12 @@ export class ChatToolRegistryService {
         arguments: input.arguments,
         conversationContext: input.conversationContext,
         requestedQualityMode: input.requestedQualityMode,
+        signal: input.signal,
       })) as GenerateExperienceToolResult;
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error;
+      }
       result = {
         status: 'failed',
         generationId: null,

@@ -16,6 +16,8 @@ export interface ToolExecuteInput {
   arguments: Record<string, unknown>;
   conversationContext?: string;
   requestedQualityMode?: QualityMode;
+  /** Conversation-loop abort signal (user stopped the run). */
+  signal?: AbortSignal;
 }
 
 export interface ChatTool<TResult = unknown> {

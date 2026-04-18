@@ -162,6 +162,34 @@ type ConversationTimelineItem =
 
 class FatalStreamAuthError extends Error {}
 
+/**
+ * After Confirm on the credit gate, `/threads/:id` hydration (and replayed SSE) can still
+ * return `awaiting_confirmation` while the loop is already resumed on the server. The UI then
+ * shows Stop (`generationInFlight` from tool/sandbox work) but `handleCancelRun` only POSTs
+ * for `running` | `queued`, so clicks no-op until the row catches up.
+ */
+function liftStaleAwaitingRunAfterConfirmedResume(
+  state: RuntimeState,
+  resumeRunId: string | null,
+): RuntimeState {
+  if (!resumeRunId) {
+    return state;
+  }
+  const run = state.activeRun;
+  if (!run || run.id !== resumeRunId || run.status !== 'awaiting_confirmation') {
+    return state;
+  }
+  return {
+    ...state,
+    activeRun: {
+      ...run,
+      status: 'running',
+      confirmationToolCallId: null,
+      confirmationMetadata: null,
+    },
+  };
+}
+
 export default function ChatThreadPage() {
   const params = useParams<{ threadId: string }>();
   const routeThreadId = resolveRouteThreadId(params.threadId);
@@ -179,7 +207,12 @@ export default function ChatThreadPage() {
     useState<StreamConnectionState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [confirmRunPending, setConfirmRunPending] = useState(false);
+  const [confirmationCancelPending, setConfirmationCancelPending] = useState(false);
   const [cancelRunPending, setCancelRunPending] = useState(false);
+  /** Synchronous guard so Stop stays enabled while `cancelRunPending` is true (state lags one frame). */
+  const cancelRunInFlightRef = useRef(false);
+  /** Set when credit-gate Confirm succeeds; used to coerce stale `awaiting_confirmation` from hydrate/SSE. */
+  const postConfirmResumeRunIdRef = useRef<string | null>(null);
   /** Hide the gate immediately after Confirm/Cancel; cleared when the run leaves `awaiting_confirmation`. */
   const [confirmationGateDismissedRunId, setConfirmationGateDismissedRunId] = useState<string | null>(null);
   /**
@@ -254,12 +287,14 @@ export default function ChatThreadPage() {
     setTitleEditPending(false);
     handoffAttemptedThreadRef.current = null;
     setConfirmRunPending(false);
+    setConfirmationCancelPending(false);
     setCancelRunPending(false);
     setConfirmationGateDismissedRunId(null);
     setConfirmationGateDismissInterstitial(null);
     setConfirmationGateUi('closed');
     setConfirmationGateSnapshot(null);
     setComposerRevealGeneration(0);
+    postConfirmResumeRunIdRef.current = null;
 
     if (isUuidLike(routeThreadId)) {
       const bootstrap = consumeThreadBootstrap(routeThreadId);
@@ -553,12 +588,37 @@ export default function ChatThreadPage() {
     runtimeState.assistantDraft === null &&
     !showChatBuildIndicator;
 
+  // Only clear dismiss tracking when the run is done — not when it becomes `running`.
+  // After Confirm we optimistically set `running` and/or hydration briefly still reports
+  // `awaiting_confirmation`; clearing dismiss id on any non-awaiting status makes the gate
+  // flash open again (`activeRun.id !== confirmationGateDismissedRunId` becomes true).
   useEffect(() => {
-    if (runtimeState.activeRun?.status !== 'awaiting_confirmation') {
+    const status = runtimeState.activeRun?.status;
+    if (
+      !runtimeState.activeRun ||
+      status === 'succeeded' ||
+      status === 'failed' ||
+      status === 'cancelled'
+    ) {
       setConfirmationGateDismissedRunId(null);
       setConfirmationGateDismissInterstitial(null);
     }
-  }, [runtimeState.activeRun?.status]);
+  }, [runtimeState.activeRun?.id, runtimeState.activeRun?.status]);
+
+  useEffect(() => {
+    const run = runtimeState.activeRun;
+    const rid = postConfirmResumeRunIdRef.current;
+    if (!rid) {
+      return;
+    }
+    if (!run || run.id !== rid) {
+      postConfirmResumeRunIdRef.current = null;
+      return;
+    }
+    if (run.status === 'succeeded' || run.status === 'failed' || run.status === 'cancelled') {
+      postConfirmResumeRunIdRef.current = null;
+    }
+  }, [runtimeState.activeRun?.id, runtimeState.activeRun?.status]);
 
   useEffect(() => {
     const meta = runtimeState.activeRun?.confirmationMetadata;
@@ -773,6 +833,7 @@ export default function ChatThreadPage() {
       'sandbox_updated',
       'run_failed',
       'run_completed',
+      'run_cancelled',
       'confirmation_required',
     ]);
 
@@ -816,9 +877,16 @@ export default function ChatThreadPage() {
             : latestEventIdRef.current;
         latestEventIdRef.current = latestEventId ?? null;
 
-        setRuntimeState((previous) => reduceRuntimeEvent(previous, parsed, latestEventId ?? null));
+        setRuntimeState((previous) => {
+          const next = reduceRuntimeEvent(previous, parsed, latestEventId ?? null);
+          return liftStaleAwaitingRunAfterConfirmedResume(next, postConfirmResumeRunIdRef.current);
+        });
 
-        if (parsed.type === 'run_completed' || parsed.type === 'run_failed') {
+        if (
+          parsed.type === 'run_completed' ||
+          parsed.type === 'run_failed' ||
+          parsed.type === 'run_cancelled'
+        ) {
           void refreshThreadSnapshot(thread.id, accessToken);
           void refreshSandboxPreview(thread.id, accessToken);
           void refreshCredits().then((data) => {
@@ -916,7 +984,10 @@ export default function ChatThreadPage() {
   async function refreshThreadSnapshot(threadId: string, token: string) {
     const hydrated = await fetchThreadHydration(threadId, token);
     setThread(hydrated.thread);
-    setRuntimeState((previous) => reconcileHydrationState(previous, hydrated));
+    setRuntimeState((previous) => {
+      const next = reconcileHydrationState(previous, hydrated);
+      return liftStaleAwaitingRunAfterConfirmedResume(next, postConfirmResumeRunIdRef.current);
+    });
   }
 
   async function handleConfirmationConfirm(mode: GenerationMode) {
@@ -936,8 +1007,30 @@ export default function ChatThreadPage() {
         `/api/chat/threads/${thread.id}/runs/${runId}/confirm`,
         { decision: 'confirmed', qualityMode: mode },
       );
+      postConfirmResumeRunIdRef.current = runId;
+      // Resume flips the run to `running` on the server immediately; hydration/SSE can lag
+      // briefly. Without this, `generationInFlight` can be true while `handleCancelRun` still
+      // rejects `awaiting_confirmation`, so Stop appears enabled but does nothing.
+      setRuntimeState((previous) => {
+        if (!previous.activeRun || previous.activeRun.id !== runId) {
+          return previous;
+        }
+        if (previous.activeRun.status !== 'awaiting_confirmation') {
+          return previous;
+        }
+        return {
+          ...previous,
+          activeRun: {
+            ...previous.activeRun,
+            status: 'running',
+            confirmationToolCallId: null,
+            confirmationMetadata: null,
+          },
+        };
+      });
       await refreshThreadSnapshot(thread.id, accessToken);
     } catch (error) {
+      postConfirmResumeRunIdRef.current = null;
       setConfirmationGateDismissedRunId(null);
       setConfirmationGateDismissInterstitial(null);
       setErrorMessage(toErrorMessage(error));
@@ -957,7 +1050,7 @@ export default function ChatThreadPage() {
     const runId = runtimeState.activeRun.id;
     setConfirmationGateDismissInterstitial({ runId, kind: 'cancelled' });
     setConfirmationGateDismissedRunId(runId);
-    setCancelRunPending(true);
+    setConfirmationCancelPending(true);
     setErrorMessage(null);
     try {
       await createAuthenticatedApiClient(accessToken).postJson<{ ok: true }>(
@@ -971,6 +1064,67 @@ export default function ChatThreadPage() {
       setErrorMessage(toErrorMessage(error));
       await refreshThreadSnapshot(thread.id, accessToken);
     } finally {
+      setConfirmationCancelPending(false);
+    }
+  }
+
+  async function handleCancelRun() {
+    if (cancelRunInFlightRef.current) {
+      return;
+    }
+    if (!accessToken || !thread?.id || !runtimeState.activeRun?.id) {
+      return;
+    }
+    if (runtimeState.activeRun.status !== 'running' && runtimeState.activeRun.status !== 'queued') {
+      return;
+    }
+    const runId = runtimeState.activeRun.id;
+    cancelRunInFlightRef.current = true;
+    setCancelRunPending(true);
+    setErrorMessage(null);
+    try {
+      setRuntimeState((previous) => {
+        if (!previous.activeRun || previous.activeRun.id !== runId) {
+          return previous;
+        }
+        const prevSandbox = previous.sandboxState;
+        let nextSandbox = prevSandbox;
+        if (prevSandbox?.status === 'creating') {
+          const hasPriorExperience =
+            prevSandbox.experienceId != null && prevSandbox.experienceVersionId != null;
+          nextSandbox = {
+            ...prevSandbox,
+            threadId: prevSandbox.threadId || thread.id,
+            status: hasPriorExperience ? 'ready' : 'empty',
+            experienceId: hasPriorExperience ? prevSandbox.experienceId : null,
+            experienceVersionId: hasPriorExperience ? prevSandbox.experienceVersionId : null,
+            lastErrorCode: null,
+            lastErrorMessage: null,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return {
+          ...previous,
+          activeRun: {
+            ...previous.activeRun,
+            status: 'cancelled',
+            completedAt: new Date().toISOString(),
+          },
+          assistantDraft: null,
+          activeToolInvocation: null,
+          sandboxState: nextSandbox,
+        };
+      });
+      await createAuthenticatedApiClient(accessToken).postJson<{ ok: true }>(
+        `/api/chat/threads/${thread.id}/runs/${runId}/cancel`,
+        {},
+      );
+      void refreshSandboxPreview(thread.id, accessToken);
+    } catch (error) {
+      setErrorMessage(toErrorMessage(error));
+      await refreshThreadSnapshot(thread.id, accessToken);
+    } finally {
+      cancelRunInFlightRef.current = false;
       setCancelRunPending(false);
     }
   }
@@ -1296,7 +1450,7 @@ export default function ChatThreadPage() {
                 operation={confirmationGateSnapshot.operation}
                 estimatedCredits={confirmationGateSnapshot.estimatedCredits}
                 confirmPending={confirmRunPending}
-                cancelPending={cancelRunPending}
+                cancelPending={confirmationCancelPending}
                 onConfirm={(mode) => void handleConfirmationConfirm(mode)}
                 onCancel={() => void handleConfirmationCancel()}
               />
@@ -1325,6 +1479,9 @@ export default function ChatThreadPage() {
                   !threadIdIsValid
                 }
                 softGateActive={softGateActive}
+                stopDisabled={!accessToken || !thread?.id || !threadIdIsValid}
+                onStop={() => void handleCancelRun()}
+                cancelPending={cancelRunPending}
               />
             </div>
           )}

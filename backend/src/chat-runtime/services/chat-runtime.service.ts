@@ -24,6 +24,7 @@ import type {
 import { ChatRuntimeRepository } from './chat-runtime.repository';
 import { ChatRuntimeEventService } from './chat-runtime-event.service';
 import { ConversationLoopService } from './conversation-loop.service';
+import { RunAbortRegistryService } from './run-abort-registry.service';
 import type { ToolConfirmationMetadata } from '../tools/chat-tool.interface';
 
 @Injectable()
@@ -34,6 +35,7 @@ export class ChatRuntimeService {
     private readonly repository: ChatRuntimeRepository,
     private readonly events: ChatRuntimeEventService,
     private readonly conversationLoop: ConversationLoopService,
+    private readonly runAbortRegistry: RunAbortRegistryService,
     private readonly entitlements: EntitlementService,
     private readonly billingConfig: BillingConfigService,
     private readonly billingRepository: BillingRepository,
@@ -160,6 +162,67 @@ export class ChatRuntimeService {
   async deleteThread(input: { threadId: string; userId: string }): Promise<void> {
     assertChatRuntimeEnabled();
     await this.repository.archiveThread(input);
+  }
+
+  async cancelRun(input: { threadId: string; runId: string; userId: string }): Promise<void> {
+    assertChatRuntimeEnabled();
+    await this.repository.assertThreadAccess({
+      threadId: input.threadId,
+      userId: input.userId,
+    });
+
+    const run = await this.repository.getRunById(input.runId);
+    if (!run || run.thread_id !== input.threadId) {
+      throw new ValidationError('Run not found for this thread.');
+    }
+
+    if (
+      run.status === 'succeeded' ||
+      run.status === 'failed' ||
+      run.status === 'cancelled'
+    ) {
+      return;
+    }
+
+    if (run.status === 'awaiting_confirmation') {
+      throw new ValidationError(
+        'This run is waiting for confirmation; use the confirmation controls instead.',
+      );
+    }
+
+    if (run.status === 'queued') {
+      await this.repository.markRunCancelled({
+        runId: input.runId,
+        assistantMessageId: null,
+        conversationTokensIn: null,
+        conversationTokensOut: null,
+      });
+      this.events.publish({
+        threadId: input.threadId,
+        runId: input.runId,
+        type: 'run_cancelled',
+        payload: { runId: input.runId },
+      });
+      return;
+    }
+
+    if (run.status === 'running') {
+      const hadController = this.runAbortRegistry.abort(input.runId);
+      if (!hadController) {
+        await this.repository.markRunCancelled({
+          runId: input.runId,
+          assistantMessageId: null,
+          conversationTokensIn: null,
+          conversationTokensOut: null,
+        });
+        this.events.publish({
+          threadId: input.threadId,
+          runId: input.runId,
+          type: 'run_cancelled',
+          payload: { runId: input.runId },
+        });
+      }
+    }
   }
 
   async confirmRun(input: {

@@ -3,10 +3,26 @@ import {
   applyConversationMessageWindow,
   ConversationLoopService,
 } from './conversation-loop.service';
+import { RunAbortRegistryService } from './run-abort-registry.service';
 
 const stubUserProfiles = () => ({
   getByUserId: jest.fn().mockResolvedValue(null),
 });
+
+const stubRunAbortRegistry = () => ({
+  register: jest.fn(() => new AbortController().signal),
+  abort: jest.fn(() => false),
+  release: jest.fn(),
+  setPreGenerateSandboxSnapshot: jest.fn(),
+  getPreGenerateSandboxSnapshot: jest.fn(() => undefined),
+});
+
+function getRunByIdForQueuedExecuteTurn(finalRun: Record<string, unknown>) {
+  return jest
+    .fn()
+    .mockResolvedValueOnce(createRun({ status: 'queued' }))
+    .mockResolvedValue(createRun(finalRun));
+}
 
 function createRun(overrides: Record<string, unknown> = {}) {
   return {
@@ -81,12 +97,10 @@ describe('ConversationLoopService', () => {
         }),
       ),
       markRunSucceeded: jest.fn(async () => undefined),
-      getRunById: jest.fn(async () =>
-        createRun({
-          status: 'succeeded',
-          assistant_message_id: 'assistant-1',
-        }),
-      ),
+      getRunById: getRunByIdForQueuedExecuteTurn({
+        status: 'succeeded',
+        assistant_message_id: 'assistant-1',
+      }),
       markRunFailed: jest.fn(async () => undefined),
     };
 
@@ -140,6 +154,7 @@ describe('ConversationLoopService', () => {
       toolLlmRouter as never,
       llmConfig as never,
       stubUserProfiles() as never,
+      stubRunAbortRegistry() as never,
     );
 
     const result = await service.executeTurn({
@@ -241,6 +256,11 @@ describe('ConversationLoopService', () => {
         versionId: 'ver-1',
       })),
       updateSandboxState: jest.fn(async () => undefined),
+      findSandboxStateRowByThreadId: jest.fn(async () => ({
+        status: 'empty',
+        experience_id: null,
+        experience_version_id: null,
+      })),
       createAssistantMessage: jest.fn(async (input?: { content?: string; contentJson?: Record<string, unknown> | null }) =>
         createAssistantMessage({
           content: input?.content ?? 'Building now.',
@@ -249,12 +269,10 @@ describe('ConversationLoopService', () => {
       ),
       markRunSucceeded: jest.fn(async () => undefined),
       markRunFailed: jest.fn(async () => undefined),
-      getRunById: jest.fn(async () =>
-        createRun({
-          status: 'succeeded',
-          assistant_message_id: 'assistant-1',
-        }),
-      ),
+      getRunById: getRunByIdForQueuedExecuteTurn({
+        status: 'succeeded',
+        assistant_message_id: 'assistant-1',
+      }),
     };
 
     const events = {
@@ -357,6 +375,7 @@ describe('ConversationLoopService', () => {
       toolLlmRouter as never,
       llmConfig as never,
       stubUserProfiles() as never,
+      stubRunAbortRegistry() as never,
     );
 
     const result = await service.executeTurn({
@@ -478,6 +497,11 @@ describe('ConversationLoopService', () => {
         versionId: 'ver-1',
       })),
       updateSandboxState: jest.fn(async () => undefined),
+      findSandboxStateRowByThreadId: jest.fn(async () => ({
+        status: 'empty',
+        experience_id: null,
+        experience_version_id: null,
+      })),
       createAssistantMessage: jest.fn(async (input?: { content?: string; contentJson?: Record<string, unknown> | null }) =>
         createAssistantMessage({
           content: input?.content ?? 'Calling tool again.',
@@ -486,13 +510,11 @@ describe('ConversationLoopService', () => {
       ),
       markRunSucceeded: jest.fn(async () => undefined),
       markRunFailed: jest.fn(async () => undefined),
-      getRunById: jest.fn(async () =>
-        createRun({
-          status: 'failed',
-          error_code: 'INTERNAL_ERROR',
-          error_message: 'Conversation loop exceeded configured tool-call rounds.',
-        }),
-      ),
+      getRunById: getRunByIdForQueuedExecuteTurn({
+        status: 'failed',
+        error_code: 'INTERNAL_ERROR',
+        error_message: 'Conversation loop exceeded configured tool-call rounds.',
+      }),
     };
 
     const events = {
@@ -580,6 +602,7 @@ describe('ConversationLoopService', () => {
       toolLlmRouter as never,
       llmConfig as never,
       stubUserProfiles() as never,
+      stubRunAbortRegistry() as never,
     );
 
     const result = await service.executeTurn({
@@ -653,6 +676,11 @@ describe('ConversationLoopService', () => {
         versionId: 'ver-1',
       })),
       updateSandboxState: jest.fn(async () => undefined),
+      findSandboxStateRowByThreadId: jest.fn(async () => ({
+        status: 'empty',
+        experience_id: null,
+        experience_version_id: null,
+      })),
       createAssistantMessage: jest.fn(async (input?: { content?: string; contentJson?: Record<string, unknown> | null }) =>
         createAssistantMessage({
           content: input?.content ?? 'Building now.',
@@ -661,12 +689,10 @@ describe('ConversationLoopService', () => {
       ),
       markRunSucceeded: jest.fn(async () => undefined),
       markRunFailed: jest.fn(async () => undefined),
-      getRunById: jest.fn(async () =>
-        createRun({
-          status: 'succeeded',
-          assistant_message_id: 'assistant-1',
-        }),
-      ),
+      getRunById: getRunByIdForQueuedExecuteTurn({
+        status: 'succeeded',
+        assistant_message_id: 'assistant-1',
+      }),
     };
 
     const events = {
@@ -766,6 +792,7 @@ describe('ConversationLoopService', () => {
       toolLlmRouter as never,
       llmConfig as never,
       stubUserProfiles() as never,
+      stubRunAbortRegistry() as never,
     );
 
     await service.executeTurn({
@@ -830,12 +857,10 @@ describe('ConversationLoopService', () => {
       recordRunProviderTrace: jest.fn(async () => undefined),
       createAssistantMessage: jest.fn(async () => createAssistantMessage()),
       markRunSucceeded: jest.fn(async () => undefined),
-      getRunById: jest.fn(async () =>
-        createRun({
-          status: 'succeeded',
-          assistant_message_id: 'assistant-1',
-        }),
-      ),
+      getRunById: getRunByIdForQueuedExecuteTurn({
+        status: 'succeeded',
+        assistant_message_id: 'assistant-1',
+      }),
       markRunFailed: jest.fn(async () => undefined),
     };
 
@@ -882,6 +907,7 @@ describe('ConversationLoopService', () => {
       toolLlmRouter as never,
       llmConfig as never,
       stubUserProfiles() as never,
+      stubRunAbortRegistry() as never,
     );
 
     await service.executeTurn({
@@ -933,12 +959,10 @@ describe('ConversationLoopService', () => {
       recordRunProviderTrace: jest.fn(async () => undefined),
       createAssistantMessage: jest.fn(async () => createAssistantMessage()),
       markRunSucceeded: jest.fn(async () => undefined),
-      getRunById: jest.fn(async () =>
-        createRun({
-          status: 'succeeded',
-          assistant_message_id: 'assistant-1',
-        }),
-      ),
+      getRunById: getRunByIdForQueuedExecuteTurn({
+        status: 'succeeded',
+        assistant_message_id: 'assistant-1',
+      }),
       markRunFailed: jest.fn(async () => undefined),
     };
 
@@ -985,6 +1009,7 @@ describe('ConversationLoopService', () => {
       toolLlmRouter as never,
       llmConfig as never,
       stubUserProfiles() as never,
+      stubRunAbortRegistry() as never,
     );
 
     await service.executeTurn({
@@ -1050,16 +1075,19 @@ describe('ConversationLoopService', () => {
       markRunAwaitingConfirmation,
       markRunSucceeded: jest.fn(async () => undefined),
       markRunFailed: jest.fn(async () => undefined),
-      getRunById: jest.fn(async () =>
-        createRun({
-          status: 'awaiting_confirmation',
-          confirmation_tool_call_id: 'call-1',
-          confirmation_metadata: {
-            operation: 'Generate experience',
-            estimatedCredits: { fast: 1, quality: 5 },
-          },
-        }),
-      ),
+      getRunById: jest
+        .fn()
+        .mockResolvedValueOnce(createRun({ status: 'queued' }))
+        .mockResolvedValue(
+          createRun({
+            status: 'awaiting_confirmation',
+            confirmation_tool_call_id: 'call-1',
+            confirmation_metadata: {
+              operation: 'Generate experience',
+              estimatedCredits: { fast: 1, quality: 5 },
+            },
+          }),
+        ),
     };
 
     const events = {
@@ -1119,6 +1147,7 @@ describe('ConversationLoopService', () => {
       toolLlmRouter as never,
       llmConfig as never,
       stubUserProfiles() as never,
+      stubRunAbortRegistry() as never,
     );
 
     const result = await service.executeTurn({
@@ -1211,6 +1240,11 @@ describe('ConversationLoopService', () => {
         versionId: 'ver-1',
       })),
       updateSandboxState: jest.fn(async () => undefined),
+      findSandboxStateRowByThreadId: jest.fn(async () => ({
+        status: 'empty',
+        experience_id: null,
+        experience_version_id: null,
+      })),
       createToolResultMessage: jest.fn(async () =>
         createAssistantMessage({
           id: 'tool-result-msg',
@@ -1318,6 +1352,7 @@ describe('ConversationLoopService', () => {
       toolLlmRouter as never,
       llmConfig as never,
       stubUserProfiles() as never,
+      stubRunAbortRegistry() as never,
     );
 
     const result = await service.resumeTurn({
@@ -1476,6 +1511,7 @@ describe('ConversationLoopService', () => {
       toolLlmRouter as never,
       llmConfig as never,
       stubUserProfiles() as never,
+      stubRunAbortRegistry() as never,
     );
 
     const result = await service.resumeTurn({
@@ -1557,6 +1593,11 @@ describe('ConversationLoopService', () => {
         versionId: 'ver-1',
       })),
       updateSandboxState: jest.fn(async () => undefined),
+      findSandboxStateRowByThreadId: jest.fn(async () => ({
+        status: 'empty',
+        experience_id: null,
+        experience_version_id: null,
+      })),
       createAssistantMessage: jest.fn(async (input?: { content?: string; contentJson?: Record<string, unknown> | null }) =>
         createAssistantMessage({
           content: input?.content ?? 'Done.',
@@ -1574,11 +1615,7 @@ describe('ConversationLoopService', () => {
         estimatedCredits: { fast: 1, quality: 5 },
       };
       if (sequentialGetRunCall === 1) {
-        return createRun({
-          status: 'awaiting_confirmation',
-          confirmation_tool_call_id: 'call-a',
-          confirmation_metadata: meta,
-        });
+        return createRun({ status: 'queued' });
       }
       if (sequentialGetRunCall === 2) {
         return createRun({
@@ -1590,9 +1627,8 @@ describe('ConversationLoopService', () => {
       if (sequentialGetRunCall === 3) {
         return createRun({
           status: 'awaiting_confirmation',
-          confirmation_tool_call_id: 'call-b',
+          confirmation_tool_call_id: 'call-a',
           confirmation_metadata: meta,
-          provider_response_raw: { _montiTrace: { round: 0 } },
         });
       }
       if (sequentialGetRunCall === 4) {
@@ -1600,9 +1636,17 @@ describe('ConversationLoopService', () => {
           status: 'awaiting_confirmation',
           confirmation_tool_call_id: 'call-b',
           confirmation_metadata: meta,
+          provider_response_raw: { _montiTrace: { round: 0 } },
         });
       }
       if (sequentialGetRunCall === 5) {
+        return createRun({
+          status: 'awaiting_confirmation',
+          confirmation_tool_call_id: 'call-b',
+          confirmation_metadata: meta,
+        });
+      }
+      if (sequentialGetRunCall === 6) {
         return createRun({
           status: 'running',
           confirmation_tool_call_id: null,
@@ -1708,6 +1752,7 @@ describe('ConversationLoopService', () => {
       toolLlmRouter as never,
       llmConfig as never,
       stubUserProfiles() as never,
+      stubRunAbortRegistry() as never,
     );
 
     const first = await service.executeTurn({
@@ -1879,12 +1924,10 @@ describe('ConversationLoopService', () => {
         createAssistantMessage({ content: 'ok' }),
       ),
       markRunSucceeded: jest.fn(async () => undefined),
-      getRunById: jest.fn(async () =>
-        createRun({
-          status: 'succeeded',
-          assistant_message_id: 'assistant-1',
-        }),
-      ),
+      getRunById: getRunByIdForQueuedExecuteTurn({
+        status: 'succeeded',
+        assistant_message_id: 'assistant-1',
+      }),
       markRunFailed: jest.fn(async () => undefined),
     };
 
@@ -1940,6 +1983,7 @@ describe('ConversationLoopService', () => {
       toolLlmRouter as never,
       llmConfig as never,
       userProfiles as never,
+      stubRunAbortRegistry() as never,
     );
 
     await service.executeTurn({
@@ -1969,6 +2013,116 @@ describe('ConversationLoopService', () => {
     });
     expect(firstArg.messages[0].content).toContain('You are Monti');
     expect(firstArg.messages[0].content).not.toContain('DROP TABLE');
+  });
+
+  it('routes AbortError through handleCancelledRun: partial text, run_cancelled, markRunCancelled', async () => {
+    const runAbortRegistry = new RunAbortRegistryService();
+    const repository = {
+      markRunRunning: jest.fn(async () => undefined),
+      hydrateThread: jest.fn(async () => ({
+        thread: { id: 'thread-1' },
+        messages: [
+          {
+            id: 'message-1',
+            thread_id: 'thread-1',
+            user_id: 'client-1',
+            role: 'user',
+            content: 'Hi',
+            content_json: null,
+          },
+        ],
+        sandboxState: { thread_id: 'thread-1', status: 'empty' },
+        activeRun: null,
+        activeToolInvocation: null,
+      })),
+      recordRunProviderTrace: jest.fn(async () => undefined),
+      createAssistantMessage: jest.fn(async () =>
+        createAssistantMessage({ id: 'assistant-partial', content: 'Partial' }),
+      ),
+      markRunCancelled: jest.fn(async () => undefined),
+      markRunFailed: jest.fn(async () => undefined),
+      markRunSucceeded: jest.fn(async () => undefined),
+      findRunningToolInvocationForRun: jest.fn(async () => null),
+      findSandboxStateRowByThreadId: jest.fn(async () => ({ status: 'empty' })),
+      getRunById: jest
+        .fn()
+        .mockResolvedValueOnce(createRun({ status: 'queued' }))
+        .mockResolvedValue(
+          createRun({
+            status: 'cancelled',
+            assistant_message_id: 'assistant-partial',
+          }),
+        ),
+    };
+
+    const events = { publish: jest.fn() };
+
+    const toolRegistry = {
+      getToolDefinitions: jest.fn(() => []),
+      hasTool: jest.fn(() => false),
+      getTool: jest.fn(() => undefined),
+      executeToolCall: jest.fn(async () => {
+        throw new Error('should not be called');
+      }),
+    };
+
+    const toolLlmRouter = {
+      runTurn: jest.fn(
+        async (input: {
+          onAssistantTextSnapshot?: (text: string) => void | Promise<void>;
+        }) => {
+          await input.onAssistantTextSnapshot?.('Partial');
+          const err = new Error('aborted');
+          err.name = 'AbortError';
+          throw err;
+        },
+      ),
+    };
+
+    const llmConfig = {
+      conversationProvider: 'openai' as const,
+      conversationModel: 'gpt-5.4',
+      conversationMaxTokens: 2048,
+      conversationMaxToolRounds: 3,
+      conversationSystemPrompt: 'You are Monti',
+      conversationContextWindowSize: 20,
+    };
+
+    const service = new ConversationLoopService(
+      repository as never,
+      events as never,
+      toolRegistry as never,
+      toolLlmRouter as never,
+      llmConfig as never,
+      stubUserProfiles() as never,
+      runAbortRegistry,
+    );
+
+    const result = await service.executeTurn({
+      threadId: 'thread-1',
+      userId: 'client-1',
+      userMessage: {
+        id: 'message-1',
+        thread_id: 'thread-1',
+        user_id: 'client-1',
+        role: 'user',
+        content: 'Hi',
+        content_json: null,
+        idempotency_key: null,
+        created_at: new Date().toISOString(),
+      },
+      run: createRun(),
+    });
+
+    expect(result.status).toBe('cancelled');
+    expect(repository.markRunCancelled).toHaveBeenCalledTimes(1);
+    expect(repository.markRunFailed).not.toHaveBeenCalled();
+    expect(repository.createAssistantMessage).toHaveBeenCalled();
+    const publishedTypes = (events.publish as jest.Mock).mock.calls.map(
+      (call: [{ type: string }]) => call[0].type,
+    );
+    expect(publishedTypes).toContain('assistant_message_created');
+    expect(publishedTypes).toContain('run_cancelled');
   });
 
   it('snaps the context window to a preceding user message when the slice would start on a tool turn', () => {

@@ -26,6 +26,7 @@ import {
   parseRefinementSuggestionsRequest,
   parseStreamEventsRequestWithHeader,
   parseSubmitMessageRequest,
+  parseCancelRunRequest,
   parseConfirmRunRequest,
   parseVersionContentRequest,
   parseUpdateExperienceTitleRequest,
@@ -99,6 +100,24 @@ export class ChatRuntimeController {
       ok: true,
       data: payload,
     };
+  }
+
+  @Post(':threadId/runs/:runId/cancel')
+  @UseGuards(UserIdThrottlerGuard)
+  @Throttle({ default: { limit: chatRateLimitPerMinute(), ttl: 60_000 } })
+  async cancelRun(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('threadId') threadId: string,
+    @Param('runId') runId: string,
+  ): Promise<{ ok: true }> {
+    const parsed = parseCancelRunRequest(threadId, runId);
+    await this.chatRuntimeService.cancelRun({
+      threadId: parsed.threadId,
+      runId: parsed.runId,
+      userId: user.id,
+    });
+
+    return { ok: true };
   }
 
   @Post(':threadId/runs/:runId/confirm')

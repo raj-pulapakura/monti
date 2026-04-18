@@ -312,8 +312,11 @@
   box-shadow: inset 0 0 0 3px rgba(188, 81, 39, 0.18);
 }
 
-.composer-input-shell:has(.composer-prompt:disabled) {
+/* Dim only the locked textarea — not the whole shell (Stop must match send button styling). */
+.composer-input-shell:has(.composer-prompt:disabled) .composer-prompt {
   opacity: 0.72;
+  /* Avoid hit-testing over the actions row if layout/stacking ever overlaps the button. */
+  pointer-events: none;
 }
 
 .composer-row .composer-prompt {
@@ -344,6 +347,8 @@
 }
 
 .composer-actions {
+  position: relative;
+  z-index: 1;
   display: flex;
   justify-content: flex-end;
   align-items: center;

@@ -17,6 +17,8 @@ export interface GenerateExperienceRequest {
   system?: string;
   temperature?: number;
   maxTokens?: number;
+  /** When set (e.g. chat run cancel), in-flight experience LLM calls abort promptly. */
+  signal?: AbortSignal;
 }
 
 export interface RefineExperienceRequest {
@@ -30,6 +32,7 @@ export interface RefineExperienceRequest {
   system?: string;
   temperature?: number;
   maxTokens?: number;
+  signal?: AbortSignal;
 }
 
 export interface ExperienceResponseMetadata {

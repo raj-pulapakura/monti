@@ -987,6 +987,30 @@ export class ChatRuntimeRepository {
     }
   }
 
+  async markRunCancelled(input: {
+    runId: string;
+    assistantMessageId?: string | null;
+    conversationTokensIn?: number | null;
+    conversationTokensOut?: number | null;
+  }): Promise<void> {
+    const { error } = await this.client
+      .from('assistant_runs')
+      .update({
+        status: 'cancelled',
+        completed_at: new Date().toISOString(),
+        assistant_message_id: input.assistantMessageId ?? null,
+        conversation_tokens_in: input.conversationTokensIn ?? null,
+        conversation_tokens_out: input.conversationTokensOut ?? null,
+        error_code: null,
+        error_message: null,
+      })
+      .eq('id', input.runId);
+
+    if (error) {
+      this.throwQueryError('mark run as cancelled', error);
+    }
+  }
+
   async createAssistantMessage(input: {
     threadId: string;
     userId: string;
@@ -1107,6 +1131,23 @@ export class ChatRuntimeRepository {
     }
 
     return data;
+  }
+
+  async findRunningToolInvocationForRun(runId: string): Promise<ToolInvocationRow | null> {
+    const { data, error } = await this.client
+      .from('tool_invocations')
+      .select('*')
+      .eq('run_id', runId)
+      .eq('status', 'running')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      this.throwQueryError('find running tool invocation for run', error);
+    }
+
+    return data ?? null;
   }
 
   async markToolInvocationSucceeded(input: {

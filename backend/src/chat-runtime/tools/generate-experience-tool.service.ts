@@ -30,6 +30,7 @@ export class GenerateExperienceToolService {
     userId: string;
     arguments: GenerateExperienceToolArguments;
     requestedQualityMode?: QualityMode;
+    signal?: AbortSignal;
   }): Promise<GenerateExperienceToolResult> {
     const route = await this.selectRoute({
       invocationId: input.invocationId,
@@ -92,6 +93,7 @@ export class GenerateExperienceToolService {
           prompt: generationPrompt,
           qualityMode: route.tier,
           provider: route.selectedProvider,
+          signal: input.signal,
         });
       } else {
         // Look up the active experience from the thread's sandbox state.
@@ -120,6 +122,7 @@ export class GenerateExperienceToolService {
           },
           qualityMode: route.tier,
           provider: route.selectedProvider,
+          signal: input.signal,
         });
       }
 
@@ -170,6 +173,10 @@ export class GenerateExperienceToolService {
           toolInvocationId: input.invocationId,
           pricingRuleSnapshotId,
         });
+      }
+
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error;
       }
 
       const errorCode = toErrorCode(error);

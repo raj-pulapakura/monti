@@ -7,7 +7,7 @@ import {
   useLayoutEffect,
   useRef,
 } from 'react';
-import { ArrowUp, LoaderCircle } from 'lucide-react';
+import { ArrowUp, LoaderCircle, Square } from 'lucide-react';
 
 export function ChatComposer(input: {
   value: string;
@@ -17,8 +17,13 @@ export function ChatComposer(input: {
   submitPending: boolean;
   disabled: boolean;
   softGateActive: boolean;
+  onStop?: () => void;
+  /** Disables only the Stop button when cancel is impossible (e.g. no session/thread). Not billing/submit. */
+  stopDisabled?: boolean;
+  cancelPending?: boolean;
 }) {
-  const isBusy = input.submitPending || input.generationInFlight;
+  const isBusy =
+    input.submitPending || (input.generationInFlight && !input.onStop) || Boolean(input.cancelPending);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const syncComposerHeight = useCallback(() => {
@@ -80,28 +85,44 @@ export function ChatComposer(input: {
           aria-label={input.generationInFlight ? 'Message composer, reply in progress' : 'Message composer'}
         />
         <div className="composer-actions">
-          <button
-            type="submit"
-            className={`home-create-submit ${isBusy ? 'is-busy' : ''}`}
-            disabled={
-              input.disabled ||
-              input.softGateActive ||
-              input.value.trim().length === 0
-            }
-            aria-label={
-              input.submitPending
-                ? 'Sending prompt'
-                : input.generationInFlight
-                  ? 'Reply in progress'
-                  : 'Send prompt'
-            }
-          >
-            {isBusy ? (
-              <LoaderCircle size={18} strokeWidth={2.3} className="composer-spinner" />
-            ) : (
-              <ArrowUp size={20} strokeWidth={2.4} />
-            )}
-          </button>
+          {input.generationInFlight && input.onStop ? (
+            <button
+              type="button"
+              className={`home-create-submit ${isBusy ? 'is-busy' : ''}`}
+              disabled={Boolean(input.stopDisabled)}
+              onClick={() => input.onStop?.()}
+              aria-label={input.cancelPending ? 'Stopping reply' : 'Stop reply'}
+            >
+              {input.cancelPending ? (
+                <LoaderCircle size={18} strokeWidth={2.3} className="composer-spinner" />
+              ) : (
+                <Square size={16} strokeWidth={2.4} fill="currentColor" />
+              )}
+            </button>
+          ) : (
+            <button
+              type="submit"
+              className={`home-create-submit ${isBusy ? 'is-busy' : ''}`}
+              disabled={
+                input.disabled ||
+                input.softGateActive ||
+                input.value.trim().length === 0
+              }
+              aria-label={
+                input.submitPending
+                  ? 'Sending prompt'
+                  : input.generationInFlight
+                    ? 'Reply in progress'
+                    : 'Send prompt'
+              }
+            >
+              {isBusy ? (
+                <LoaderCircle size={18} strokeWidth={2.3} className="composer-spinner" />
+              ) : (
+                <ArrowUp size={20} strokeWidth={2.4} />
+              )}
+            </button>
+          )}
         </div>
       </div>
     </form>

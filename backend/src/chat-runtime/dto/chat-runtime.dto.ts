@@ -137,6 +137,23 @@ export function parseSubmitMessageRequest(
   };
 }
 
+export function parseCancelRunRequest(threadId: string, runId: string): {
+  threadId: string;
+  runId: string;
+} {
+  if (!isUuidLike(threadId)) {
+    throw new ValidationError('threadId must be a UUID string.');
+  }
+  if (!isUuidLike(runId)) {
+    throw new ValidationError('runId must be a UUID string.');
+  }
+
+  return {
+    threadId,
+    runId,
+  };
+}
+
 export function parseConfirmRunRequest(
   threadId: string,
   runId: string,

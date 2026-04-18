@@ -1,5 +1,6 @@
 import { ValidationError } from '../../common/errors/app-error';
 import {
+  parseCancelRunRequest,
   parseListThreadsRequest,
   parseRefinementSuggestionsRequest,
   parseStreamEventsRequestWithHeader,
@@ -102,5 +103,22 @@ describe('parseUpdateExperienceTitleRequest', () => {
     expect(() => parseUpdateExperienceTitleRequest({ title: '   ' })).toThrow(
       ValidationError,
     );
+  });
+});
+
+describe('parseCancelRunRequest', () => {
+  const threadId = '3ec42f7d-bf2f-4144-92fe-1f467f655dca';
+  const runId = 'a1b2c3d4-0000-4000-8000-000000000002';
+
+  it('parses valid threadId and runId', () => {
+    expect(parseCancelRunRequest(threadId, runId)).toEqual({ threadId, runId });
+  });
+
+  it('rejects invalid threadId', () => {
+    expect(() => parseCancelRunRequest('not-a-uuid', runId)).toThrow(ValidationError);
+  });
+
+  it('rejects invalid runId', () => {
+    expect(() => parseCancelRunRequest(threadId, 'not-a-uuid')).toThrow(ValidationError);
   });
 });

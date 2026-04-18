@@ -50,6 +50,7 @@ export class ExperienceOrchestratorService {
       system: request.system,
       temperature: request.temperature,
       maxTokens: request.maxTokens,
+      signal: request.signal,
     });
   }
 
@@ -69,6 +70,7 @@ export class ExperienceOrchestratorService {
       system: request.system,
       temperature: request.temperature,
       maxTokens: request.maxTokens,
+      signal: request.signal,
     });
   }
 
@@ -85,6 +87,7 @@ export class ExperienceOrchestratorService {
     system?: string;
     temperature?: number;
     maxTokens?: number;
+    signal?: AbortSignal;
   }): Promise<ExperienceResponsePayload> {
     const startedAt = Date.now();
     let maxTokens = input.maxTokens ?? this.llmConfig.maxTokensDefault;
@@ -123,6 +126,7 @@ export class ExperienceOrchestratorService {
       attemptCount = attemptNumber;
 
       try {
+        throwIfAborted(input.signal);
         this.logger.log(
           logEvent('ui_generation_attempt_started', {
             requestId: input.requestId,
@@ -140,6 +144,7 @@ export class ExperienceOrchestratorService {
           system: input.system,
           temperature: input.temperature,
           maxTokens,
+          cancelSignal: input.signal,
         });
 
         resolvedProvider = llmResult.provider;
@@ -159,6 +164,7 @@ export class ExperienceOrchestratorService {
 
         const experience = this.payloadValidation.parseAndValidate(llmResult.rawText);
         this.safetyGuard.assertSafe(experience);
+        throwIfAborted(input.signal);
 
         const requestUsage = aggregateObservedUsage(attemptUsages);
         await this.persistence.persistSuccess({
@@ -216,6 +222,9 @@ export class ExperienceOrchestratorService {
           },
         };
       } catch (error) {
+        if (isAbortError(error)) {
+          throw error;
+        }
         if (attemptUsages.length < attemptCount) {
           attemptUsages.push(
             error instanceof AppError
@@ -330,5 +339,17 @@ export class ExperienceOrchestratorService {
         }),
       );
     }
+  }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) {
+    const err = new Error('aborted');
+    err.name = 'AbortError';
+    throw err;
   }
 }

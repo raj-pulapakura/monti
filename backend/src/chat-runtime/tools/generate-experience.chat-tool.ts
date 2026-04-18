@@ -86,6 +86,7 @@ export class GenerateExperienceChatTool implements ChatTool<GenerateExperienceTo
         conversationContext: input.conversationContext,
       },
       requestedQualityMode: input.requestedQualityMode,
+      signal: input.signal,
     });
   }
 }

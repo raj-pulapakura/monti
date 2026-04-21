@@ -13,21 +13,21 @@ const sans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'Monti — Turn lesson ideas into interactive experiences',
+  title: 'Monti — Turn any idea into an interactive experience',
   description:
-    'Turn any teaching idea into an interactive learning experience — in minutes, no coding.',
+    'Describe any topic. Monti turns it into an interactive experience you can share — in minutes, no coding.',
   openGraph: {
-    title: 'Monti — Turn lesson ideas into interactive experiences',
+    title: 'Monti — Turn any idea into an interactive experience',
     description:
-      'Describe a lesson idea. Monti turns it into an interactive experience your learners can actually play — in minutes, no coding.',
+      'Describe any topic. Monti turns it into an interactive experience you can share — in minutes, no coding.',
     siteName: 'Monti',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Monti — Turn lesson ideas into interactive experiences',
+    title: 'Monti — Turn any idea into an interactive experience',
     description:
-      'Describe a lesson idea. Monti turns it into an interactive experience your learners can actually play — in minutes, no coding.',
+      'Describe any topic. Monti turns it into an interactive experience you can share — in minutes, no coding.',
   },
 };
 

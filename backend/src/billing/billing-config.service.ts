@@ -69,8 +69,8 @@ export class BillingConfigService {
 
     this.launchPricingVersionKey = LAUNCH_PRICING_VERSION_KEY;
     this.launchCatalog = {
-      freeMonthlyCredits: parsePositiveInt(process.env.BILLING_FREE_MONTHLY_CREDITS, 15),
-      paidMonthlyCredits: parsePositiveInt(process.env.BILLING_PAID_MONTHLY_CREDITS, 150),
+      freeMonthlyCredits: parsePositiveInt(process.env.BILLING_FREE_MONTHLY_CREDITS, 200),
+      paidMonthlyCredits: parsePositiveInt(process.env.BILLING_PAID_MONTHLY_CREDITS, 1000),
       fastCredits: parsePositiveInt(process.env.BILLING_FAST_CREDITS, 1),
       qualityCredits: parsePositiveInt(process.env.BILLING_QUALITY_CREDITS, 5),
       topupCredits: parsePositiveInt(process.env.BILLING_TOPUP_CREDITS, 50),

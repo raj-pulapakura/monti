@@ -40,11 +40,11 @@ export function isK12ContextSegment(
 }
 
 export const USER_PROFILE_ROLE_OPTIONS: { value: UserProfileRole; label: string }[] = [
+  { value: 'student', label: 'Student' },
+  { value: 'learning_on_my_own', label: 'Learning on my own' },
   { value: 'educator', label: 'Educator' },
   { value: 'tutor', label: 'Tutor' },
-  { value: 'student', label: 'Student' },
   { value: 'parent', label: 'Parent' },
-  { value: 'learning_on_my_own', label: 'Learning on my own' },
   { value: 'other', label: 'Something else' },
 ];
 

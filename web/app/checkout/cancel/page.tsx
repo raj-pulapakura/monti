@@ -11,7 +11,7 @@ export default function CheckoutCancelPage() {
       cardClassName="checkout-card"
     >
       <p className="auth-copy">
-        You can come back to pricing anytime when the timing is right for your classroom.
+        You can come back to pricing anytime when you're ready.
       </p>
       <Link href="/pricing" className="landing-secondary">
         Back to pricing

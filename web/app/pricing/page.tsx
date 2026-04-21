@@ -188,7 +188,7 @@ export default function PricingPage() {
           )}
           <div className="pricing-plan-divider" />
           <ul>
-            <li>15 credits per month</li>
+            <li>200 credits per month</li>
             <li>Fast generation — 1 credit</li>
             <li>Quality generation — 5 credits</li>
           </ul>
@@ -237,7 +237,7 @@ export default function PricingPage() {
 
           <div className="pricing-plan-divider" />
           <ul>
-            <li>150 credits per month</li>
+            <li>1000 credits per month</li>
             <li>Fast generation — 1 credit</li>
             <li>Quality generation — 5 credits</li>
             <li>Top-up 50 credits for $4 anytime</li>

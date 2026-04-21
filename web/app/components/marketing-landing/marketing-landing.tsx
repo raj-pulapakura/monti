@@ -27,12 +27,12 @@ export function MarketingLanding(input: { authError: string | null }) {
       <section className="landing-hero">
         <div className="landing-hero-content landing-hero-content--stacked">
           <h1>
-            Turn lessons into{' '}
-            <span className="display-script">experiences.</span>
+            Turn any idea into an{' '}
+            <span className="display-script">experience.</span>
           </h1>
           <p className="landing-subline landing-subline--centered">
-            Monti turns lesson ideas into interactive experiences
-            you can share with anyone.
+            Describe any topic. Monti builds an interactive experience
+            you can explore, share, or build on.
           </p>
           <div className="landing-actions landing-actions--center">
             <Link href="/sign-up" className="landing-primary">
@@ -51,9 +51,9 @@ export function MarketingLanding(input: { authError: string | null }) {
 
       <section className="landing-showcase" id="showcase">
         <div className="landing-section-header">
-          <h2>Build personalised learning experiences</h2>
+          <h2>Build interactive experiences on any topic</h2>
           <p className="landing-section-sub">
-          Monti bring your lessons to life. See some examples below
+            See what Monti can build. Click to explore.
           </p>
         </div>
         <div className="landing-showcase-grid">
@@ -86,10 +86,10 @@ export function MarketingLanding(input: { authError: string | null }) {
 
       <section className="landing-steps" id="how-it-works">
         <div className="landing-section-header">
-          <h2>From your words to their experience</h2>
+          <h2>How it works</h2>
           <p className="landing-section-sub">
-            Draft an idea, refine it in conversation, then present or share a link when it
-            feels ready.
+            Describe an idea, refine it in conversation, then dive in or share a link when
+            it's ready.
           </p>
         </div>
         <div className="landing-steps-list">
@@ -98,7 +98,7 @@ export function MarketingLanding(input: { authError: string | null }) {
               <span className="landing-step-number">1</span>
               <h3>Describe your idea</h3>
               <p>
-              Explain your lesson in your own words. Monti builds an interactive experience.
+                Describe what you want to explore. Monti builds an interactive experience around it.
               </p>
             </div>
             <LandingStepPromptVisual />
@@ -108,7 +108,7 @@ export function MarketingLanding(input: { authError: string | null }) {
               <span className="landing-step-number">2</span>
               <h3>Refine in conversation</h3>
               <p>
-Adjust tone, level, and structure in chat until it feels right for your room.
+                Tweak the depth, tone, and structure in chat until it feels right.
               </p>
             </div>
             <LandingStepRefineVisual />
@@ -116,9 +116,9 @@ Adjust tone, level, and structure in chat until it feels right for your room.
           <article className="landing-step">
             <div className="landing-step-content">
               <span className="landing-step-number">3</span>
-              <h3>Share with learners</h3>
+              <h3>Explore and share</h3>
               <p>
-                Your experience is ready. Present with full-screen mode, or share a link with one click.
+                Your experience is ready. Explore it yourself in full-screen, or share a link with anyone in one click.
               </p>
             </div>
             <LandingStepShareVisual />
@@ -128,7 +128,7 @@ Adjust tone, level, and structure in chat until it feels right for your room.
 
       <section className="landing-final-cta">
         <div className="landing-final-cta-inner">
-          <h2>Bring your lessons to life today.</h2>
+          <h2>Bring any idea to life today.</h2>
           <p className="landing-final-cta-sub">Free to start. No credit card required.</p>
           <div className="landing-actions landing-actions-center">
             <Link href="/sign-up" className="landing-primary landing-primary-lg">

@@ -23,6 +23,10 @@ Set backend base URL and Supabase public auth config:
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+# See web/.env.example — checked-in template uses false for local convenience.
+# At build time: omit this variable (or use any value except false / 0 / off) to keep
+# blocking onboarding on; use false, 0, or off (case-insensitive) to disable.
+NEXT_PUBLIC_USER_ONBOARDING_ENABLED=
 SITE_URL=
 ```
 

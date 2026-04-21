@@ -31,6 +31,7 @@ import { toggleExperienceFavourite } from "@/lib/chat/experience-favourite";
 import { ArrowUp, LoaderCircle, Search, Star } from "lucide-react";
 import { OnboardingScreen } from "./components/onboarding-screen";
 import { useUserProfile } from "./hooks/use-user-profile";
+import { isUserOnboardingEnabled } from "@/lib/user-onboarding-flag";
 
 type ThreadCard = {
   id: string;
@@ -201,7 +202,8 @@ function AuthenticatedHomeGate(input: {
   }
 
   const needsOnboarding =
-    !state.profile || state.profile.onboardingCompletedAt === null;
+    isUserOnboardingEnabled() &&
+    (!state.profile || state.profile.onboardingCompletedAt === null);
 
   if (needsOnboarding) {
     return (

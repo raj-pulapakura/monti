@@ -13,6 +13,7 @@ import type { UserProfileGetResponse } from '@/lib/api/user-profile';
 import { toErrorMessage } from '@/lib/errors';
 import type { UserProfileContext, UserProfileRole } from '@/lib/user-profile-options';
 import { labelForContext, labelForRole } from '@/lib/user-profile-options';
+import { isUserOnboardingEnabled } from '@/lib/user-onboarding-flag';
 
 function authProviderLabel(user: User): string {
   const primary = user.identities?.[0]?.provider;
@@ -85,6 +86,7 @@ export default function AccountSettingsPage() {
   const profile = profileReady ? profileState.profile : null;
   const profileIncomplete =
     profile && profile.onboardingCompletedAt === null;
+  const userOnboardingEnabled = isUserOnboardingEnabled();
 
   return (
     <div className="settings-subpage settings-account-page">
@@ -135,7 +137,7 @@ export default function AccountSettingsPage() {
           </div>
         ) : null}
 
-        {profileReady && !profile ? (
+        {profileReady && userOnboardingEnabled && !profile ? (
           <div>
             <p className="settings-profile-banner" role="status">
               Complete your profile — tell us your role and context so Monti can tailor responses.
@@ -147,15 +149,38 @@ export default function AccountSettingsPage() {
           </div>
         ) : null}
 
-        {profileReady && profile ? (
+        {profileReady && !userOnboardingEnabled && !profile && !editingProfile ? (
+          <div>
+            <p className="settings-profile-banner" role="status">
+              Optionally add your role and where you use Monti so responses can be tailored. You can
+              change this anytime here in settings.
+            </p>
+            <button
+              type="button"
+              className="settings-btn settings-btn--primary"
+              onClick={() => {
+                setDraftRole(null);
+                setDraftContext(null);
+                setDraftRoleOther('');
+                setSaveError(null);
+                setEditingProfile(true);
+              }}
+            >
+              Add learning profile
+            </button>
+          </div>
+        ) : null}
+
+        {profileReady &&
+        (profile || (!userOnboardingEnabled && !profile && editingProfile)) ? (
           <>
-            {profileIncomplete ? (
+            {profile && profileIncomplete && userOnboardingEnabled ? (
               <p className="settings-profile-banner" role="status">
                 Complete your profile to unlock the full workspace and personalized guidance.
               </p>
             ) : null}
 
-            {!editingProfile ? (
+            {profile && !editingProfile ? (
               <>
                 <div className="settings-account-row">
                   <span className="settings-account-row-label">Role</span>
@@ -185,7 +210,10 @@ export default function AccountSettingsPage() {
                   </button>
                 </div>
               </>
-            ) : (
+            ) : null}
+
+            {((!profile && !userOnboardingEnabled && editingProfile) ||
+              (profile && editingProfile)) ? (
               <>
                 <ProfileRoleGrid
                   name="settings-role"
@@ -243,7 +271,7 @@ export default function AccountSettingsPage() {
                   </button>
                 </div>
               </>
-            )}
+            ) : null}
           </>
         ) : null}
       </section>

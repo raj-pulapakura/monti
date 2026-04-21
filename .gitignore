@@ -2,6 +2,14 @@ docs/*
 !docs/pricing/
 !docs/pricing/*.md
 
+# env files at repo root
+.env
+.env.local
+.env*.local
+
+# macOS
+.DS_Store
+
 # Python (e.g. ClickUp skill helper)
 __pycache__/
 *.py[cod]

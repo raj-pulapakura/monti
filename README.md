@@ -1,75 +1,124 @@
-# Docker Setup
+# Monti
 
-This repo has two apps:
+Turn any idea into an interactive experience. Describe a topic in plain language — Monti generates a self-contained, shareable interactive experience around it.
 
-- `web` (Next.js) on port `3000`
-- `backend` (NestJS) on port `3001`
+**[monti.app](https://monti.app)** — hosted version, free to start.
 
-## Files Added
+---
 
-- `backend/Dockerfile.dev`
-- `backend/Dockerfile.prod`
-- `backend/.dockerignore`
-- `web/Dockerfile.dev`
-- `web/Dockerfile.prod`
-- `web/.dockerignore`
-- `docker-compose.dev.yml`
-- `docker-compose.prod.yml`
+## Stack
 
-## Prerequisites
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js (App Router) |
+| Backend | NestJS |
+| Database / Auth | Supabase (PostgreSQL) |
+| AI | OpenAI, Anthropic, Google |
+| Billing | Stripe |
+| Infra | Docker |
+
+---
+
+## Self-hosting
+
+### Prerequisites
 
 - Docker Desktop (or Docker Engine + Compose plugin)
+- A [Supabase](https://supabase.com) project
+- At least one AI provider API key (OpenAI, Anthropic, or Google)
+- Node.js 20+ (for running Supabase migrations locally)
 
-## Development
+### 1. Clone the repo
 
-Run both services with hot reload:
+```bash
+git clone https://github.com/your-org/monti.git
+cd monti
+```
+
+### 2. Configure environment variables
+
+```bash
+cp web/.env.example web/.env
+cp backend/.env.example backend/.env
+```
+
+Fill in both files — see [Environment variables](#environment-variables) below.
+
+### 3. Run database migrations
+
+Install the Supabase CLI, then:
+
+```bash
+supabase db push
+```
+
+Or apply the files in `supabase/migrations/` manually against your Supabase project.
+
+### 4. Start the app
 
 ```bash
 docker compose -f docker-compose.dev.yml up --build
 ```
 
-Access:
+- Web: [http://localhost:3000](http://localhost:3000)
+- Backend: [http://localhost:3001](http://localhost:3001)
 
-- Web: `http://localhost:3000`
-- Backend: `http://localhost:3001`
+---
 
-Stop:
+## Environment variables
 
-```bash
-docker compose -f docker-compose.dev.yml down
-```
+### `web/.env`
 
-## Production
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_API_BASE_URL` | Backend URL (e.g. `http://localhost:3001`) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon key |
 
-Build and run production images:
+### `backend/.env`
 
-```bash
-docker compose -f docker-compose.prod.yml up --build -d
-```
+**Server**
 
-Railway deployment instructions live in [docs/railway-deployment.md](./docs/railway-deployment.md).
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `3001` | Port the backend listens on |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins |
 
-Access:
+**AI providers** — at least one required
 
-- Web: `http://localhost:3000`
-- Backend: `http://localhost:3001`
+| Variable | Description |
+|---|---|
+| `OPENAI_API_KEY` | OpenAI API key |
+| `ANTHROPIC_API_KEY` | Anthropic API key |
+| `GOOGLE_API_KEY` | Google AI API key |
 
-Stop:
+**Supabase**
 
-```bash
-docker compose -f docker-compose.prod.yml down
-```
+| Variable | Description |
+|---|---|
+| `SUPABASE_URL` | Your Supabase project URL |
+| `SUPABASE_ANON_KEY` | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
+| `SUPABASE_JWT_ISSUER` | JWT issuer (from Supabase project settings) |
 
-## Logs
+**Billing (optional)** — all off by default
 
-Development logs:
+| Variable | Default | Description |
+|---|---|---|
+| `BILLING_ENABLED` | `false` | Master switch for billing |
+| `CREDIT_ENFORCEMENT_ENABLED` | `false` | Deduct credits on generation |
+| `STRIPE_WEBHOOKS_ENABLED` | `false` | Process incoming Stripe webhooks |
+| `BILLING_PORTAL_ENABLED` | `false` | Enable Stripe Customer Portal |
+| `FREE_CREDIT_GRANTS_ENABLED` | `false` | Grant free credits on signup |
+| `TOPUPS_ENABLED` | `false` | Allow credit top-ups |
+| `STRIPE_SECRET_KEY` | — | Stripe secret key |
+| `STRIPE_WEBHOOK_SECRET` | — | Stripe webhook signing secret |
+| `STRIPE_PRICE_ID_PAID_MONTHLY` | — | Stripe price ID for paid plan |
+| `STRIPE_PRICE_ID_TOPUP_50` | — | Stripe price ID for 50-credit top-up |
+| `BILLING_PUBLIC_BASE_URL` | — | Public web origin for Stripe redirects |
 
-```bash
-docker compose -f docker-compose.dev.yml logs -f
-```
+---
 
-Production logs:
+## License
 
-```bash
-docker compose -f docker-compose.prod.yml logs -f
-```
+[AGPL-3.0](./LICENSE)

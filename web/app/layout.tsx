@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { DM_Sans } from 'next/font/google';
 import { AuthProvider } from './context/auth-context';
 import { CreditsBalanceProvider } from './context/credits-balance-context';
-import { FloatingFeedbackButton } from './components/floating-feedback-button';
 import './globals.css';
 
 const sans = DM_Sans({
@@ -42,7 +41,6 @@ export default function RootLayout({
         <AuthProvider>
           <CreditsBalanceProvider>{children}</CreditsBalanceProvider>
         </AuthProvider>
-        <FloatingFeedbackButton />
       </body>
     </html>
   );

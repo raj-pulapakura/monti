@@ -86,7 +86,6 @@ const LIBRARY_BATCH_SIZE = 12;
 export type RootPageClientProps = {
   initialAccessToken: string | null;
   initialUserId: string | null;
-  initialAuthError: string | null;
 };
 
 export function RootPageClient(input: RootPageClientProps) {
@@ -99,24 +98,15 @@ export function RootPageClient(input: RootPageClientProps) {
     input.initialAccessToken,
   );
   const [userId, setUserId] = useState<string | null>(input.initialUserId);
-  const [authError, setAuthError] = useState<string | null>(
-    input.initialAuthError,
-  );
 
   useEffect(() => {
-    const { client: supabaseClient, error: clientError } = getSupabaseClient();
+    const { client: supabaseClient } = getSupabaseClient();
     if (!supabaseClient) {
-      if (clientError) {
-        queueMicrotask(() => {
-          setAuthError((prev) => prev ?? clientError);
-        });
-      }
       return;
     }
 
     void supabaseClient.auth.getSession().then(({ data, error }) => {
       if (error) {
-        setAuthError(error.message);
         setMode("marketing");
         setAccessToken(null);
         setUserId(null);
@@ -166,7 +156,7 @@ export function RootPageClient(input: RootPageClientProps) {
     );
   }
 
-  return <MarketingLanding authError={authError} />;
+  return <MarketingLanding />;
 }
 
 function AuthenticatedHomeGate(input: {

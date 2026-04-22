@@ -12,7 +12,7 @@ import { LandingStepRefineVisual } from './landing-step-refine-visual';
 import { LandingStepShareVisual } from './landing-step-share-visual';
 import { useLandingShellAnimations } from './use-landing-shell-animations';
 
-export function MarketingLanding(input: { authError: string | null }) {
+export function MarketingLanding() {
   const shellRef = useRef<HTMLElement>(null);
   const [activeDemo, setActiveDemo] = useState<DemoSlug | null>(null);
 
@@ -145,8 +145,6 @@ export function MarketingLanding(input: { authError: string | null }) {
           <Link href="/sign-in">Sign in</Link>
         </nav>
       </footer>
-
-      {input.authError ? <p className="error-banner">{input.authError}</p> : null}
 
       {activeDemo && (
         <LandingDemoModal

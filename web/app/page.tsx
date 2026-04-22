@@ -5,11 +5,7 @@ export default async function Page() {
   const supabase = await createSupabaseRouteHandlerClient();
   if (!supabase) {
     return (
-      <RootPageClient
-        initialAccessToken={null}
-        initialUserId={null}
-        initialAuthError={null}
-      />
+      <RootPageClient initialAccessToken={null} initialUserId={null} />
     );
   }
 
@@ -20,21 +16,13 @@ export default async function Page() {
 
   if (userError) {
     return (
-      <RootPageClient
-        initialAccessToken={null}
-        initialUserId={null}
-        initialAuthError={userError.message}
-      />
+      <RootPageClient initialAccessToken={null} initialUserId={null} />
     );
   }
 
   if (!user) {
     return (
-      <RootPageClient
-        initialAccessToken={null}
-        initialUserId={null}
-        initialAuthError={null}
-      />
+      <RootPageClient initialAccessToken={null} initialUserId={null} />
     );
   }
 
@@ -45,22 +33,14 @@ export default async function Page() {
 
   if (sessionError) {
     return (
-      <RootPageClient
-        initialAccessToken={null}
-        initialUserId={null}
-        initialAuthError={sessionError.message}
-      />
+      <RootPageClient initialAccessToken={null} initialUserId={null} />
     );
   }
 
   const accessToken = session?.access_token ?? null;
   if (!accessToken) {
     return (
-      <RootPageClient
-        initialAccessToken={null}
-        initialUserId={null}
-        initialAuthError={null}
-      />
+      <RootPageClient initialAccessToken={null} initialUserId={null} />
     );
   }
 
@@ -68,7 +48,6 @@ export default async function Page() {
     <RootPageClient
       initialAccessToken={accessToken}
       initialUserId={user.id}
-      initialAuthError={null}
     />
   );
 }

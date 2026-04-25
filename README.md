@@ -2,7 +2,7 @@
 
 Turn any idea into an interactive experience. Describe a topic in plain language — Monti generates a self-contained, shareable interactive experience around it.
 
-**[monti.app](https://monti.app)** — hosted version, free to start.
+**[monti](https://monti.up.railway.app)** — hosted version, free to start.
 
 ---
 

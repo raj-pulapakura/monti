@@ -16,7 +16,7 @@ This change is planning-only, so the recommendation below is a launch-planning a
 | Planning price anchor | `$10 / month`         | Leaves room for preview volatility, limited post-rollout telemetry history, and future non-billable leakage without making the included allowance tiny. |
 | `fast` weight         | `1 credit`            | Maps closely to the current full monetized-success planning cost for the active fast route.                                        |
 | `quality` weight      | `5 credits`           | Matches the full-cost ratio more closely than the raw `8x` generation spread because conversation overhead is fixed.               |
-| Top-up pack           | `50 credits for $4`   | Clean multiple of the quality weight, higher effective per-credit price than the subscription, and easy to explain.                |
+| Top-up pack           | `300 credits for $4`  | Clean multiple of the quality weight and easy to explain.                                                                         |
 
 
 ### Recommended policy shape

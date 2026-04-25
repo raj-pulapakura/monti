@@ -19,7 +19,7 @@ describe('StripeWebhookService', () => {
 
     const config = {
       launchPricingVersionKey: 'launch-v1',
-      launchCatalog: { paidMonthlyCredits: 150, topupCredits: 50 },
+      launchCatalog: { paidMonthlyCredits: 150, topupCredits: 300 },
     } as BillingConfigService;
 
     const stripeService = {
@@ -42,7 +42,7 @@ describe('StripeWebhookService', () => {
 
     const config = {
       launchPricingVersionKey: 'launch-v1',
-      launchCatalog: { paidMonthlyCredits: 150, topupCredits: 50 },
+      launchCatalog: { paidMonthlyCredits: 150, topupCredits: 300 },
     } as BillingConfigService;
 
     const stripeService = {
@@ -78,7 +78,7 @@ describe('StripeWebhookService', () => {
 
     const config = {
       launchPricingVersionKey: 'launch-v1',
-      launchCatalog: { paidMonthlyCredits: 150, topupCredits: 50, freeMonthlyCredits: 15 },
+      launchCatalog: { paidMonthlyCredits: 150, topupCredits: 300, freeMonthlyCredits: 15 },
     } as BillingConfigService;
 
     const sub = {
@@ -134,7 +134,7 @@ describe('StripeWebhookService', () => {
 
     const config = {
       launchPricingVersionKey: 'launch-v1',
-      launchCatalog: { paidMonthlyCredits: 150, topupCredits: 50, freeMonthlyCredits: 15 },
+      launchCatalog: { paidMonthlyCredits: 150, topupCredits: 300, freeMonthlyCredits: 15 },
     } as BillingConfigService;
 
     const sub = {
@@ -190,7 +190,7 @@ describe('StripeWebhookService', () => {
 
     const config = {
       launchPricingVersionKey: 'launch-v1',
-      launchCatalog: { paidMonthlyCredits: 150, topupCredits: 50, freeMonthlyCredits: 15 },
+      launchCatalog: { paidMonthlyCredits: 150, topupCredits: 300, freeMonthlyCredits: 15 },
     } as BillingConfigService;
 
     const sub = {
@@ -243,7 +243,7 @@ describe('StripeWebhookService', () => {
 
     const config = {
       launchPricingVersionKey: 'launch-v1',
-      launchCatalog: { paidMonthlyCredits: 150, topupCredits: 50, freeMonthlyCredits: 15 },
+      launchCatalog: { paidMonthlyCredits: 150, topupCredits: 300, freeMonthlyCredits: 15 },
     } as BillingConfigService;
 
     const sub = {
@@ -291,7 +291,7 @@ describe('StripeWebhookService', () => {
 
     const config = {
       launchPricingVersionKey: 'launch-v1',
-      launchCatalog: { paidMonthlyCredits: 150, topupCredits: 50 },
+      launchCatalog: { paidMonthlyCredits: 150, topupCredits: 300 },
     } as BillingConfigService;
 
     const stripeService = {

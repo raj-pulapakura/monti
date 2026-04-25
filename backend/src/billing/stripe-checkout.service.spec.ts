@@ -12,7 +12,7 @@ describe('StripeCheckoutService', () => {
       billingEnabled: true,
       topupsEnabled: true,
       stripeSecretKey: 'sk_test',
-      stripePriceIdTopup50: 'price_top',
+      stripePriceIdTopup300: 'price_top',
       billingPublicBaseUrl: 'http://localhost:3000',
       billingPortalReturnUrl: null,
     } as BillingConfigService;

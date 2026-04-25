@@ -39,7 +39,7 @@ export class BillingConfigService {
   readonly stripeSecretKey: string | null;
   readonly stripeWebhookSecret: string | null;
   readonly stripePriceIdPaidMonthly: string | null;
-  readonly stripePriceIdTopup50: string | null;
+  readonly stripePriceIdTopup300: string | null;
   readonly adminSecret: string | null;
 
   /** Public web origin for Checkout success/cancel redirects (e.g. https://app.example.com). */
@@ -61,7 +61,7 @@ export class BillingConfigService {
     this.stripeSecretKey = optionalSecret(process.env.STRIPE_SECRET_KEY);
     this.stripeWebhookSecret = optionalSecret(process.env.STRIPE_WEBHOOK_SECRET);
     this.stripePriceIdPaidMonthly = optionalSecret(process.env.STRIPE_PRICE_ID_PAID_MONTHLY);
-    this.stripePriceIdTopup50 = optionalSecret(process.env.STRIPE_PRICE_ID_TOPUP_50);
+    this.stripePriceIdTopup300 = optionalSecret(process.env.STRIPE_PRICE_ID_TOPUP_300);
     this.adminSecret = optionalSecret(process.env.ADMIN_SECRET);
 
     this.billingPublicBaseUrl = optionalSecret(process.env.BILLING_PUBLIC_BASE_URL);
@@ -73,7 +73,7 @@ export class BillingConfigService {
       paidMonthlyCredits: parsePositiveInt(process.env.BILLING_PAID_MONTHLY_CREDITS, 1000),
       fastCredits: parsePositiveInt(process.env.BILLING_FAST_CREDITS, 1),
       qualityCredits: parsePositiveInt(process.env.BILLING_QUALITY_CREDITS, 5),
-      topupCredits: parsePositiveInt(process.env.BILLING_TOPUP_CREDITS, 50),
+      topupCredits: parsePositiveInt(process.env.BILLING_TOPUP_CREDITS, 300),
       topupPriceUsd: parsePositiveInt(process.env.BILLING_TOPUP_PRICE_USD, 4),
       paidPlanPriceUsd: parsePositiveInt(process.env.BILLING_PAID_PLAN_PRICE_USD, 10),
     };

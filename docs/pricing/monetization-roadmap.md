@@ -133,7 +133,7 @@ Those docs establish:
 - paid monthly allowance: `150 credits / month`
 - `fast = 1 credit`
 - `quality = 5 credits`
-- top-up pack: `50 credits for $4`
+- top-up pack: `300 credits for $4`
 - launch anchor: `$10 / month`
 - billable unit: successful `generate_experience` / persisted artifact
 - no automatic overage billing at launch
@@ -376,7 +376,7 @@ Required future backend env vars:
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PRICE_ID_PAID_MONTHLY`
-- `STRIPE_PRICE_ID_TOPUP_50`
+- `STRIPE_PRICE_ID_TOPUP_300`
 - `BILLING_ENABLED`
 - `CREDIT_ENFORCEMENT_ENABLED`
 - `STRIPE_WEBHOOKS_ENABLED`

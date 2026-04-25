@@ -66,9 +66,9 @@ export class StripeCheckoutService {
       throw new AppError('VALIDATION_ERROR', 'Top-up purchases are disabled.', 400);
     }
 
-    const priceId = this.config.stripePriceIdTopup50;
+    const priceId = this.config.stripePriceIdTopup300;
     if (!priceId) {
-      throw new AppError('INTERNAL_ERROR', 'STRIPE_PRICE_ID_TOPUP_50 is not configured.', 503);
+      throw new AppError('INTERNAL_ERROR', 'STRIPE_PRICE_ID_TOPUP_300 is not configured.', 503);
     }
 
     const nowMs = Date.now();

@@ -15,7 +15,7 @@ Use this checklist to validate monetization in staging and roll out safely in pr
 - `STRIPE_SECRET_KEY` is configured (sandbox for staging, live for production)
 - `STRIPE_WEBHOOK_SECRET` matches the configured Stripe endpoint
 - `STRIPE_PRICE_ID_PAID_MONTHLY` points to the correct monthly product
-- `STRIPE_PRICE_ID_TOPUP_50` points to the correct top-up product
+- `STRIPE_PRICE_ID_TOPUP_300` points to the correct top-up product
 - `ADMIN_SECRET` is set for admin verification endpoints
 - `BILLING_PUBLIC_BASE_URL` points to the correct web app origin
 
@@ -23,7 +23,7 @@ Use this checklist to validate monetization in staging and roll out safely in pr
 
 - Product catalog includes active monthly subscription and top-up products
 - `STRIPE_PRICE_ID_PAID_MONTHLY` exists and is active in Stripe
-- `STRIPE_PRICE_ID_TOPUP_50` exists and is active in Stripe
+- `STRIPE_PRICE_ID_TOPUP_300` exists and is active in Stripe
 - Customer portal is enabled with subscription cancellation + reactivation actions
 - Webhook endpoint is configured to the deployed backend URL
 - Webhook endpoint subscribes to required events:

@@ -44,15 +44,15 @@ describe('BillingConfigService', () => {
     expect(new BillingConfigService().stripeSecretKey).toBe('sk_test');
   });
 
-  it('exposes launch catalog defaults aligned with launch-v1 seed', () => {
+  it('exposes launch catalog defaults aligned with launch-v2 seed', () => {
     delete process.env.BILLING_FREE_MONTHLY_CREDITS;
     const config = new BillingConfigService();
     expect(config.launchPricingVersionKey).toBe(LAUNCH_PRICING_VERSION_KEY);
-    expect(config.launchCatalog.freeMonthlyCredits).toBe(15);
-    expect(config.launchCatalog.paidMonthlyCredits).toBe(150);
+    expect(config.launchCatalog.freeMonthlyCredits).toBe(200);
+    expect(config.launchCatalog.paidMonthlyCredits).toBe(1000);
     expect(config.launchCatalog.fastCredits).toBe(1);
     expect(config.launchCatalog.qualityCredits).toBe(5);
-    expect(config.launchCatalog.topupCredits).toBe(50);
+    expect(config.launchCatalog.topupCredits).toBe(300);
     expect(config.launchCatalog.topupPriceUsd).toBe(4);
     expect(config.launchCatalog.paidPlanPriceUsd).toBe(10);
   });

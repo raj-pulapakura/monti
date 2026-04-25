@@ -85,13 +85,13 @@ Test catalog **does not** carry over. Recreate in **live** mode ([Go-live checkl
 ## 4. Create live product: one-time top-up price
 
 1. Live mode, **Product catalog** → **Add product**.
-2. **Name** (example): `Monti Top-up 50 credits`
+2. **Name** (example): `Monti Top-up 300 credits`
 3. **One-time** price; amount matches published top-up price.
 4. Save. Copy **live** `price_…`.
 5. Production:
 
    ```bash
-   STRIPE_PRICE_ID_TOPUP_50=price_PASTE_LIVE_TOPUP_PRICE_ID_HERE
+   STRIPE_PRICE_ID_TOPUP_300=price_PASTE_LIVE_TOPUP_PRICE_ID_HERE
    ```
 
 ---
@@ -217,7 +217,7 @@ Complete **before** linking production Checkout from marketing:
 STRIPE_SECRET_KEY=sk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 STRIPE_PRICE_ID_PAID_MONTHLY=price_...
-STRIPE_PRICE_ID_TOPUP_50=price_...
+STRIPE_PRICE_ID_TOPUP_300=price_...
 
 STRIPE_WEBHOOKS_ENABLED=true
 BILLING_PORTAL_ENABLED=true

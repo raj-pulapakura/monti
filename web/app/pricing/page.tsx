@@ -26,7 +26,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Can I top up credits on the paid plan?',
-    a: 'Yes. Paid plan members can purchase additional credits at any time — 50 credits for $4 — without waiting for their monthly allowance to reset.',
+    a: 'Yes. Paid plan members can purchase additional credits at any time — 300 credits for $4 — without waiting for their monthly allowance to reset.',
   },
   {
     q: 'Do unused credits roll over?',
@@ -240,7 +240,7 @@ export default function PricingPage() {
             <li>1000 credits per month</li>
             <li>Fast generation — 1 credit</li>
             <li>Quality generation — 5 credits</li>
-            <li>Top-up 50 credits for $4 anytime</li>
+            <li>Top-up 300 credits for $4 anytime</li>
           </ul>
         </article>
       </section>

@@ -4,7 +4,7 @@
 TBD - created by archiving change define-monetization-contract. Update Purpose after archive.
 ## Requirements
 ### Requirement: Define a versioned launch pricing catalog
-The system SHALL define a versioned internal pricing catalog for Monti monetization. At launch, the current catalog MUST include a free monthly grant of `15 credits`, a paid monthly grant of `150 credits`, a paid plan price anchor of `$10/month`, a `fast` run cost of `1 credit`, a `quality` run cost of `5 credits`, a top-up pack of `50 credits for $4`, and no automatic overage billing.
+The system SHALL define a versioned internal pricing catalog for Monti monetization. At launch, the current catalog MUST include a free monthly grant of `15 credits`, a paid monthly grant of `150 credits`, a paid plan price anchor of `$10/month`, a `fast` run cost of `1 credit`, a `quality` run cost of `5 credits`, a top-up pack of `300 credits for $4`, and no automatic overage billing.
 
 #### Scenario: Runtime resolves the launch cost schedule
 - **WHEN** the billing domain resolves the current pricing contract for a billable generation request

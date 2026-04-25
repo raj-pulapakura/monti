@@ -84,11 +84,11 @@ Monti expects a **recurring monthly** price ID for the paid plan, mapped to `STR
 
 ## 4. Create the one-time top-up price (test)
 
-Monti expects a **one-time** price for the credit top-up pack, mapped to `STRIPE_PRICE_ID_TOPUP_50`.
+Monti expects a **one-time** price for the credit top-up pack, mapped to `STRIPE_PRICE_ID_TOPUP_300`.
 
 1. Still in test mode, open: [https://dashboard.stripe.com/test/products](https://dashboard.stripe.com/test/products)
 2. Click **Add product**.
-3. **Name** (example): `Monti Top-up 50 credits`
+3. **Name** (example): `Monti Top-up 300 credits`
 4. Add a price:
    - **One time** (not recurring).
    - **Amount:** match your launch intent (roadmap example: **4.00** USD).
@@ -97,7 +97,7 @@ Monti expects a **one-time** price for the credit top-up pack, mapped to `STRIPE
 7. In **staging** backend env:
 
    ```bash
-   STRIPE_PRICE_ID_TOPUP_50=price_PASTE_TEST_TOPUP_PRICE_ID_HERE
+   STRIPE_PRICE_ID_TOPUP_300=price_PASTE_TEST_TOPUP_PRICE_ID_HERE
    ```
 
 ---
@@ -230,7 +230,7 @@ Replace placeholders. Use only **test** keys and **test** price IDs.
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 STRIPE_PRICE_ID_PAID_MONTHLY=price_...
-STRIPE_PRICE_ID_TOPUP_50=price_...
+STRIPE_PRICE_ID_TOPUP_300=price_...
 
 STRIPE_WEBHOOKS_ENABLED=true
 BILLING_PORTAL_ENABLED=true

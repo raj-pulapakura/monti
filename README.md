@@ -114,7 +114,7 @@ docker compose -f docker-compose.dev.yml up --build
 | `STRIPE_SECRET_KEY` | — | Stripe secret key |
 | `STRIPE_WEBHOOK_SECRET` | — | Stripe webhook signing secret |
 | `STRIPE_PRICE_ID_PAID_MONTHLY` | — | Stripe price ID for paid plan |
-| `STRIPE_PRICE_ID_TOPUP_50` | — | Stripe price ID for 50-credit top-up |
+| `STRIPE_PRICE_ID_TOPUP_300` | — | Stripe price ID for 300-credit top-up |
 | `BILLING_PUBLIC_BASE_URL` | — | Public web origin for Stripe redirects |
 
 ---

@@ -249,7 +249,7 @@ values (
     'paidMonthlyCredits', 150,
     'fastCredits', 1,
     'qualityCredits', 5,
-    'topupCredits', 50,
+    'topupCredits', 300,
     'topupPriceUsd', 4,
     'paidPlanPriceUsd', 10
   )
